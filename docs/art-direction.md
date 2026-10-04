@@ -39,6 +39,8 @@ Rarity colors (UI): Common iron #8C8F94, Uncommon copper, Rare brass, Masterwork
 | Machine parts | straight on, centered | 1024x1024, cut to a square sprite | one board cell (about 96 / 56 px) |
 | Scenes (title, acts, Bellfoot) | wide, layered | 1216x832, extended in code | full screen, cropped per aspect |
 - Enemies face left, toward the player's machine. A profile painted facing right is flipped in code (paintings have no text, so flipping is free).
+- **Detail density (owner, D-034)**: friends (Sprocket, the tinker, Bellfoot's people) are simple, flat and warm; the Spire's machines are intricate, with readable parts to break. The contrast is deliberate.
+- Scenes are generated, then repainted at 2x with a low-denoise high-resolution pass, so they stay sharp full screen on 2x displays.
 - Proportions are storybook: big heads and eyes on small creatures, heavy torsos on brutes, a readable silhouette at 100 px tall.
 - Every enemy's breakable parts must be visible in its painting (machine against machine): a jaw, a gauge, a furnace door, a drill. Each rig names them as **anchors** (see below) so the game can mark, crack and break them.
 
