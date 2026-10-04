@@ -46,3 +46,27 @@ export function closeGlossary(): void {
 
 /** The bin viewer overlay (all the parts of the current run). */
 export const binOpen = signal(false);
+
+/** The settings and how-to-play overlays. */
+export const settingsOpen = signal(false);
+export const howtoOpen = signal(false);
+/** A phone held upright: the game asks to be turned sideways. */
+export const portrait = signal(false);
+
+export function openSettings(): void {
+  settingsOpen.value = true;
+}
+export function openHowTo(): void {
+  howtoOpen.value = true;
+}
+
+/** Close the topmost overlay. Returns whether one was open. */
+export function closeTopOverlay(): boolean {
+  // the glossary sits on top of everything, so it closes first
+  if (glossaryOpen.value !== null) glossaryOpen.value = null;
+  else if (settingsOpen.value) settingsOpen.value = false;
+  else if (howtoOpen.value) howtoOpen.value = false;
+  else if (binOpen.value) binOpen.value = false;
+  else return false;
+  return true;
+}

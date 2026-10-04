@@ -1,7 +1,7 @@
 // The act map, the run bar (HP, Cogs, parts, trinkets) and the bin viewer.
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { abandonClimb, availableNow, goNode, runToTitle, runView } from '../app/controller';
-import { binOpen, colorBlind, openGlossary, setColorBlind } from '../app/prefs';
+import { binOpen, colorBlind, openGlossary, openHowTo, openSettings, setColorBlind } from '../app/prefs';
 import { partName } from '../core/content/parts';
 import { trinketDef } from '../core/content/trinkets';
 import type { MapNode, NodeType, RunState } from '../core/types';
@@ -82,6 +82,12 @@ export function RunBar({ run, title }: { run: RunState; title?: string }) {
               }}
             >
               Glossary
+            </button>
+            <button role="menuitem" data-testid="run-howto" onClick={() => (setMenu(false), openHowTo())}>
+              How to play
+            </button>
+            <button role="menuitem" data-testid="run-settings" onClick={() => (setMenu(false), openSettings())}>
+              Settings
             </button>
             <label class="check">
               <input type="checkbox" checked={cb} onChange={(e) => setColorBlind((e.currentTarget as HTMLInputElement).checked)} />

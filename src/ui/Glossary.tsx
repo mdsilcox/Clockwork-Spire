@@ -24,15 +24,6 @@ export function GlossaryScreen() {
   }, [closed]);
 
   useEffect(() => {
-    if (closed) return;
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') closeGlossary();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [closed]);
-
-  useEffect(() => {
     if (!focus) return;
     const el = Array.from(listRef.current?.querySelectorAll<HTMLElement>('[data-term]') ?? []).find((x) => x.dataset.term === focus);
     el?.scrollIntoView({ block: 'center' });

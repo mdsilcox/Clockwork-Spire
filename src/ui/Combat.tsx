@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { attachStage, banner, bossIntro, combat, cycleSpeed, goTitle, lastResult, newFight, place, replaying, run, runView, screen, speed, swap, target, tutorial, tutorialAck, view } from '../app/controller';
-import { colorBlind, glossaryOpen, openGlossary, setColorBlind } from '../app/prefs';
+import { colorBlind, glossaryOpen, openGlossary, openHowTo, openSettings, setColorBlind } from '../app/prefs';
 import { intentTargets } from '../app/intents';
 import { glossaryFor } from '../core/content/glossary';
 import { cellName, cell as cellIdx } from '../core/board';
@@ -440,6 +440,12 @@ export function CombatScreen() {
                 }}
               >
                 Glossary
+              </button>
+              <button role="menuitem" data-testid="menu-howto" onClick={() => (setMenuOpen(false), openHowTo())}>
+                How to play
+              </button>
+              <button role="menuitem" data-testid="menu-settings" onClick={() => (setMenuOpen(false), openSettings())}>
+                Settings
               </button>
               <label class="check">
                 <input type="checkbox" data-testid="menu-colorblind" checked={cb} onChange={(e) => setColorBlind((e.currentTarget as HTMLInputElement).checked)} />

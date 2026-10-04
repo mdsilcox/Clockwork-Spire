@@ -18,7 +18,7 @@ import { intentRows } from './intents';
 import { clearRun, loadPractice, loadRun, loadSettings, readSlot, removeSlot, savePractice, saveRun, saveSettings, writeSlot } from './save';
 import type { SlotNo } from './save';
 import * as meta from '../core/meta';
-import type { Profile, RunRecord, SprocketMood } from '../core/types';
+import type { Profile, RunRecord, Settings, SprocketMood } from '../core/types';
 import type { SprocketPose } from '../ui/Sprocket';
 import { colorBlind } from './prefs';
 import { markTutorialDone, tutorialDone, setColorBlind } from './prefs';
@@ -168,6 +168,7 @@ export function attachStage(s: Stage | null): void {
   stage = s;
   if (!s) return;
   s.setSpeed(speed.value);
+  s.reducedEffects = settings.value.reducedEffects;
   s.onView = (v) => {
     view.value = replaying.value ? { ...v, enemyHp: v.enemyHp.slice(), enemyShell: v.enemyShell.slice() } : null;
   };
@@ -864,6 +865,7 @@ export async function run(): Promise<TurnResult | null> {
 export function setSpeed(s: Speed): void {
   speed.value = s;
   stage?.setSpeed(s);
+  if (settings.value.speed !== s) updateSettings({ speed: s });
 }
 
 export function cycleSpeed(): void {
@@ -899,23 +901,102 @@ export function hasOngoingFight(): boolean {
   return !!live && live.outcome === 'ongoing' && !(liveRun && live === liveRun.combat);
 }
 
+// ---------- settings (B5): one record, applied at launch and live ----------
+
+export const DEFAULT_SETTINGS: Settings = { version: 1, master: 0.8, music: 0.7, effects: 1, muted: false, speed: '1x', colorBlindIcons: false, reducedEffects: false };
+export const settings = signal<Settings>({ ...DEFAULT_SETTINGS, colorBlindIcons: colorBlind.value });
 let settingsReady = false;
-let settingsRest = { master: 0.8, music: 0.8, effects: 1, muted: false, reducedEffects: false };
-// settings live in their own record; changes to the two the game has so far are written as they happen
+
+// the music lane's module (src/audio/music.ts) may not exist yet: resolve to nothing until it does
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const musicModules = import.meta.glob('../audio/music.ts', { eager: true }) as Record<string, any>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function musicMod(): any {
+  return Object.values(musicModules)[0] ?? null;
+}
+
+function applyAudio(st: Settings, initial: boolean): void {
+  const m = musicMod();
+  const setVol = (ch: string, v: number): void => {
+    try {
+      if (m?.setVolume) m.setVolume(ch, v);
+      else if (ch !== 'music') audio.setVolume(ch as 'master' | 'effects', v);
+    } catch {
+      /* audio is best effort */
+    }
+  };
+  setVol('master', st.master);
+  setVol('music', st.music);
+  setVol('effects', st.effects);
+  // under automation the sound starts muted: only an explicit choice changes that
+  if (st.muted || !initial) {
+    try {
+      if (m?.setMuted) m.setMuted(st.muted);
+      else audio.setMuted(st.muted);
+    } catch {
+      /* audio is best effort */
+    }
+  }
+}
+
+/** Change settings: applied now, kept for next time. */
+export function updateSettings(patch: Partial<Settings>): void {
+  const next = { ...settings.value, ...patch };
+  settings.value = next;
+  if (patch.colorBlindIcons !== undefined) setColorBlind(next.colorBlindIcons);
+  if (patch.speed !== undefined) {
+    speed.value = next.speed;
+    stage?.setSpeed(next.speed);
+  }
+  if (patch.reducedEffects !== undefined && stage) stage.reducedEffects = next.reducedEffects;
+  if (patch.master !== undefined || patch.music !== undefined || patch.effects !== undefined || patch.muted !== undefined) applyAudio(next, false);
+  if (settingsReady) void saveSettings(next);
+}
+
+// the color-blind toggles elsewhere (title, menus) write the preference signal: keep the record in step
 effect(() => {
   const cb = colorBlind.value;
-  const sp = speed.value;
-  if (settingsReady) void saveSettings({ version: 1, ...settingsRest, speed: sp, colorBlindIcons: cb });
+  if (settingsReady && cb !== settings.peek().colorBlindIcons) updateSettings({ colorBlindIcons: cb });
+});
+
+/** Music follows the screen: the Workshop for the title and Workshop, the act's track on the map and in fights. */
+effect(() => {
+  const m = musicMod();
+  const scr = screen.value;
+  const rv = runView.value;
+  const c = combat.value;
+  if (!m?.music || !m.trackFor) return;
+  try {
+    const enemyIds = c ? c.enemies.map((e) => e.defId) : [];
+    const clock = c?.enemies.find((e) => e.defId === 'clockmaker');
+    let track: string;
+    if (scr === 'run' && rv) {
+      if (rv.phase === 'combat') track = m.trackFor('combat', rv.act, enemyIds, clock?.phase ?? 0);
+      else if (rv.phase === 'victory') track = m.trackFor('ending');
+      else if (rv.phase === 'defeat') track = m.trackFor('workshop');
+      else track = m.trackFor('map', rv.act);
+    } else if (scr === 'combat') track = m.trackFor('combat', 1, enemyIds, 0);
+    else if (scr === 'workshop') track = m.trackFor('workshop');
+    else track = m.trackFor('title');
+    if (track !== m.music.current?.()) m.music.play(track);
+    if (clock && track === 'clockmaker') m.music.setIntensity?.(clock.phase ?? 0);
+  } catch {
+    /* music is best effort */
+  }
 });
 
 export async function init(): Promise<void> {
   void loadSettings().then((st) => {
-    if (st) {
-      settingsRest = { master: st.master, music: st.music, effects: st.effects, muted: st.muted, reducedEffects: st.reducedEffects };
-      setColorBlind(st.colorBlindIcons);
-      speed.value = st.speed;
-    }
+    // no record yet: the B2 localStorage preference is the starting point (it is already in `settings`)
+    const start = st ? { ...DEFAULT_SETTINGS, ...st } : settings.value;
+    settings.value = start;
+    setColorBlind(start.colorBlindIcons);
+    speed.value = start.speed;
+    stage?.setSpeed(start.speed);
+    if (stage) stage.reducedEffects = start.reducedEffects;
+    applyAudio(start, true);
     settingsReady = true;
+    if (!st) void saveSettings(start);
   });
   // the last slot used resumes straight into a run in progress (a reload mid-combat lands where it was)
   const last = Number(window.localStorage.getItem('cs.lastSlot') ?? '0');
@@ -1022,6 +1103,8 @@ export function installDebug(): void {
     buyChassis: (id: string): boolean => buyChassisNow(id),
     climb: (chassis: string): boolean => climb(chassis),
     sprocket: (): string => pose.value,
+    settings: (): Settings => clone(settings.value),
+    setSettings: (patch: Partial<Settings>): void => updateSettings(patch),
     remove: (uid: number): boolean => shopRemove(uid),
     forge: (kind: 'upgrade' | 'remove', uid: number): boolean => forge(kind, uid),
     oil: (kind: 'repair' | 'polish'): boolean => oil(kind),
@@ -1131,4 +1214,14 @@ export function installDebug(): void {
       persist();
     },
   };
+  // the music lane's own view of the sound (current track, volumes, mute), or ours until it lands
+  Object.defineProperty(w.__game, 'audio', {
+    configurable: true,
+    get: () => {
+      const m = musicMod();
+      if (m?.audioDebug) return m.audioDebug();
+      const st = settings.value;
+      return { track: null, volumes: { master: st.master, music: st.music, effects: st.effects }, muted: st.muted };
+    },
+  });
 }
