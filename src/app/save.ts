@@ -2,10 +2,10 @@
 import { openDB } from 'idb';
 import type { DBSchema, IDBPDatabase } from 'idb';
 import { CELLS } from '../core/types';
-import type { CombatState, RunState } from '../core/types';
+import type { CombatState, Profile, RunState, SaveSlot, Settings } from '../core/types';
 
 interface Schema extends DBSchema {
-  saves: { key: string; value: { slot: string; version: number; combat?: CombatState; run?: RunState; savedAt: number } };
+  saves: { key: string; value: { slot: string; version: number; combat?: CombatState; run?: RunState; data?: unknown; raw?: unknown; savedAt: number } };
 }
 
 const VERSION = 1;
@@ -76,5 +76,78 @@ export async function clearRun(): Promise<void> {
     await d.delete('saves', 'run');
   } catch {
     /* nothing to clear */
+  }
+}
+
+// ---------- save slots (B4): three SaveSlots, a settings record, and the B3 single run save migrated once ----------
+
+export type SlotNo = 1 | 2 | 3;
+export type SlotRead = { state: 'empty' } | { state: 'ok'; slot: SaveSlot } | { state: 'corrupt' };
+
+const slotKey = (n: number): string => `slot-${n}`;
+
+function looksLikeProfile(p: unknown): p is Profile {
+  const x = p as Profile | undefined;
+  return !!x && typeof x.name === 'string' && typeof x.brass === 'number' && Array.isArray(x.blueprints) && !!x.upgrades && Array.isArray(x.chassisUnlocked) && Array.isArray(x.history);
+}
+
+function looksLikeSlot(d: unknown): d is SaveSlot {
+  const x = d as SaveSlot | undefined;
+  return !!x && looksLikeProfile(x.profile) && (x.run === null || looksLikeRun(x.run)) && typeof x.updatedAt === 'string';
+}
+
+/** Read one slot. A record that does not parse is copied to `slot-N-corrupt` (never overwritten) and reported. */
+export async function readSlot(n: SlotNo): Promise<SlotRead> {
+  try {
+    const d = await db();
+    const row = await d.get('saves', slotKey(n));
+    if (!row) return { state: 'empty' };
+    if (row.version === VERSION && looksLikeSlot(row.data)) return { state: 'ok', slot: row.data };
+    // keep what was there: the first copy is slot-N-corrupt, later ones get a number
+    let key = `${slotKey(n)}-corrupt`;
+    for (let i = 2; await d.get('saves', key); i++) key = `${slotKey(n)}-corrupt-${i}`;
+    await d.put('saves', { slot: key, version: row.version, raw: row, savedAt: 0 });
+    return { state: 'corrupt' };
+  } catch {
+    return { state: 'corrupt' };
+  }
+}
+
+/** One write: the profile, the run in progress (or null) and the time. */
+export async function writeSlot(slot: SaveSlot): Promise<void> {
+  try {
+    const d = await db();
+    await d.put('saves', { slot: slotKey(slot.slot), version: VERSION, data: JSON.parse(JSON.stringify(slot)), savedAt: 0 });
+  } catch {
+    /* saving is best effort */
+  }
+}
+
+export async function removeSlot(n: SlotNo): Promise<void> {
+  try {
+    const d = await db();
+    await d.delete('saves', slotKey(n));
+  } catch {
+    /* nothing to delete */
+  }
+}
+
+export async function loadSettings(): Promise<Settings | null> {
+  try {
+    const d = await db();
+    const row = await d.get('saves', 'settings');
+    const s = row?.data as Settings | undefined;
+    return s && typeof s.master === 'number' ? s : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveSettings(s: Settings): Promise<void> {
+  try {
+    const d = await db();
+    await d.put('saves', { slot: 'settings', version: VERSION, data: s, savedAt: 0 });
+  } catch {
+    /* best effort */
   }
 }

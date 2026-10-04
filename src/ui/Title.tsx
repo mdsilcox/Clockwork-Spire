@@ -1,12 +1,10 @@
-import { useState } from 'preact/hooks';
-import { continueRun, hasOngoingFight, hasRun, newFight, newRun, openPractice, resume, runFinished, startTutorial } from '../app/controller';
+import { climbing, continueRun, enterWorkshop, hasOngoingFight, newFight, openPractice, openSlots, resume, startTutorial } from '../app/controller';
 import { colorBlind, openGlossary, setColorBlind } from '../app/prefs';
 import { unlockAudio } from '../audio/synth';
 
 export function Title() {
   const ongoing = hasOngoingFight();
-  const climbing = hasRun();
-  const [confirm, setConfirm] = useState(false);
+  const inRun = climbing();
   return (
     <main class="title" data-testid="title">
       <div class="title-card">
@@ -14,7 +12,7 @@ export function Title() {
         <h1>Clockwork Spire</h1>
         <p class="lede">Place the parts. Wind the Mainspring. Watch the machine do the fighting.</p>
         <div class="title-actions">
-          {climbing ? (
+          {inRun ? (
             <button
               class="primary"
               data-testid="continue-run"
@@ -23,7 +21,7 @@ export function Title() {
                 continueRun();
               }}
             >
-              {runFinished() ? 'See how the climb ended' : 'Continue climb'}
+              Continue climb
             </button>
           ) : (
             <button
@@ -31,17 +29,15 @@ export function Title() {
               data-testid="climb"
               onClick={() => {
                 unlockAudio();
-                newRun();
+                enterWorkshop();
               }}
             >
               Climb the Spire
             </button>
           )}
-          {climbing && (
-            <button class="secondary" data-testid="new-climb" onClick={() => setConfirm(true)}>
-              New climb
-            </button>
-          )}
+          <button class="secondary" data-testid="open-slots" onClick={() => void openSlots()}>
+            Save slots
+          </button>
           {ongoing && (
             <button
               class="secondary"
@@ -81,27 +77,6 @@ export function Title() {
             Glossary
           </button>
         </div>
-        {confirm && (
-          <div class="confirmbox" role="alertdialog" data-testid="confirm-new-climb">
-            <p>Start a new climb? The climb in progress will be lost.</p>
-            <div class="title-actions">
-              <button class="secondary" data-testid="confirm-cancel" onClick={() => setConfirm(false)}>
-                Keep climbing
-              </button>
-              <button
-                class="primary"
-                data-testid="confirm-new"
-                onClick={() => {
-                  setConfirm(false);
-                  unlockAudio();
-                  newRun();
-                }}
-              >
-                Start over
-              </button>
-            </div>
-          </div>
-        )}
         <label class="check">
           <input type="checkbox" data-testid="colorblind" checked={colorBlind.value} onChange={(e) => setColorBlind((e.currentTarget as HTMLInputElement).checked)} />
           Color-blind icons: add a word under each enemy intent

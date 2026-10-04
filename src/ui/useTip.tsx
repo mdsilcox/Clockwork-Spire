@@ -34,9 +34,16 @@ export function useTip() {
       window.clearTimeout(hideTimer.current);
       setTip(null);
     };
+    // scrolling anything also drops the tooltip (a tooltip must not stay pinned over a header)
+    const scrolled = (): void => {
+      window.clearTimeout(hideTimer.current);
+      setTip(null);
+    };
     window.addEventListener('pointerdown', away, true);
+    window.addEventListener('scroll', scrolled, true);
     return () => {
       window.removeEventListener('pointerdown', away, true);
+      window.removeEventListener('scroll', scrolled, true);
       window.clearTimeout(longTimer.current);
       window.clearTimeout(hideTimer.current);
     };

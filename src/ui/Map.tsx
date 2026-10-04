@@ -1,6 +1,6 @@
 // The act map, the run bar (HP, Cogs, parts, trinkets) and the bin viewer.
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { availableNow, dropRun, goNode, runToTitle, runView } from '../app/controller';
+import { abandonClimb, availableNow, goNode, runToTitle, runView } from '../app/controller';
 import { binOpen, colorBlind, openGlossary, setColorBlind } from '../app/prefs';
 import { partName } from '../core/content/parts';
 import { trinketDef } from '../core/content/trinkets';
@@ -92,11 +92,11 @@ export function RunBar({ run, title }: { run: RunState; title?: string }) {
             </button>
             {!sure ? (
               <button role="menuitem" data-testid="abandon" onClick={() => setSure(true)}>
-                Abandon this climb
+                Give up this climb
               </button>
             ) : (
-              <button role="menuitem" class="danger" data-testid="abandon-sure" onClick={() => dropRun(true)}>
-                Really abandon? Tap again
+              <button role="menuitem" class="danger" data-testid="abandon-sure" onClick={() => abandonClimb()}>
+                Really give up? Tap again
               </button>
             )}
           </div>
