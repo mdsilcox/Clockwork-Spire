@@ -4,7 +4,7 @@ import { MAINSPRING, CELLS } from '../core/types';
 import type { CombatState, GameEvent, TurnPreview } from '../core/types';
 import { colOf, neighbors, rowOf } from '../core/board';
 import * as audio from '../audio/synth';
-import { drawEcho, drawEnemy, drawMainspring, drawPart, drawShell, drawStatuses, newLook, newVis, partFamily } from './draw';
+import { drawEcho, drawEnemy, drawMainspring, drawPart, drawShell, drawStatuses, newLook, newVis, partFamily, isBig, BOSS_IDS, attackStyle } from './draw';
 import type { EnemyLook, Vis } from './draw';
 import { TAU, gearPath } from './kit';
 import { cellRect, computeLayout, enemyBar, enemyBody, enemySlots } from './layout';
@@ -104,6 +104,8 @@ export class Stage {
   private chainGlow = 0;
   private chainLevel = 0;
   private lastChain = 0;
+  private bigAttack = false;
+  private introDone = false;
   private jamT = 0;
   private dripT = 0;
   private raf = 0;
@@ -187,6 +189,16 @@ export class Stage {
       this.looks[i].phase = e.phase;
     });
     this.slotsN = -1;
+    // boss intro: once when a boss fight starts
+    if (c.kind === 'boss' && c.turn === 1 && c.outcome === 'ongoing') {
+      if (!this.introDone) {
+        this.introDone = true;
+        this.flash = 0.45;
+        this.flashCol = '255, 200, 120';
+        this.bump(4);
+        audio.bossIntro();
+      }
+    } else if (c.turn > 1 || c.kind !== 'boss') this.introDone = false;
     this.onView(this.view);
   }
 
@@ -279,7 +291,7 @@ export class Stage {
     return this.reducedEffects ? Math.max(1, Math.round(v * 0.35)) : v;
   }
 
-  private spawn(k: number, x: number, y: number, vx: number, vy: number, life: number, size: number, col: string, g = 0, rot = 0, vr = 0): void {
+  private spawn(k: number, x: number, y: number, vx: number, vy: number, life: number, size: number, col: string, g = 0, rot = 0, vr = 0, delay = 0): void {
     const cap = this.reducedEffects ? POOL_REDUCED : POOL;
     let idx = -1;
     for (let i = 0; i < cap; i++) {
@@ -299,7 +311,7 @@ export class Stage {
     p.vx = vx;
     p.vy = vy;
     p.g = g;
-    p.age = 0;
+    p.age = -delay;
     p.life = life;
     p.size = size;
     p.rot = rot;
@@ -444,7 +456,11 @@ export class Stage {
           this.sparks(ex - es * 0.2, ey, 4 + Math.min(14, amt), amt >= 7 ? '#ffd27a' : '#ff9a70', 80 + amt * 4, 150);
           if (amt >= 10) this.bump(Math.min(5, 1.5 + amt / 8));
         }
-        if (snd) audio.strike(amt);
+        if (snd) {
+          const en = this.state?.enemies[ti];
+          if (en && BOSS_IDS.has(en.defId)) audio.bossHit(amt);
+          else audio.strike(amt);
+        }
         break;
       }
       case 'sweep': {
@@ -538,8 +554,20 @@ export class Stage {
       case 'enemyAction': {
         if (ti < 0) break;
         const kind = e.note ?? '';
-        if (look && (kind === 'attack' || kind === 'special' || kind === 'sabotage' || kind === 'debuff')) look.lunge = 0;
-        if (kind === 'attack' && snd) audio.enemyWhoosh();
+        if (look && (kind === 'attack' || kind === 'special' || kind === 'sabotage' || kind === 'debuff' || kind === 'charge')) look.lunge = 0;
+        const def = this.state?.enemies[ti]?.defId ?? '';
+        this.bigAttack = kind === 'attack' && isBig(def);
+        if (kind === 'attack') {
+          const style = attackStyle(def);
+          if (style === 'slam') {
+            // dust and a ring where the blow lands, timed to the strike
+            this.ring(ex - es * 0.2, ey + es * 0.45, es * 0.9, '220, 200, 160', 0.5);
+            for (let i = 0; i < this.n(8); i++) this.spawn(STEAM, ex - es * 0.3 + rnd() * es * 0.6, ey + es * 0.45, (rnd() - 0.7) * 50, -8 - rnd() * 10, 0.7, es * 0.05, '#c8b79a', 0, 0, 0, 0.5);
+          } else if (style === 'blast') {
+            for (let i = 0; i < this.n(12); i++) this.spawn(STEAM, ex - es * 0.3, ey + (rnd() - 0.5) * es * 0.5, -120 - rnd() * 90, (rnd() - 0.5) * 30, 0.8, es * 0.08, '#e6ecf0', 0, 0, 0, 0.45);
+          }
+          if (snd) audio.enemyWhoosh(this.bigAttack);
+        }
         if (kind === 'buff') this.buffFx(ex, ey, es, snd);
         if (kind === 'charge') {
           if (look) look.heat = 1;
@@ -569,7 +597,10 @@ export class Stage {
         break;
       }
       case 'phase': {
-        if (look) look.phase = e.amount ?? look.phase + 1;
+        if (look) {
+          look.phase = e.amount ?? look.phase + 1;
+          look.morph = 1;
+        }
         this.flash = 0.7;
         this.flashCol = '255, 236, 190';
         this.bump(6);
@@ -578,7 +609,7 @@ export class Stage {
           this.ring(ex, ey, es * 0.9, '255, 255, 255', 0.6);
           this.cogs(ex, ey, 10, es);
         }
-        if (snd) audio.phaseGong();
+        if (snd) audio.phaseGong(ti >= 0 && this.state?.enemies[ti]?.defId === 'clockmaker');
         break;
       }
       case 'rewind': {
@@ -630,8 +661,9 @@ export class Stage {
         if (amt > 0) {
           this.addFloat(this.layout.board.x + this.layout.board.w / 2, this.layout.board.y + 14, `-${amt}`, COLOR.hurt, true);
           this.hurt = Math.min(0.55, 0.2 + amt * 0.03);
-          this.bump(Math.min(6, 2 + amt * 0.4));
-          if (snd) audio.hitThud(amt);
+          this.bump(Math.min(8, (2 + amt * 0.4) * (this.bigAttack ? 1.5 : 1)));
+          if (snd) audio.hitThud(this.bigAttack ? amt + 8 : amt);
+          if (this.bigAttack) this.sparks(this.layout.board.x + this.layout.board.w * 0.9, this.layout.board.y + this.layout.board.h / 2, 12, '#ff9a55', 150, 160);
         } else if (snd) audio.plateClink();
         break;
       }
@@ -720,6 +752,7 @@ export class Stage {
       l.t += dt;
       l.hit = Math.max(0, l.hit - dt * 3.2);
       l.lunge += dt;
+      l.morph = Math.max(0, l.morph - dt * 0.7);
       l.heat = Math.max(l.heat - dt * 0.4, st && st.enemies[i] ? Math.min(1, (st.enemies[i].mem.heat ?? 0) / 20) : 0);
       if (l.drop > 0) {
         l.drop = Math.max(0, l.drop - dt * 2.4);
@@ -1007,6 +1040,7 @@ export class Stage {
       const p = this.parts[i];
       if (!p.on) continue;
       p.age += dt;
+      if (p.age < 0) continue;
       if (p.age >= p.life) {
         p.on = false;
         continue;

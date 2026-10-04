@@ -6,7 +6,7 @@ import type { Vis } from './parts';
 
 export { drawPart, drawEcho, newVis, partFamily, PART_IDS } from './parts';
 export type { Vis } from './parts';
-export { drawEnemy, drawStatuses, drawShell, newLook, ENEMY_IDS } from './enemies';
+export { drawEnemy, drawStatuses, drawShell, newLook, ENEMY_IDS, isBig, BOSS_IDS, attackStyle } from './enemies';
 export type { EnemyLook } from './enemies';
 
 export function drawMainspring(c: CanvasRenderingContext2D, x: number, y: number, r: number, v: Vis, now: number): void {
