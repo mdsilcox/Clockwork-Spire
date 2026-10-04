@@ -112,7 +112,7 @@ Test harness contract (built in B1): `src/core/testkit.ts` exports `combatWith({
 Test harness addition: `combatWith` accepts `enemies: [{ core: 40, parts: [{ id: 'jaw', hp: 8, action: 'attack 5x2', cadence: 'odd', salvage: 'spur' }], sealed: true, keystones: ['jaw'] }]` as well as enemy ids, and `order: ['e0.jaw', 'e0.core']` for the target order.
 | id | Given | When | Then | Kind | Phase |
 |---|---|---|---|---|---|
-| EM1 | every enemy def (15 regular, 6 elite, 3 wardens) | build it | it has a core with HP and 1 to 8 parts; every part has hp, action, cadence; every salvage id is a part def or `brass-key`; an anchor is named for each part | U | |
+| EM1 | every enemy def (15 regular, 6 elite, 3 wardens) | build it | it has a core with HP and 1 to 8 parts; every part has hp, action, cadence; every salvage id is a part def or `spire-key`; an anchor is named for each part | U | |
 | EM2 | an enemy whose Jaw (8 HP) shows Attack 5x2 | a Strike 9 at the Jaw | the Jaw breaks, its intent is cancelled, the enemy turn deals 0 from it; the 1 overkill is lost (core unchanged) | U | |
 | EM3 | order [Jaw, core], Spur at B2 (Strike 3, 3 ticks), Jaw 5 HP, core 20 | run | tick 1: Jaw 2 left; tick 2: Jaw breaks (1 lost); tick 3: core 17 | U | |
 | EM4 | empty order, two enemies | Strike | it hits the leftmost living enemy's front (core, or first keystone if sealed) | U | |
@@ -163,7 +163,7 @@ Test harness addition: `combatWith` accepts `enemies: [{ core: 40, parts: [{ id:
 | CL6 | a cleared room | move through it again | no encounter; 1 hour passes | U | |
 | CL7 | the act screen at 667x375 and 1280x800 | look | the whole section, the clock, hours left and each elite's next room visible with no sideways scroll; tapping a connected room walks there (tinker and Sprocket animate, skippable) | E | |
 | CL8 | visibility | enter a room | it and its neighbors show their kind; others show silhouettes; a Lamplighter resident reveals all | U, E | |
-| CL9 | a locked door | use a Brass Key / pick the lock | it opens / it opens for 25 Scrap and 1 extra hour | U | |
+| CL9 | a locked door | use a Spire Key / pick the lock | it opens / it opens for 25 Scrap and 1 extra hour | U | |
 | CL10 | an oil station | rest / polish | heal 30% of max HP and 1 extra hour / +4 max HP, no extra hour; once per station | U | |
 | CL11 | a run in progress in an act | reload | same room, hour, elite positions, layout and revealed rooms | E | |
 

@@ -11,7 +11,7 @@ describe('v2 12. The climb (rules 4.1 to 4.6)', () => {
   it.todo('CL6 [U] Given a cleared room; when move through it again; then no encounter; 1 hour passes');
   it.todo('CL7 [E] Given the act screen at 667x375 and 1280x800; when look; then the whole section, the clock, hours left and each elite\'s next room visible with no sideways scroll; tapping a connected room walks there (tinker and Sprocket animate, skippable)');
   it.todo('CL8 [U, E] Given visibility; when enter a room; then it and its neighbors show their kind; others show silhouettes; a Lamplighter resident reveals all');
-  it.todo('CL9 [U] Given a locked door; when use a Brass Key / pick the lock; then it opens / it opens for 25 Scrap and 1 extra hour');
+  it.todo('CL9 [U] Given a locked door; when use a Spire Key / pick the lock; then it opens / it opens for 25 Scrap and 1 extra hour');
   it.todo('CL10 [U] Given an oil station; when rest / polish; then heal 30% of max HP and 1 extra hour / +4 max HP, no extra hour; once per station');
   it.todo('CL11 [E] Given a run in progress in an act; when reload; then same room, hour, elite positions, layout and revealed rooms');
 });

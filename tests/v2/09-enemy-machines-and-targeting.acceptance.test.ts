@@ -3,7 +3,7 @@
 import { describe, it } from 'vitest';
 
 describe('v2 9. Enemy machines and targeting (rules 2.1 to 2.3)', () => {
-  it.todo('EM1 [U] Given every enemy def (15 regular, 6 elite, 3 wardens); when build it; then it has a core with HP and 1 to 8 parts; every part has hp, action, cadence; every salvage id is a part def or `brass-key`; an anchor is named for each part');
+  it.todo('EM1 [U] Given every enemy def (15 regular, 6 elite, 3 wardens); when build it; then it has a core with HP and 1 to 8 parts; every part has hp, action, cadence; every salvage id is a part def or `spire-key`; an anchor is named for each part');
   it.todo('EM2 [U] Given an enemy whose Jaw (8 HP) shows Attack 5x2; when a Strike 9 at the Jaw; then the Jaw breaks, its intent is cancelled, the enemy turn deals 0 from it; the 1 overkill is lost (core unchanged)');
   it.todo('EM3 [U] Given order [Jaw, core], Spur at B2 (Strike 3, 3 ticks), Jaw 5 HP, core 20; when run; then tick 1: Jaw 2 left; tick 2: Jaw breaks (1 lost); tick 3: core 17');
   it.todo('EM4 [U] Given empty order, two enemies; when Strike; then it hits the leftmost living enemy\'s front (core, or first keystone if sealed)');

@@ -165,7 +165,7 @@ interface EnemyPartDef { id: string; name: string; hp: number; rarity: Rarity;
   cadence: 'every' | 'odd' | 'even' | 'once' | { of: number; at: number[] }   // { of: 3, at: [1, 2] } = turns 1 and 2 of every 3
          | { countdown: number } | { buildUp: number; to: number; bonus?: 'drained' };
   escalate?: number;             // the action's amount grows by this each time it acts (Spring Imp's tail)
-  salvage: string | 'brass-key' | null; keystone?: boolean; anchor: string; }
+  salvage: string | 'spire-key' | null; keystone?: boolean; anchor: string; }
 type ActionDef = { kind: 'attack'|'pierce'|'corrode'|'siphon'|'shell'|'mend'|'rebuild'|'rust'|'jam'|'magnetize'|'drain'|'status'|'summon'|'buff'|'purge'|'echo'|'rewind'; amount?: number; pct?: number; hits?: number; status?: string; summon?: string; count?: number };
 // Corrode uses pct (rules 2.4); wardens' keystones and last-phase core are Braced by tier, not by a field.
 interface AchievementDef { id; name; text; tier: 'easy'|'medium'|'hard'; hidden: boolean;

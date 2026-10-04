@@ -14,11 +14,8 @@ You are the inventor's apprentice. Sprocket was the inventor's dog; he waited at
 - **The Steamworks** (act 2): the boilers that wind the mainsprings. Warden: **the Boilermaker Queen**, built to keep the pressure even, who decided she was in charge of everything above the waterline. She is proud and lonely and runs too hot.
 - **The Belfry** (act 3): the bells, the clock face and the escapement at the very top. Warden: **the Clockmaker**.
 
-## The wardens' lines (phase beats)
-Short; one per phase change and one on defeat. Drafts, final text in content:
-- Foreman: "Shift's not over." / "Fine. FINE. Overtime." / defeat: "Tell the inventor... the gears are clean."
-- Queen: "Mind the pressure, little one." / "You've cracked my gauge. Now I'll never know how hot I am." / defeat: "It's cold. I'd forgotten cold."
-- Clockmaker: Tick: "You're early." / Tock: "I have all the time there is. I kept it." / Midnight: "If the hour ends, the inventor ends with it." / defeat: "...Then let it be morning."
+## The wardens' lines
+The final lines (opening, each phase beat, defeat) live with each warden in `docs/content.md` section 3, which is the source of all game text. Each warden gets one sympathetic line; none is a villain.
 
 ## What the player learns, and where
 | Piece | Told by | When |

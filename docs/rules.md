@@ -50,7 +50,8 @@ The order of a tick is therefore deterministic and visible: the animation shows 
 ### 1.6 No randomness inside a turn
 Nothing between pressing Run and the end of your machine's ticks is random, so the preview is exact. Every random element is resolved at a fixed moment, from its own seeded stream, before the player sees it:
 - **Draws** (`draw` stream): at the start of your turn, before you build. Extra draws from the Sprocket Wheel happen at the next turn's start.
-- **Enemy intents** (`enemy` stream): chosen at the end of the enemy turn and shown immediately, including the target cell of a sabotage.
+- **Enemy intents** (`enemy` stream): chosen at the end of the enemy turn and shown immediately, including the target cell of a sabotage. Random choices for the turn after next are rolled one turn early, so an effect that shows two turns ahead (the Foresight Dial) is exact.
+- **Rewinding a turn** (the Inventor's Watch): restores the whole combat state at the start of your turn, every random stream's state included, so the same draws and intents follow.
 - **Enemy actions** execute the shown intent with no further randomness.
 - **Act layout, trader stock, events, fuse results** (`map`, `shop`, `event`, `reward` streams): rolled when the act starts or the room is entered, and saved, so a reload shows the same offer.
 - **Event choices with a chance** (the Gear Wheel of Fortune) roll from the `event` stream when chosen; the odds are shown on the button.
@@ -97,14 +98,14 @@ Every part has an upgraded form, shown with a **+** (for example Spur Gear+). Up
 | Build-up X to Y: action | A gauge on the part rises by X each enemy turn plus any bonus the part lists (the Queen's heat also rises by the Pressure she drains); at Y or more it performs the action and drops to 0. Breaking the part stops it; Jam pauses it for a turn. |
 | Bulwark (passive) | While it stands, the core takes half damage (rounded down) from Strikes and Sweeps. |
 | Governor X (passive) | While it stands, no single Strike deals more than X to this enemy. |
-| Braced (wardens) | A warden's keystone takes at most half its max HP (rounded up) per player turn, and its exposed core in the last phase at most a third of its max HP per turn. Damage past the cap is lost. So every phase lasts at least 2 turns and the last at least 3, whatever the build. |
+| Braced (wardens) | A warden's keystone takes at most half its max HP (rounded up) per player turn, and its exposed core in the last phase at most a third of its max HP per turn. Damage past the cap is lost. So every phase lasts at least 2 turns and the last at least 3, whatever the build. Elites are never Braced, on patrol or guarding a vault. |
 | Rust, Jam, Magnetize, Drain | v1's sabotage of your machine. |
 | Corroded X, Dazed X on you | v1 statuses, now also from parts. |
 | Summon | A new enemy joins at the right, with its intents shown (some enemies summon once at the start of combat). |
 | Buff X | Its allies (or itself) gain Strength X. |
 | Enrage X (passive) | When a linked ally is destroyed, this enemy gains Strength X. |
 | Purge | Clears every status on its own frame (v1's statuses on enemies). |
-| Echo | Attacks for the damage your strongest part dealt last turn (v1's Echo Sprite), minimum as listed. |
+| Echo | Attacks (or Pierces, if the part says) for the damage your strongest part dealt last turn (v1's Echo Sprite), minimum as listed. |
 
 **Counterplay by design.** Plating stacking meets Pierce, Corrode (a share of your Plating, so it grows with the stack), Siphon, Ratchet and Countdown: you must break those parts, which means aiming damage at parts instead of piling Plating. Each act's regular pool must carry a real share of damage that ignores or strips Plating (content.md states the share per act; rules 7.4 target 7). Regular cores hold most of an enemy's HP, so racing the core while its parts act costs HP, and a raced core wrecks its parts (no salvage). Burst meets Bulwark, Governor, sealed cores and lost overkill: one giant Strike is worth less than several aimed ones. Every regular enemy has at least one part that punishes one of the two plans (content.md lists "punishes" per enemy).
 
@@ -169,7 +170,7 @@ On you: **Plating X**, **Corroded X**, **Grit X** (v1). On your parts: **Rusted*
 - **Barter**: hand over one of your parts (it's worth its value) plus Scrap for the difference; or buy with Scrap alone at value + 25%. Traders also sell oil (heal 15, 15 Scrap).
 
 ### 4.6 Locked doors and keys
-- A locked door opens with a **key**: a key salvage (some enemy parts drop a Brass Key instead of a part) or picking the lock (25 Scrap and 1 extra hour). Behind locked doors: shortcuts (passages that save hours) and vaults.
+- A locked door opens with a **key**: a key salvage (some enemy parts drop a Spire Key instead of a part) or picking the lock (25 Scrap and 1 extra hour). Behind locked doors: shortcuts (passages that save hours) and vaults.
 
 ### 4.7 Wardens
 - Act 1: **the Foreman**; act 2: **the Boilermaker Queen**; act 3: **the Clockmaker**. Every warden has phases (4.8); content.md has each phase's parts.
@@ -180,7 +181,7 @@ On you: **Plating X**, **Corroded X**, **Grit X** (v1). On your parts: **Rusted*
   1. the rest of that Run's damage to the warden is lost (later ticks don't touch the next phase), and its remaining intents are cancelled;
   2. the **phase beat** plays (a line, the arena changes, the painting's phase mood);
   3. the next phase's parts unfold; the warden's next turn is its **phase action** only (a summon, a heal, a Rewind), shown as its intent, with no attacks;
-  4. cadences restart: the turn after the phase action is turn 1 of the new phase.
+  4. cadences restart: the turn after the phase action is turn 1 of the new phase. Parts that stay from one phase to the next keep their HP, gauges and countdowns.
 - In the last phase the core is exposed, usually behind a Bulwark or Governor. Target length on Journeyman: Foreman about 7 turns, Queen about 8, the Clockmaker about 9 for the expert bot; Braced makes 2 turns per phase (3 for the last) a hard floor for any build.
 
 ### 4.9 The Clockmaker
@@ -260,6 +261,6 @@ These set the v2 targets below: Plating is the line the v2 enemy parts must answ
 4. **Phases seen**: wardens' turns for the expert: Foreman 6 to 9, Queen 7 to 10, Clockmaker 8 to 12 (median). For every bot including max-burst, every phase lasts at least 2 turns and the last at least 3 (guaranteed by Braced; checked).
 5. No part's offer-based impact is more than double the median part's (v1 target 3, kept).
 6. Expert per-turn time under 50 ms on average (so careers finish in minutes).
-7. **Plating answered**: the turtle bot's Plating fully absorbs an enemy turn in at most 40% of enemy turns, per act; and in content, at least 30% of each act's regular expected damage per turn ignores or strips Plating (Pierce, Corrode, Siphon), computed from the defs.
+7. **Plating answered**: the turtle bot's Plating fully absorbs an enemy turn in at most 40% of enemy turns, per act; and in content, at least 30% of each act's regular expected damage per turn ignores or strips Plating, computed from the defs: Pierce and Siphon count in full, Corrode X% counts as X% of the act's reference stack (the spike's mean peak Plating: 37, 50, 59), capped at the enemy's damage that turn.
 8. **Approachable**: greedy careers' median first win at most run 20 (a casual player still wins).
 9. **Clock**: the rusher and grinder route bots both win less often than the expert (the clock rewards judgment, not one route rule).
