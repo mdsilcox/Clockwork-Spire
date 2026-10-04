@@ -3,7 +3,7 @@
 // Graph: voices -> channel gain (effects / ui) -> master gain -> limiter -> destination.
 import type { Family } from '../core/types';
 
-export type Channel = 'master' | 'effects' | 'ui';
+export type Channel = 'master' | 'music' | 'effects' | 'ui';
 
 const FORCED = typeof location !== 'undefined' && /[?&]sound=1\b/.test(location.search);
 let ctx: AudioContext | null = null;
@@ -12,7 +12,7 @@ let limiter: DynamicsCompressorNode | null = null;
 const bus: Partial<Record<Channel, GainNode>> = {};
 let noiseBuf: AudioBuffer | null = null;
 let muted = !FORCED && typeof navigator !== 'undefined' && navigator.webdriver === true;
-const vol: Record<Channel, number> = { master: 0.8, effects: 1, ui: 1 };
+const vol: Record<Channel, number> = { master: 0.8, music: 0.6, effects: 1, ui: 1 };
 const MASTER_BASE = 0.4;
 
 // voice throttle: at most MAX_VOICES new voices in WINDOW seconds, so a big chain never turns to noise
@@ -62,7 +62,7 @@ function build(): void {
   master.gain.value = muted ? 0 : MASTER_BASE * vol.master;
   master.connect(limiter);
   limiter.connect(ctx.destination);
-  for (const ch of ['effects', 'ui'] as const) {
+  for (const ch of ['effects', 'ui', 'music'] as const) {
     const g = ctx.createGain();
     g.gain.value = vol[ch];
     g.connect(master);
@@ -107,6 +107,19 @@ export function graph(ch: Channel = 'effects'): { ctx: AudioContext; dest: Audio
   const c = ready();
   const d = c ? out(ch) : null;
   return c && d ? { ctx: c, dest: d, noise: noiseBuf } : null;
+}
+
+/** For the music engine: the shared context and the music bus, without the sound-effect voice throttle. Null until audio is unlocked (or forced with ?sound=1). */
+export function musicGraph(): { ctx: AudioContext; dest: AudioNode; noise: AudioBuffer | null } | null {
+  if (!ctx && FORCED) build();
+  if (!ctx || !bus.music) return null;
+  if (ctx.state === 'suspended') void ctx.resume();
+  return { ctx, dest: bus.music, noise: noiseBuf };
+}
+
+/** Hook for the music engine: has the user unlocked audio. */
+export function isUnlocked(): boolean {
+  return !!ctx;
 }
 
 function done(node: AudioScheduledSourceNode): void {

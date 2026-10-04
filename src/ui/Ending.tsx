@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { drawEnemy, newLook } from '../render/draw';
 import { drawSprocket } from '../render/sprocket';
-import { musicBox } from '../audio/sprocket';
+import { music } from '../audio/music';
 import { unlockAudio } from '../audio/synth';
 import './sprocket.css';
 
@@ -203,12 +203,10 @@ export function Ending({ stats, onDone }: { stats: EndingStats; onDone: () => vo
   const [scene, setScene] = useState(0);
   const [shown, setShown] = useState(0);
   const [credits, setCredits] = useState(false);
-  const music = useRef<ReturnType<typeof musicBox>>(null);
 
   useEffect(() => {
     unlockAudio();
-    music.current = musicBox();
-    return () => music.current?.stop();
+    music.play('ending');
   }, []);
 
   useEffect(() => {
@@ -288,7 +286,7 @@ export function Ending({ stats, onDone }: { stats: EndingStats; onDone: () => vo
             type="button"
             data-testid="ending-done"
             onClick={() => {
-              music.current?.stop();
+              music.play('workshop');
               onDone();
             }}
           >

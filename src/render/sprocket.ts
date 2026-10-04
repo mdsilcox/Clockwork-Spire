@@ -333,15 +333,55 @@ export function drawSprocket(c: CanvasRenderingContext2D, x: number, y: number, 
   c.fill();
   c.restore();
 
-  // the big fluffy rear: round, cream below and ginger above, with a scalloped edge
+  // the big fluffy rear: one smooth, soft, heart-ish double curve (two round cheeks and a small cleft), cream
+  // below and ginger above, with a few short fur tufts at the edge
   c.save();
-  c.translate(-0.3 * u, bodyY);
+  c.translate(-0.36 * u, bodyY + 0.02 * u);
   c.rotate(P.rearWig);
-  const rr = 0.3 * u;
-  fluff(c, -0.1 * u, 0.04 * u, rr, rr * (0.96 + breath), 10, 0.1, 0.3);
-  c.fillStyle = lin(c, -rr, rr, [[0, '#f2a257'], [0.45, ORANGE], [0.7, '#fbdcb4'], [1, WHITE]]);
+  const rr = 0.31 * u;
+  const ry = rr * (1 + breath);
+  const rearPath = (): void => {
+    c.beginPath();
+    c.moveTo(0.3 * rr, -0.98 * ry);
+    c.bezierCurveTo(-0.4 * rr, -1.18 * ry, -1.12 * rr, -0.85 * ry, -1.0 * rr, -0.28 * ry);
+    c.bezierCurveTo(-0.99 * rr, -0.14 * ry, -0.94 * rr, -0.02 * ry, -0.9 * rr, 0.06 * ry);
+    c.bezierCurveTo(-1.18 * rr, 0.3 * ry, -1.04 * rr, 0.96 * ry, -0.42 * rr, 1.02 * ry);
+    c.bezierCurveTo(-0.12 * rr, 1.05 * ry, 0.16 * rr, 1.02 * ry, 0.32 * rr, 0.92 * ry);
+    // left open: the filled shape closes itself, and no seam is stroked where the rear meets the body
+  };
+  // the same colors at the same heights as the body, and the same light on top, so no seam shows
+  rearPath();
+  c.fillStyle = lin(c, -bodyRy - 0.02 * u, bodyRy - 0.02 * u, [[0, '#f2a257'], [0.55, ORANGE], [0.78, '#fbdcb4'], [1, WHITE]]);
   c.fill();
+  c.save();
+  rearPath();
+  c.clip();
+  c.fillStyle = 'rgba(255, 226, 170, 0.35)';
+  c.beginPath();
+  c.ellipse(bx + 0.24 * u, -bodyRy * 0.62 - 0.02 * u, bodyRx * 0.62, bodyRy * 0.22, -0.05, 0, TAU);
+  c.fill();
+  c.restore();
+  rearPath();
   c.stroke();
+  // a soft crease for the hip, and a few short tufts of fur at the cleft and the bottom
+  c.strokeStyle = 'rgba(74,42,20,0.4)';
+  c.lineWidth = ow * 0.8;
+  c.beginPath();
+  c.moveTo(-0.15 * rr, -0.6 * ry);
+  c.bezierCurveTo(-0.7 * rr, -0.5 * ry, -0.8 * rr, 0.1 * ry, -0.45 * rr, 0.5 * ry);
+  c.stroke();
+  c.strokeStyle = OUT;
+  c.lineWidth = ow;
+  c.fillStyle = CREAM;
+  for (const [tx0, ty0, dx, dy] of [[-0.93, 0.07, -0.2, -0.02], [-1.0, 0.42, -0.17, 0.08], [-0.8, 0.82, -0.14, 0.17], [-0.06, 1.0, 0.0, 0.2]] as const) {
+    c.beginPath();
+    c.moveTo(tx0 * rr, ty0 * ry - 0.07 * rr);
+    c.quadraticCurveTo((tx0 + dx * 0.6) * rr, (ty0 + dy * 0.2) * ry, (tx0 + dx) * rr, (ty0 + dy) * ry);
+    c.quadraticCurveTo((tx0 + dx * 0.5) * rr, (ty0 + dy * 0.6) * ry + 0.08 * rr, tx0 * rr, ty0 * ry + 0.07 * rr);
+    c.closePath();
+    c.fill();
+    c.stroke();
+  }
   c.restore();
   c.strokeStyle = OUT;
   c.lineWidth = ow;
