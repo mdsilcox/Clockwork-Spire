@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clockwork Spire title sample</title>
+<style>
+  :root { --brass:#C9A24A; --copper:#B8683A; --teal:#1F6F6B; --deep:#10393F; --ink:#14100C; --amber:#F2A65A; }
+  html, body { margin:0; height:100%; background:#10393F; overflow:hidden; }
+  .stage { position:fixed; inset:0; overflow:hidden; }
+  canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .vig { position:absolute; inset:0; pointer-events:none;
+    background:
+      radial-gradient(ellipse 80% 80% at 50% 48%, rgba(16,57,63,0) 55%, rgba(20,16,12,.45) 100%),
+      linear-gradient(90deg, rgba(20,16,12,.28), rgba(20,16,12,0) 38%); }
+  .ui { z-index:1; position:absolute; left:max(24px,4.2vw); top:max(18px,5vh); width:min(36vw,420px); min-width:200px; }
+  .ui::before { content:''; position:absolute; z-index:-1; left:-40px; top:-30px; width:calc(100% + 80px); height:230px; pointer-events:none;
+    background:radial-gradient(ellipse 60% 60% at 45% 45%, rgba(20,16,12,.38), rgba(20,16,12,0)); }
+  .logo { margin:0; font-family: Georgia, "Book Antiqua", "Palatino Linotype", serif; font-variant: small-caps;
+    font-weight:700; letter-spacing:.06em; line-height:.95; color:var(--brass);
+    font-size:clamp(30px,4.8vw,64px);
+    text-shadow: 0 2px 0 var(--ink), 2px 0 0 var(--ink), -2px 0 0 var(--ink), 0 -2px 0 var(--ink), 0 4px 14px rgba(20,16,12,.7); }
+  .logo span { display:block; }
+  .logo .sub { font-size:max(17px,.28em); letter-spacing:.08em; white-space:nowrap; font-variant:normal; font-style:italic; font-weight:400; margin-top:.5em; color:#FFF1D2; text-shadow:0 1px 0 var(--ink),1px 0 0 var(--ink),-1px 0 0 var(--ink),0 -1px 0 var(--ink),0 0 8px var(--ink),0 0 16px rgba(20,16,12,.8); }
+  .menu { margin-top:clamp(14px,4vh,38px); display:flex; flex-direction:column; gap:clamp(7px,1.6vh,12px); width:min(100%,260px); }
+  .menu button { font:inherit; font-family: Georgia, "Book Antiqua", serif; font-size:clamp(14px,1.7vw,19px); letter-spacing:.06em;
+    min-height:44px; padding:0 18px; text-align:left; cursor:pointer; color:#F6E7C1;
+    background:linear-gradient(180deg, rgba(16,57,63,.88), rgba(10,38,43,.92));
+    border:2px solid var(--brass); border-radius:6px; box-shadow:0 0 0 2px var(--ink), 0 6px 14px rgba(20,16,12,.45); }
+  .menu button.primary { background:linear-gradient(180deg,#D8B25A,#B8883A); color:var(--ink); font-weight:700; }
+  .menu button:hover, .menu button:focus-visible { filter:brightness(1.15); outline:none; }
+  @media (max-height:420px) {
+    .ui { top:max(16px,3vh); left:max(24px,4vw); width:215px; min-width:0; }
+    .ui::before { height:130px; }
+    .logo { font-size:clamp(26px,4.6vw,40px); }
+    .logo .sub { font-size:13px; letter-spacing:.03em; white-space:normal; line-height:1.25; margin-top:.6em; }
+    .menu { margin-top:10px; gap:6px; width:min(100%,190px); }
+    .menu button { min-height:40px; font-size:15px; }
+  }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <canvas id="c"></canvas>
+  <div class="vig"></div>
+  <div class="ui" data-testid="title-ui">
+    <h1 class="logo"><span>Clockwork</span><span>Spire</span><span class="sub">A machine for the long climb</span></h1>
+    <div class="menu">
+      <button class="primary" data-testid="continue">Continue</button>
+      <button data-testid="new-run">New run</button>
+      <button data-testid="settings">Settings</button>
+    </div>
+  </div>
+</div>
+<script>
+const RIG = __RIG__;
+const IMG_URL = "__IMG__";
+const IW = RIG.size[0], IH = RIG.size[1];
+const cv = document.getElementById("c"), ctx = cv.getContext("2d");
+const img = new Image();
+
+// ---- seeded rng (deterministic particles) ----
+function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const rnd = mulberry(7);
+const sm = (a, b, x) => { x = Math.min(1, Math.max(0, (x - a) / (b - a))); return x * x * (3 - 2 * x); };
+
+// ---- view: cover with a focal point, plus slow camera drift ----
+let W = 0, H = 0, DPR = 1, base = 1;
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = innerWidth; H = innerHeight;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  base = Math.max(W / IW, H / IH) * 1.03;
+}
+function viewAt(t) {
+  const s = base;
+  const fx = RIG.focus[0], fy = RIG.focus[1];
+  // aim the focal point at 52% across and 42% down, then clamp so the painting always covers
+  let ox = W * 0.52 - fx * s, oy = H * 0.42 - fy * s;
+  ox += Math.sin(TAU * t / P) * 0.004 * IW * s * 0.8 + Math.sin(TAU * t / P + 1) * 3;
+  oy += Math.sin(TAU * t / P + 2) * 0.004 * IH * s * 0.8;
+  ox = Math.min(0, Math.max(W - IW * s, ox));
+  oy = Math.min(0, Math.max(H - IH * s, oy));
+  return { s, ox, oy };
+}
+
+// ---- sprites: soft wisps, glow, puff ----
+function mk(w, h, fn) { const c = document.createElement("canvas"); c.width = w; c.height = h; fn(c.getContext("2d"), w, h); return c; }
+const wispSprites = [];
+function buildSprites() {
+  const rw = mulberry(21);
+  for (let k = 0; k < 4; k++) {
+    wispSprites.push(mk(512, 160, (g, w, h) => {
+      g.filter = "blur(10px)";
+      const n = 7 + k;
+      for (let i = 0; i < n; i++) {
+        const cx = w * (0.15 + 0.7 * i / (n - 1)), cy = h * (0.5 + (rw() - 0.5) * 0.25);
+        const rx = 50 + rw() * 60, ry = 14 + rw() * 14;
+        const gr = g.createRadialGradient(cx, cy, 0, cx, cy, rx);
+        gr.addColorStop(0, "rgba(255,255,255,.9)"); gr.addColorStop(1, "rgba(255,255,255,0)");
+        g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.translate(-cx, -cy);
+        g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, rx, 0, 7); g.fill(); g.restore();
+      }
+    }));
+  }
+}
+const tint = {}; // tinted wisp cache
+function wispTinted(k, color) {
+  const key = k + color;
+  if (!tint[key]) tint[key] = mk(512, 160, (g, w, h) => { g.drawImage(wispSprites[k], 0, 0); g.globalCompositeOperation = "source-in"; g.fillStyle = color; g.fillRect(0, 0, w, h); });
+  return tint[key];
+}
+const puff = mk(128, 128, (g, w, h) => {
+  const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, "rgba(232,238,240,1)"); gr.addColorStop(.55, "rgba(232,238,240,.55)"); gr.addColorStop(1, "rgba(232,238,240,0)");
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+});
+const glowSpr = {};
+function glowFor(color) {
+  if (!glowSpr[color]) glowSpr[color] = mk(128, 128, (g, w, h) => {
+    const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, color.replace("A", "1")); gr.addColorStop(.25, color.replace("A", ".55")); gr.addColorStop(1, color.replace("A", "0"));
+    g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  });
+  return glowSpr[color];
+}
+const COL = { amber: "rgba(255,181,71,A)", cyan: "rgba(63,209,194,A)", white: "rgba(255,244,214,A)", clock: "rgba(255,226,150,A)" };
+
+// ---- loop: every motion is a pure function of t, periodic over P seconds ----
+const P = 12, TAU = Math.PI * 2;
+const w_ = k => TAU * k / P; // k whole cycles per period
+let T = 0;
+const WIND = 9; // image px per second, to the right
+const vents = RIG.anchors.vents;
+
+// steam: per vent, N puffs on a 6 s life (two lives per period), phase-offset so the plume is continuous
+const STEAM_LIFE = 6;
+const puffs = [];
+vents.forEach((v, j) => {
+  const r = mulberry(1000 + j), N = Math.round(18 * v[2]);
+  for (let n = 0; n < N; n++) puffs.push({ v, off: n / N + (r() - 0.5) * 0.02, jx: (r() - 0.5) * 4, vx: WIND * (0.5 + r() * 0.5),
+    vy: -(14 + r() * 8) * v[2], r0: 4 + r() * 3, g: 6 + r() * 5, a: 0.4 + r() * 0.2, ph: r() * TAU });
+});
+// embers: lives of 6 or 12 s
+const embers = [];
+{ const r = mulberry(555); for (let i = 0; i < 55; i++) embers.push({ off: r(), life: i % 2 ? 6 : 12, x0: -20 + r() * (IW + 40), y0: IH * (0.5 + r() * 0.5),
+  vx: 6 + r() * 10, vy: -(5 + r() * 9), r: 0.8 + r() * 1.6, ph: r() * TAU, tw: 1 + Math.floor(r() * 4), hot: r() < 0.6 }); }
+const lamps = RIG.anchors.windows.map((w, i) => ({
+  x: w[0], y: w[1], r: w[2], kind: w[3], ph: rnd() * TAU,
+  k1: 3 + Math.floor(rnd() * 4), k2: 10 + Math.floor(rnd() * 11), k3: 30 + Math.floor(rnd() * 8),
+  slow: i % 3 === 1, off: rnd(),
+}));
+const wisps = [];
+(function () {
+  const rw = mulberry(99), cols = ["#FFF1D2", "#F2A65A", "#1F6F6B", "#FFF1D2", "#F2A65A"];
+  for (let i = 0; i < 9; i++) {
+    const depth = 0.4 + rw() * 0.9;
+    wisps.push({ x0: rw() * (IW + 400) - 300, y: 40 + rw() * 520, k: i % 4, c: cols[i % cols.length],
+      sc: 0.9 + depth * 1.1, A: 40 + depth * 70, a: 0.1 + rw() * 0.1, ph: rw() * TAU });
+  }
+})();
+function advance(dt) { T = (T + dt) % P; }
+
+// ---- drawing ----
+function lampLevel(l, t) {
+  let v = 0.72 + 0.16 * Math.sin(w_(l.k1) * t + l.ph) + 0.1 * Math.sin(w_(l.k2) * t + l.ph * 2.3) + 0.05 * Math.sin(w_(l.k3) * t + l.ph * 5);
+  if (l.slow) { const u = (t / P + l.off) % 1; v *= 0.1 + 0.9 * sm(0, 0.06, u) * (1 - sm(0.6, 0.66, u)); }
+  return Math.max(0, v);
+}
+function draw() {
+  const t = T;
+  const { s, ox, oy } = viewAt(t);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
+  ctx.drawImage(img, ox, oy, IW * s, IH * s);
+  ctx.setTransform(DPR * s, 0, 0, DPR * s, DPR * ox, DPR * oy);
+
+  // wisps swing slowly to and fro (parallax: bigger ones move more)
+  for (const w of wisps) {
+    ctx.globalAlpha = w.a * (0.8 + 0.2 * Math.sin(w_(1) * t + w.ph));
+    ctx.drawImage(wispTinted(w.k, w.c), w.x0 + w.A * Math.sin(w_(1) * t + w.ph), w.y + Math.sin(w_(1) * t + w.ph * 2) * 6, 512 * w.sc, 160 * w.sc);
+  }
+  // steam
+  for (const p of puffs) {
+    const u = ((t / STEAM_LIFE + p.off) % 1 + 1) % 1, age = u * STEAM_LIFE;
+    const x = p.v[0] + p.jx + p.vx * age * 1.15 + Math.sin(TAU * u * 2 + p.ph) * 3;
+    const y = p.v[1] + p.vy * age * (1 - 0.09 * age);
+    const r = (p.r0 + p.g * age * 0.8) * p.v[2];
+    ctx.globalAlpha = p.a * sm(0, 0.12, u) * (1 - sm(0.35, 1, u)) * 0.85;
+    ctx.drawImage(puff, x - r, y - r, r * 2, r * 2);
+  }
+  // lamps and glows (additive)
+  ctx.globalCompositeOperation = "lighter";
+  for (const l of lamps) {
+    const R = l.r * 2.6;
+    ctx.globalAlpha = Math.min(1, lampLevel(l, t) * 0.85);
+    ctx.drawImage(glowFor(COL[l.kind] || COL.amber), l.x - R, l.y - R, R * 2, R * 2);
+  }
+  for (const id of ["clockL", "clockR"]) {
+    const c = RIG.anchors[id], R = c[2] * 2.1;
+    ctx.globalAlpha = (0.5 + 0.2 * Math.sin(w_(1) * t + (id === "clockR" ? 1.4 : 0)) + 0.06 * Math.sin(w_(4) * t)) * 0.7;
+    ctx.drawImage(glowFor(COL.clock), c[0] - R, c[1] - R, R * 2, R * 2);
+  }
+  { const c = RIG.anchors.gearGlow, R = c[2] * 2.4; ctx.globalAlpha = 0.45 + 0.25 * Math.sin(w_(2) * t);
+    ctx.drawImage(glowFor(COL.amber), c[0] - R, c[1] - R, R * 2, R * 2); }
+  // embers and dust
+  for (const e of embers) {
+    const u = (t / e.life + e.off) % 1, age = u * e.life;
+    const x = e.x0 + e.vx * age + Math.sin(TAU * u * 2 + e.ph) * 5, y = e.y0 + e.vy * age;
+    ctx.globalAlpha = sm(0, 0.15, u) * (1 - sm(0.6, 1, u)) * (0.6 + 0.4 * Math.sin(w_(e.tw * 3) * t + e.ph)) * (e.hot ? 0.9 : 0.45);
+    ctx.fillStyle = e.hot ? "#FFB547" : "#E8EEF0";
+    ctx.beginPath(); ctx.arc(x, y, e.r, 0, 7); ctx.fill();
+  }
+  ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
+}
+
+// ---- boot ----
+let last = 0;
+function loop(now) {
+  if (!last) last = now;
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  advance(dt); draw(); requestAnimationFrame(loop);
+}
+window.title = { ready: false };
+img.onload = () => {
+  resize(); buildSprites();
+  T = 0; draw();
+  addEventListener("resize", () => { resize(); draw(); });
+  const params = new URLSearchParams(location.search);
+  window.title = {
+    ready: true,
+    period: P,
+    seq() { T = 0; return { next(dt) { advance(dt); draw(); } }; },
+  };
+  if (!params.has("still")) requestAnimationFrame(loop);
+};
+img.src = IMG_URL;
+</script>
+</body>
+</html>

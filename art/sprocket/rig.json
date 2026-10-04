@@ -1,0 +1,9 @@
+{
+  "size": [1216, 832],
+  "view": "profile",
+  "facing": "left",
+  "feet": 752,
+  "moods": ["idle", "happy", "sleepy", "walk"],
+  "durations": { "idle": 4, "happy": 3, "sleepy": 5, "walk": 2 },
+  "anchors": { "nose": [103, 288, 14], "eye": [193, 240, 16], "collar": [608, 380, 24], "tail": [1068, 75, 30] }
+}

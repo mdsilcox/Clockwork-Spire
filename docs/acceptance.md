@@ -128,10 +128,11 @@ Test harness addition: `combatWith` accepts `enemies: [{ core: 40, parts: [{ id:
 | id | Given | When | Then | Kind | Phase |
 |---|---|---|---|---|---|
 | EA1 | player Plating 20; enemy Pierce 7 | enemy acts | player loses 7 HP; Plating 20 untouched | U | |
-| EA2 | Plating 12; Corrode 8 then Attack 6 | enemy acts | Plating 4 after Corrode; the attack takes it to 0 and deals 2 | U | |
+| EA2 | Plating 12; Corrode 50% then Attack 9 | enemy acts | Plating 6 after Corrode; the attack takes it to 0 and deals 3; with Plating 40, Corrode 50% strips 20 | U | |
 | EA3 | Plating 10; Siphon 8; core 30 of 40 | enemy acts | player loses 0 HP; Plating 2; core 38 | U | |
-| EA4 | Ratchet 3; the player's turn dealt no damage to its core | turn ends | Strength 3; its attacks deal +3; a turn that hits the core adds nothing | U | |
-| EA5 | Countdown 2: Pierce 25 | two enemy turns pass / the part breaks first | Pierce 25 lands on the second / nothing happens | U | |
+| EA4 | Ratchet 2 standing for two of your turns, then broken | turns end | Strength 2, then 4, then no more growth; its attacks deal +4 | U | |
+| EA5 | Countdown 2: Pierce 25 | two enemy turns pass / the part breaks first / it is Jammed once | Pierce 25 lands on the second, then it resets to 2 / nothing happens / it lands one turn later | U | |
+| EA12 | Build-up 6 to 20: Attack 40, with a bonus of the Pressure it drains | three enemy turns with 0, 4, 0 drained | gauge 6, 16, 22: the Attack 40 lands on the third turn and the gauge drops to 0 | U | |
 | EA6 | Bulwark standing; Strike 9 at the core | run | core takes 4; after the Bulwark breaks, 9 | U | |
 | EA7 | Governor 8; a Strike 20 | run | the target takes 8 | U | |
 | EA8 | Mend (rebuild) on a broken Jaw | enemy acts | the Jaw returns at half HP with its action; its salvage no longer counts as broken | U | |
@@ -142,7 +143,8 @@ Test harness addition: `combatWith` accepts `enemies: [{ core: 40, parts: [{ id:
 ## 11. Wardens and phases (rules 4.7 to 4.9)
 | id | Given | When | Then | Kind | Phase |
 |---|---|---|---|---|---|
-| WP1 | a warden in phase 1 with keystones A and B | break A, then B in the same turn with 30 damage left over | phase 2 begins; the 30 is lost; phase 1's remaining intents are cancelled | U | |
+| WP1 | a warden in phase 1 with keystones A and B | break A, then B on tick 2 of a Run with 30 damage left over and tick 3 still to come | phase 2 begins at the end of the Run; the 30 and all of tick 3's damage to the warden are lost; phase 1's remaining intents are cancelled; the warden's next turn is its phase action only; then the new phase's cadences start at turn 1 | U | |
+| WP8 | a keystone of max HP 40 and a last-phase core of 90 (Braced) | a Run that would deal 100 to each | the keystone takes 20, the core 30; the rest is lost; so any build needs at least 2 turns per phase and 3 for the last | U | |
 | WP2 | the last keystone of a phase breaks | the turn resolves | the phase action (summon, heal or Rewind) happens once and was shown first; the phase line and phase mood play | U, E | |
 | WP3 | each warden | read its def | Foreman 2+ phases, Queen 2+, Clockmaker 3; each phase adds a mechanic the previous one lacks | U | |
 | WP4 | the Clockmaker with the Tick Spring standing; last turn the Coil (fed by the Idler) dealt the most; then the Tick Spring broken | his turn starts | Coil and Idler return to the draw pile, charge 0; he heals half their damage (v1 C6, kept); after the Spring breaks, no Rewind for the rest of the phase | U | |
@@ -153,11 +155,11 @@ Test harness addition: `combatWith` accepts `enemies: [{ core: 40, parts: [{ id:
 ## 12. The climb (rules 4.1 to 4.6)
 | id | Given | When | Then | Kind | Phase |
 |---|---|---|---|---|---|
-| CL1 | 200 seeds | generate each act | 16 to 20 rooms on 5 to 6 floors; connected; at least two loops; entry at the bottom, warden's door at the top; room counts per rules 4.4; patrols are loops of 3 to 5 rooms avoiding entry and door | U | |
+| CL1 | 200 seeds | generate each act | 16 to 20 rooms on 5 to 6 floors; connected; at least two loops; entry at the bottom, warden's door at the top; shortest entry-to-door path at most 5 moves; room counts per rules 4.4; patrols are loops of 3 to 5 rooms avoiding entry and door | U | |
 | CL2 | hour 3, a connected room | move | hour 4; elites step one room along their patrols | U | |
 | CL3 | an elite steps into the player's room / the player steps into an elite's | resolve | a fight with that elite starts there | U | |
-| CL4 | hour 11, one move | move, then resolve the room | the warden fight starts at midnight after the room resolves | U | |
-| CL5 | at the warden's door at hour 8 (Journeyman) | ring the bell | +16 Scrap, +8 Brass; the warden fight starts | U | |
+| CL4 | hour 11, one move | move, then resolve the room | the warden fight starts at midnight after the room resolves, and the warden is Overwound (Strength 3, Shell 10) | U | |
+| CL5 | at the warden's door at hour 6 (Journeyman, 6 hours left) | ring the bell | +36 Scrap, +12 Brass, Prepared 2 (two extra placements on the first warden turn); the warden fight starts, not Overwound | U | |
 | CL6 | a cleared room | move through it again | no encounter; 1 hour passes | U | |
 | CL7 | the act screen at 667x375 and 1280x800 | look | the whole section, the clock, hours left and each elite's next room visible with no sideways scroll; tapping a connected room walks there (tinker and Sprocket animate, skippable) | E | |
 | CL8 | visibility | enter a room | it and its neighbors show their kind; others show silhouettes; a Lamplighter resident reveals all | U, E | |
@@ -190,9 +192,10 @@ Test harness addition: `combatWith` accepts `enemies: [{ core: 40, parts: [{ id:
 |---|---|---|---|---|---|
 | AD1 | the catalog | read | about 30 achievements, each with id, condition, tier, reward; every Masterwork and Legendary part unlocked by exactly one achievement | U | |
 | AD2 | an achievement's condition met mid-run | the run ends | it unlocks in the same save write as the RunRecord, shows on the trophy shelf, its reward is in the pool next run | U, E | |
-| AD3 | a run | gain parts | never more than one Legendary in the bin; locked tiers never appear | U | |
+| AD3 | a run | gain parts and trinkets | never more than one Legendary in total (part or trinket); locked items never appear; Legendaries come only from the Queen's core or, holding none, the act 3 vault | U | |
 | AD4 | each mode | start a run | enemy HP and damage, hours per act, oil heal and Brass match rules 5.7 | U | |
-| AD5 | no win yet / a Journeyman win | open the clock tower door | Overwind locked / Overwind 1 available; level N applies twists 1 to N | U, E | |
+| AD5 | no win yet / an Apprentice win / a Journeyman win | open the clock tower door | Overwind locked / still locked / Overwind 1 available; level N applies twists 1 to N | U, E | |
+| AD7 | the catalog | read | trinkets have Masterwork and Legendary tiers too; at least one Rare and one Masterwork item is unlocked by an achievement that needs no win | U | |
 | AD6 | parts of each tier | look | each tier distinct by color and by a shape mark, not color alone | E, C | |
 
 ## 16. Art and atmosphere (D-026, docs/art-direction.md)
@@ -210,8 +213,12 @@ Test harness addition: `combatWith` accepts `enemies: [{ core: 40, parts: [{ id:
 |---|---|---|---|---|---|
 | BV1 | expert bot, no meta, Journeyman | 300 runs | win rate under 5%; greedy under 2% | S | |
 | BV2 | 100 expert careers on the sensible path | until first win (cap 30) | median first win between run 8 and 12 | S | |
-| BV3 | every elite and warden, bins from expert runs | turtle and burst bots play them | neither averages under 10% of max HP lost; the expert's win rate beats each by 15 points or more | S | |
-| BV4 | the expert against each warden | 100 fights | median turns: Foreman 6 to 9, Queen 7 to 10, Clockmaker 8 to 12; every phase at least 2 turns in 90% | S | |
+| BV3 | every elite and warden, and each act's normal fights, bins from expert runs | turtle and burst bots play them | each loses at least 1.5x the expert's mean HP on every elite and warden, and at least 10% of max HP on average in each act's normal fights | S | |
+| BV4 | the expert, and the max-burst bot, against each warden | 100 fights each | expert median turns Foreman 6 to 9, Queen 7 to 10, Clockmaker 8 to 12; for both bots every phase at least 2 turns and the last at least 3 | S | |
 | BV5 | the per-part table | offer-based impact | highest at most 2x the median | S | |
 | BV6 | the expert bot | a career | under 50 ms per turn on average | S | |
 | BV7 | a fixed seed | run any sim mode twice | identical reports (v1 BS1, kept) | S | |
+| BV8 | the turtle bot, per act | count enemy turns | its Plating fully absorbs at most 40% of them | S | |
+| BV9 | each act's regular pool in content | compute from the defs | at least 30% of expected damage per turn ignores or strips Plating (Pierce, Corrode, Siphon) | U | |
+| BV10 | 100 greedy careers | until first win | median first win at most run 20 | S | |
+| BV11 | rusher, grinder and expert route policies, same combat bot | 300 runs each | the expert wins more often than both | S | |

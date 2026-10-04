@@ -3,7 +3,7 @@
 // Rerun after editing the criteria: node scripts/v2-acceptance-todos.mjs
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 
-const src = readFileSync('docs/acceptance.md', 'utf8').split('\n');
+const src = readFileSync('docs/acceptance.md', 'utf8').split(/\r?\n/);
 const sections = [];
 let cur = null;
 for (const line of src) {

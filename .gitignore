@@ -12,3 +12,5 @@ spike/node_modules/
 # Art: candidates and recorded frames stay local; picked seeds, cut-outs, rigs and clips are committed
 art/*/candidates/*.png
 art/*/frames/
+art/*/r1/
+art/*/candidates/**/*.png

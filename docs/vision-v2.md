@@ -62,10 +62,13 @@ Replaces v1's branching node map, part rewards and shop.
 - **Ambient sound** per place (Bellfoot's dusk, each act), built on v1's synthesized music.
 
 ## Meta at a glance
-- **Rarity**: Common, Uncommon, Rare, Masterwork (rule-bending: diagonal motion, a second Mainspring, parts that fire on the enemy's turn), Legendary (run-defining; at most one per run; from a boss's core in acts 2 and 3).
+- **Rarity**: Common, Uncommon, Rare, Masterwork (rule-bending: diagonal motion, a second Mainspring, parts that fire on the enemy's turn), Legendary (run-defining; one per run, part or trinket; from the Queen's core, or the act 3 vault if you hold none). Parts and trinkets both have all five tiers.
 - **Achievements**: about 30 across play styles; each unlocks something, scaled to how hard it is (a chassis, Masterwork and Legendary parts into the pool, landmarks, Overwind levels, journal pages, Sprocket's collars).
 - **Difficulty**: Apprentice (story), Journeyman (default, the curve's mode), Master, Clockwork; after a first win, the **Overwind** dial adds named twists one turn of the key at a time (up to 10).
 - **Brass and blueprints**: as v1 (the upgrade bench), plus Brass from early bells.
+
+## Build order and what could wait
+The roadmap (D5) slices the build. Suggested order, each step playable: enemy machines, targeting and salvage (with the strategy bots proving the Plating answer before anything else is built on it); the roaming act and the clock; wardens and phases; rarity, achievements and difficulty; Bellfoot and the Spire's memory. Art runs alongside in its own phases. If time runs short, these can move to a later phase without breaking the design: Overwind levels 6 to 10, the fourth chassis, two of the five residents.
 
 ## What v2 cuts from v1
 The branching node map, part reward screens, the shop as a store, Cogs (renamed and reworked as Scrap), the abstract Workshop screen (now Bellfoot). v1 saves migrate: Brass, upgrades, blueprints, chassis, history and stats carry over; a run in progress is closed and credited as a loss at its floor.
@@ -77,7 +80,7 @@ The branching node map, part reward screens, the shop as a store, Cogs (renamed 
 4. Hours 3 to 5: two more fights; you skip a third because the gearhound will pass through it at hour 6.
 5. Hour 7: the workbench: fuse two common Gears into an uncommon Flywheel; remove a starter part.
 6. Hour 8: an event: the lamplighter is stuck on a broken lift. Fix the lift with a Lever part: he moves to Bellfoot after the run, and the lift becomes a shortcut in future runs.
-7. Hour 10: you are at the warden's door with 2 hours spare. Ring the bell early: +2 hours' Scrap and Brass. The Foreman: phase 1 is his Wrench Arm and Furnace Grate (the core is sealed). Break both (4 turns), the phase beat (he tears off his apron, a Cog Rat drops in), phase 2 opens his core behind a Bulwark plate; 4 more turns. 8 turns, every phase seen.
+7. Hour 9: you are at the warden's door with 3 hours spare. Ring the bell early: 18 Scrap, 6 Brass and Prepared 1 (an extra placement on the first turn). The Foreman: phase 1 is his Wrench Arm and Furnace Grate (the core is sealed; keystones are Braced, so even a huge turn takes at most half of each). Break both (3 turns); the rest of that Run's damage is lost; the phase beat (he tears off his apron); his next turn is the phase action (a Cog Rat drops in); phase 2 opens his core behind a Bulwark plate, Braced at a third per turn; 4 more turns. 8 turns, every phase seen. Had midnight caught you in the stairwell, he would have come Overwound.
 
 ## Success criteria (v2)
 - Every acceptance criterion in `docs/acceptance.md` sections 9 to 16 has a test or a browser check, and `npm test` is green.

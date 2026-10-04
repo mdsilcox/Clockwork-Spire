@@ -5,8 +5,9 @@ import { describe, it } from 'vitest';
 describe('v2 15. Achievements, rarity, difficulty (rules 5.6, 5.7; content)', () => {
   it.todo('AD1 [U] Given the catalog; when read; then about 30 achievements, each with id, condition, tier, reward; every Masterwork and Legendary part unlocked by exactly one achievement');
   it.todo('AD2 [U, E] Given an achievement\'s condition met mid-run; when the run ends; then it unlocks in the same save write as the RunRecord, shows on the trophy shelf, its reward is in the pool next run');
-  it.todo('AD3 [U] Given a run; when gain parts; then never more than one Legendary in the bin; locked tiers never appear');
+  it.todo('AD3 [U] Given a run; when gain parts and trinkets; then never more than one Legendary in total (part or trinket); locked items never appear; Legendaries come only from the Queen\'s core or, holding none, the act 3 vault');
   it.todo('AD4 [U] Given each mode; when start a run; then enemy HP and damage, hours per act, oil heal and Brass match rules 5.7');
-  it.todo('AD5 [U, E] Given no win yet / a Journeyman win; when open the clock tower door; then Overwind locked / Overwind 1 available; level N applies twists 1 to N');
+  it.todo('AD5 [U, E] Given no win yet / an Apprentice win / a Journeyman win; when open the clock tower door; then Overwind locked / still locked / Overwind 1 available; level N applies twists 1 to N');
+  it.todo('AD7 [U] Given the catalog; when read; then trinkets have Masterwork and Legendary tiers too; at least one Rare and one Masterwork item is unlocked by an achievement that needs no win');
   it.todo('AD6 [E, C] Given parts of each tier; when look; then each tier distinct by color and by a shape mark, not color alone');
 });

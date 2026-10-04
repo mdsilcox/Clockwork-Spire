@@ -3,11 +3,11 @@
 import { describe, it } from 'vitest';
 
 describe('v2 12. The climb (rules 4.1 to 4.6)', () => {
-  it.todo('CL1 [U] Given 200 seeds; when generate each act; then 16 to 20 rooms on 5 to 6 floors; connected; at least two loops; entry at the bottom, warden\'s door at the top; room counts per rules 4.4; patrols are loops of 3 to 5 rooms avoiding entry and door');
+  it.todo('CL1 [U] Given 200 seeds; when generate each act; then 16 to 20 rooms on 5 to 6 floors; connected; at least two loops; entry at the bottom, warden\'s door at the top; shortest entry-to-door path at most 5 moves; room counts per rules 4.4; patrols are loops of 3 to 5 rooms avoiding entry and door');
   it.todo('CL2 [U] Given hour 3, a connected room; when move; then hour 4; elites step one room along their patrols');
   it.todo('CL3 [U] Given an elite steps into the player\'s room / the player steps into an elite\'s; when resolve; then a fight with that elite starts there');
-  it.todo('CL4 [U] Given hour 11, one move; when move, then resolve the room; then the warden fight starts at midnight after the room resolves');
-  it.todo('CL5 [U] Given at the warden\'s door at hour 8 (Journeyman); when ring the bell; then +16 Scrap, +8 Brass; the warden fight starts');
+  it.todo('CL4 [U] Given hour 11, one move; when move, then resolve the room; then the warden fight starts at midnight after the room resolves, and the warden is Overwound (Strength 3, Shell 10)');
+  it.todo('CL5 [U] Given at the warden\'s door at hour 6 (Journeyman, 6 hours left); when ring the bell; then +36 Scrap, +12 Brass, Prepared 2 (two extra placements on the first warden turn); the warden fight starts, not Overwound');
   it.todo('CL6 [U] Given a cleared room; when move through it again; then no encounter; 1 hour passes');
   it.todo('CL7 [E] Given the act screen at 667x375 and 1280x800; when look; then the whole section, the clock, hours left and each elite\'s next room visible with no sideways scroll; tapping a connected room walks there (tinker and Sprocket animate, skippable)');
   it.todo('CL8 [U, E] Given visibility; when enter a room; then it and its neighbors show their kind; others show silhouettes; a Lamplighter resident reveals all');

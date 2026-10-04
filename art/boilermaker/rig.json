@@ -1,0 +1,57 @@
+{
+  "size": [
+    896,
+    1152
+  ],
+  "view": "front",
+  "facing": "front",
+  "feet": 1095,
+  "moods": [
+    "idle",
+    "attack",
+    "hurt",
+    "phase"
+  ],
+  "durations": {
+    "idle": 4,
+    "attack": 2.8,
+    "hurt": 1.8,
+    "phase": 4
+  },
+  "liveValues": {
+    "heat": "0..1, mood target, default 0.2; scales furnace and eye glow and steam"
+  },
+  "brokenFlag": "rig.state.broken = { gauge: true } draws jagged cracks, missing chunks with an ember interior and loose glass at that anchor in any mood; the phase mood sets broken.gauge at the burst",
+  "anchors": {
+    "crown": [
+      445,
+      165,
+      115
+    ],
+    "gauge": [
+      448,
+      478,
+      62
+    ],
+    "furnace": [
+      448,
+      950,
+      75
+    ],
+    "scepter": [
+      140,
+      150,
+      100
+    ],
+    "clockstaff": [
+      750,
+      185,
+      95
+    ],
+    "eyes": [
+      445,
+      263,
+      40
+    ]
+  }
+}

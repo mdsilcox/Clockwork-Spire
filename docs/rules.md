@@ -88,14 +88,16 @@ Every part has an upgraded form, shown with a **+** (for example Spur Gear+). Up
 |---|---|
 | Attack X (x N) | X damage to you, N times; Plating absorbs it. |
 | Pierce X | X damage that ignores Plating. |
-| Corrode X | Remove up to X of your Plating, before the enemy's attacks this turn. |
-| Siphon X | Attack X; the enemy's core heals by the Plating this attack removed. |
+| Corrode X% | Remove X% of your Plating (rounded up), before the enemy's attacks this turn. It scales with stacking: the more Plating you hold, the more it strips. |
+| Siphon X | Attack X; the enemy's core heals by the Plating this attack removed (up to X). |
 | Shell X | The enemy gains Shell X (absorbs damage to its core and parts; falls away at the start of its next turn). |
 | Mend X | Heal X to its core, or rebuild one of its broken parts at half HP (the part says which). |
-| Ratchet X (passive) | At the end of your turn, if this enemy's core (or, while the core is sealed, any keystone) took no damage this turn, it gains Strength X for the rest of the combat. |
-| Countdown N: action | Ticks down each enemy turn (by 1, or by the amount the part lists, plus any bonus it lists, such as the Queen's heat rising by Pressure drained); at 0 performs the action (usually a big Pierce) and resets. Breaking the part defuses it; Jam pauses it for a turn. |
+| Ratchet X (passive) | At the end of each of your turns while this part stands, the enemy gains Strength X for the rest of the combat. Only breaking the part stops it. |
+| Countdown N: action | Ticks down by 1 each enemy turn; at 0 performs the action (usually a big Pierce) and resets to N. Breaking the part defuses it; Jam pauses it for a turn. |
+| Build-up X to Y: action | A gauge on the part rises by X each enemy turn plus any bonus the part lists (the Queen's heat also rises by the Pressure she drains); at Y or more it performs the action and drops to 0. Breaking the part stops it; Jam pauses it for a turn. |
 | Bulwark (passive) | While it stands, the core takes half damage (rounded down) from Strikes and Sweeps. |
 | Governor X (passive) | While it stands, no single Strike deals more than X to this enemy. |
+| Braced (wardens) | A warden's keystone takes at most half its max HP (rounded up) per player turn, and its exposed core in the last phase at most a third of its max HP per turn. Damage past the cap is lost. So every phase lasts at least 2 turns and the last at least 3, whatever the build. |
 | Rust, Jam, Magnetize, Drain | v1's sabotage of your machine. |
 | Corroded X, Dazed X on you | v1 statuses, now also from parts. |
 | Summon | A new enemy joins at the right, with its intents shown (some enemies summon once at the start of combat). |
@@ -104,7 +106,7 @@ Every part has an upgraded form, shown with a **+** (for example Spur Gear+). Up
 | Purge | Clears every status on its own frame (v1's statuses on enemies). |
 | Echo | Attacks for the damage your strongest part dealt last turn (v1's Echo Sprite), minimum as listed. |
 
-**Counterplay by design.** Plating stacking meets Pierce, Corrode, Siphon, Ratchet and Countdown: you must break those parts, which means aiming damage at parts instead of piling Plating. Burst meets Bulwark, Governor, sealed cores and lost overkill: one giant Strike is worth less than several aimed ones. Every regular enemy has at least one part that punishes one of the two plans (content.md lists "punishes" per enemy).
+**Counterplay by design.** Plating stacking meets Pierce, Corrode (a share of your Plating, so it grows with the stack), Siphon, Ratchet and Countdown: you must break those parts, which means aiming damage at parts instead of piling Plating. Each act's regular pool must carry a real share of damage that ignores or strips Plating (content.md states the share per act; rules 7.4 target 7). Regular cores hold most of an enemy's HP, so racing the core while its parts act costs HP, and a raced core wrecks its parts (no salvage). Burst meets Bulwark, Governor, sealed cores and lost overkill: one giant Strike is worth less than several aimed ones. Every regular enemy has at least one part that punishes one of the two plans (content.md lists "punishes" per enemy).
 
 ### 2.5 Winning, losing and salvage
 - You win the combat when every enemy is destroyed; you lose the run at 0 HP. Summoned enemies count.
@@ -134,13 +136,13 @@ On you: **Plating X**, **Corroded X**, **Grit X** (v1). On your parts: **Rusted*
 
 ### 4.1 Acts as places
 - Three acts: the Gearworks, the Steamworks, the Belfry. Each act is one **section** of the Spire, drawn as a cut-away: 5 to 6 **floors** of 3 to 4 **rooms**, 16 to 20 rooms in all *(tune)*.
-- Rooms connect by **passages**: along a floor to the next room, and by stairs, ducts and lifts between floors. The section is generated from the run seed (`map` stream): a connected graph with at least two loops, every room reachable, the **entry** at the bottom and the **warden's door** at the top. Some passages are **locked doors** (4.6).
+- Rooms connect by **passages**: along a floor to the next room, and by stairs, ducts and lifts between floors. The section is generated from the run seed (`map` stream): a connected graph with at least two loops, every room reachable, the **entry** at the bottom and the **warden's door** at the top. The shortest path from entry to door is at most 5 moves, so even the fewest hours any mode and Overwind allow (8) leave at least 3 spare hours. Some passages are **locked doors** (4.6).
 - The whole layout is visible. A room you have visited, or one next to it, shows its kind; other rooms show a silhouette only. Rooms you cleared stay cleared and can be crossed again.
 
 ### 4.2 The Spire clock
 - Each act starts at dusk, hour 0. Moving to a connected room takes **1 hour**. Resting at an oil station takes 1 more hour. Fights, events, trading and the workbench take no extra time.
-- At **midnight** (hour 12 on Journeyman; modes in 5.7), when the current room is resolved, the warden comes: the warden fight starts where you stand.
-- You may walk to the warden's door and **ring the bell** early. Each hour left pays 4 Scrap and 2 Brass *(tune)*.
+- At **midnight** (hour 12 on Journeyman; modes in 5.7), when the current room is resolved, the warden comes: the warden fight starts where you stand, and the warden is **Overwound**: Strength 3 and Shell 10 at the start of the fight *(tune)*. Running out of time is a real cost.
+- You may walk to the warden's door and **ring the bell** early. Each hour left pays 6 Scrap and 2 Brass, and for every 3 hours left you are **Prepared**: +1 placement on your first warden turn (at most +2) *(tune)*. The bell is worth more than the fights you skip only when your machine is ready; that is the choice.
 - Some event choices cost or give back hours; the button says so ("Take the long way: +1 hour").
 - The clock, hours left and each roaming elite's next room are always on screen.
 
@@ -174,12 +176,12 @@ On you: **Plating X**, **Corroded X**, **Grit X** (v1). On your parts: **Rusted*
 - Winning: the warden's core breaks open: a Rare or Masterwork part (the act 2 warden: a Legendary, if any is unlocked and you hold none), its salvage, a boss trinket choice (as v1), heal 40% of HP lost. The next act starts at dusk. The Clockmaker's defeat ends the run, so his broken parts pay 4 Brass each instead of salvage.
 
 ### 4.8 Phases you see
-- A warden's phase is a set of parts. Its core is sealed until every keystone of the current phase is broken. When the last keystone breaks:
-  1. its remaining intents this turn are cancelled and no damage carries over;
+- A warden's phase is a set of parts. Its core is sealed until every keystone of the current phase is broken. Keystones and the last phase's core are **Braced** (2.4). When the last keystone breaks:
+  1. the rest of that Run's damage to the warden is lost (later ticks don't touch the next phase), and its remaining intents are cancelled;
   2. the **phase beat** plays (a line, the arena changes, the painting's phase mood);
-  3. the warden takes one free **phase action** at once (a summon, a heal, a Rewind) shown before it happens;
-  4. the next phase's parts unfold with their intents.
-- In the last phase the core is exposed, usually behind a Bulwark or Governor. Target length on Journeyman: Foreman about 7 turns, Queen about 8, the Clockmaker about 9 for the expert bot, at least 2 turns per phase (7.4).
+  3. the next phase's parts unfold; the warden's next turn is its **phase action** only (a summon, a heal, a Rewind), shown as its intent, with no attacks;
+  4. cadences restart: the turn after the phase action is turn 1 of the new phase.
+- In the last phase the core is exposed, usually behind a Bulwark or Governor. Target length on Journeyman: Foreman about 7 turns, Queen about 8, the Clockmaker about 9 for the expert bot; Braced makes 2 turns per phase (3 for the last) a hard floor for any build.
 
 ### 4.9 The Clockmaker
 - Three phases (Tick, Tock, Midnight), each with its own keystones; his core is exposed only in Midnight.
@@ -190,7 +192,7 @@ On you: **Plating X**, **Corroded X**, **Grit X** (v1). On your parts: **Rusted*
 ## 5. Between runs: Bellfoot
 
 ### 5.1 The town
-Every run ends in **Bellfoot**, the town at the Spire's foot (replaces v1's Workshop screen). It is a short street you walk along (tap a place, or arrow keys); every place is also one tap from the town menu. Places: the Workshop (upgrade bench, chassis rack, inventor's notes), Sprocket's corner, the trophy shelf (achievements), the archivist (journal, bestiary, the Clockmaker's note), the clock tower door (mode and Overwind), the Spire gate (start a run), and residents' stalls (5.4). Sprocket greets you as in v1 (5.5).
+Every run ends in **Bellfoot**, the town at the Spire's foot (replaces v1's Workshop screen). It is a short street you walk along (tap a place, or arrow keys); every place is also one tap from the town menu. Places: the Workshop (upgrade bench, chassis rack, inventor's notes), Sprocket's corner, the trophy shelf (achievements), the archivist (journal, bestiary, the Clockmaker's note; present from the first run; the Hour Ghost later adds lore pages and fuller bestiary entries), the clock tower door (mode and Overwind), the Spire gate (start a run), and residents' stalls (5.4). Sprocket greets you as in v1 (5.5).
 
 ### 5.2 Earning
 - **Brass** per run: v1's table (4 per floor climbed becomes 2 per room cleared, act 2 rooms 3, act 3 rooms 4), plus 10 per elite, 25 per warden, 50 for a victory, plus early bells (4.2). Scaled by mode (5.7).
@@ -210,7 +212,7 @@ v1's reactions, now in Bellfoot (painted and rigged: idle, happy, sleepy, walk).
 ### 5.6 Achievements and unlocks
 - About 30 achievements (content.md: id, condition, reward, hidden or not). Progress is shown on the trophy shelf.
 - Rewards scale with difficulty: easy feats unlock journal pages and Sprocket's collars; medium feats unlock Rare and Masterwork parts into the pool, landmarks and the fourth chassis; hard feats (wins on Master or Clockwork, high Overwind) unlock Legendary parts and Overwind levels.
-- **Masterwork and Legendary parts all start locked**; achievements are their only unlock. Legendary: at most one per run.
+- **Masterwork and Legendary parts and trinkets all start locked**; achievements are their only unlock. **One Legendary per run**, part or trinket. Legendary sources: the Queen's core, or the act 3 vault if you hold none (4.4, 4.7).
 
 ### 5.7 Difficulty
 | Mode | Enemy HP | Enemy damage | Hours per act | Oil heal | Brass | Unlocked |
@@ -219,7 +221,7 @@ v1's reactions, now in Bellfoot (painted and rigged: idle, happy, sleepy, walk).
 | Journeyman | 100% | 100% | 12 | 30% | 100% | from the start (default) |
 | Master | 115% | 115% | 11 | 25% | 125% | after a Journeyman win |
 | Clockwork | 130% | 125% | 10 | 20% | 150% | after a Master win |
-All *(tune)*. The curve (5.8) is set on Journeyman. **Overwind** unlocks after your first win on Journeyman or harder: a dial of 10 levels on top of the mode, each adding one named twist (content.md); level N includes all twists below it; +10% Brass per level.
+All *(tune)*. The curve (5.8) is set on Journeyman. **Overwind** unlocks after your first win on Journeyman or harder (an Apprentice win doesn't open it): a dial of 10 levels on top of the mode, each adding one named twist (content.md); level N includes all twists below it; +10% Brass per level.
 
 ### 5.8 The curve (enforced by the simulator, 7.4)
 - With no meta progression, the expert bot wins under 5% of Journeyman runs (the greedy bot under 2%).
@@ -237,7 +239,9 @@ All *(tune)*. The curve (5.8) is set on Journeyman. **Overwind** unlocks after y
 - **Turtle**: maximizes Plating each turn, then damage; targets the core.
 - **Burst**: maximizes damage each turn, Plating only as a tie-break; targets the core.
 - **Expert**: beam search over the turn (placements, swap, target order) with a one-turn lookahead (next intents, charge, Pressure, Ratchet, Countdown), and part-aware targeting (break what punishes its plan first). Under 50 ms per turn on average.
-- Run policies: greedy (v1-like) and **expert** (drafts toward a plan, removes weak starters, plans routes against the clock, values salvage, rings early when ready).
+- **Max-burst**: the expert's search with damage weighted far above safety; the proxy for the owner's 4-turn Clockmaker kill.
+- Run policies: greedy (v1-like), **expert** (drafts toward a plan, removes weak starters, plans routes against the clock, values salvage, rings early when ready), **rusher** (straight to the door, rings the bell) and **grinder** (fights every reachable room until midnight).
+- Career policy: bots unlock achievements as they happen in play; the expert takes event choices that send residents and set landmarks when offered; Brass follows the sensible upgrade path (v1).
 
 ### 7.2 Reports
 `npm run sim -- --mode fights|runs|careers|strategies` writes dated reports to `balance/`: per-tier win rate, HP lost (mean, p10, p90) and turns for every bot; turns per warden phase; peak Plating; careers' first-win distribution; offer-based part impact (offers are now trader stock, fuse results and salvage taken versus scrapped).
@@ -252,7 +256,10 @@ These set the v2 targets below: Plating is the line the v2 enemy parts must answ
 ### 7.4 Targets, checked by tests (`tests/sim/`)
 1. Expert, no meta progression, Journeyman: win rate under 5% (300 runs); greedy under 2%.
 2. Expert careers on the sensible path: median first win between run 8 and 12 (at least 100 careers; no win by run 30 counts as 31).
-3. **No trivial strategy**: for every elite and warden (and for each act's normal fights as a group), neither the turtle nor the burst bot averages under 10% of max HP lost, and the expert's win rate beats each of them by at least 15 points at the same bins.
-4. **Phases seen**: wardens' turns for the expert: Foreman 6 to 9, Queen 7 to 10, Clockmaker 8 to 12 (median); every phase lasts at least 2 turns in 90% of expert fights.
+3. **No trivial strategy**: on the same bins, the turtle and burst bots each lose at least 1.5x the expert's mean HP on every elite and warden, and at least 10% of max HP on average in each act's normal fights.
+4. **Phases seen**: wardens' turns for the expert: Foreman 6 to 9, Queen 7 to 10, Clockmaker 8 to 12 (median). For every bot including max-burst, every phase lasts at least 2 turns and the last at least 3 (guaranteed by Braced; checked).
 5. No part's offer-based impact is more than double the median part's (v1 target 3, kept).
 6. Expert per-turn time under 50 ms on average (so careers finish in minutes).
+7. **Plating answered**: the turtle bot's Plating fully absorbs an enemy turn in at most 40% of enemy turns, per act; and in content, at least 30% of each act's regular expected damage per turn ignores or strips Plating (Pierce, Corrode, Siphon), computed from the defs.
+8. **Approachable**: greedy careers' median first win at most run 20 (a casual player still wins).
+9. **Clock**: the rusher and grinder route bots both win less often than the expert (the clock rewards judgment, not one route rule).

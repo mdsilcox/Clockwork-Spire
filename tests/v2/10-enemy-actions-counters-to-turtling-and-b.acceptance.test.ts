@@ -4,10 +4,11 @@ import { describe, it } from 'vitest';
 
 describe('v2 10. Enemy actions: counters to turtling and burst (rules 2.4, 3)', () => {
   it.todo('EA1 [U] Given player Plating 20; enemy Pierce 7; when enemy acts; then player loses 7 HP; Plating 20 untouched');
-  it.todo('EA2 [U] Given Plating 12; Corrode 8 then Attack 6; when enemy acts; then Plating 4 after Corrode; the attack takes it to 0 and deals 2');
+  it.todo('EA2 [U] Given Plating 12; Corrode 50% then Attack 9; when enemy acts; then Plating 6 after Corrode; the attack takes it to 0 and deals 3; with Plating 40, Corrode 50% strips 20');
   it.todo('EA3 [U] Given Plating 10; Siphon 8; core 30 of 40; when enemy acts; then player loses 0 HP; Plating 2; core 38');
-  it.todo('EA4 [U] Given Ratchet 3; the player\'s turn dealt no damage to its core; when turn ends; then Strength 3; its attacks deal +3; a turn that hits the core adds nothing');
-  it.todo('EA5 [U] Given Countdown 2: Pierce 25; when two enemy turns pass / the part breaks first; then Pierce 25 lands on the second / nothing happens');
+  it.todo('EA4 [U] Given Ratchet 2 standing for two of your turns, then broken; when turns end; then Strength 2, then 4, then no more growth; its attacks deal +4');
+  it.todo('EA5 [U] Given Countdown 2: Pierce 25; when two enemy turns pass / the part breaks first / it is Jammed once; then Pierce 25 lands on the second, then it resets to 2 / nothing happens / it lands one turn later');
+  it.todo('EA12 [U] Given Build-up 6 to 20: Attack 40, with a bonus of the Pressure it drains; when three enemy turns with 0, 4, 0 drained; then gauge 6, 16, 22: the Attack 40 lands on the third turn and the gauge drops to 0');
   it.todo('EA6 [U] Given Bulwark standing; Strike 9 at the core; when run; then core takes 4; after the Bulwark breaks, 9');
   it.todo('EA7 [U] Given Governor 8; a Strike 20; when run; then the target takes 8');
   it.todo('EA8 [U] Given Mend (rebuild) on a broken Jaw; when enemy acts; then the Jaw returns at half HP with its action; its salvage no longer counts as broken');

@@ -1,0 +1,9 @@
+{
+  "size": [1216, 832],
+  "view": "profile",
+  "facing": "left",
+  "feet": 758,
+  "moods": ["idle", "attack", "hurt", "death"],
+  "durations": { "idle": 3, "attack": 2, "hurt": 1.5, "death": 3 },
+  "anchors": { "jaw": [118, 216, 34], "plate": [690, 420, 130], "eye": [310, 162, 36], "tail": [1060, 560, 80] }
+}
