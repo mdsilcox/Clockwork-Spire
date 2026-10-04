@@ -28,3 +28,9 @@ A synthesized music loop for each act, the Workshop and the Clockmaker, mixed un
 
 ## Done when
 Unit tests green; you rendered each loop offline (OfflineAudioContext in a Playwright page, 20 s each) without errors and checked peak levels stay under the limiter. Report per template with a one-line description of each track.
+
+## Also in this lane: Sprocket polish (B4 critic)
+You also own `src/render/sprocket.ts` and `src/ui/Ending.tsx` this phase.
+- Smooth Sprocket's rear: the scalloped blob reads like a cookie, most visibly in the large sleeping ending pose. Make it a soft, round, fluffy corgi rear (a smooth heart-ish double curve with a few short fur tufts at the edge), in every pose.
+- At 667x375 the first two ending captions sit side by side and squeeze each other: stack or sequence them.
+- Give the ending its own music cue through your music API (`ending`), a music box version of the Workshop theme.
