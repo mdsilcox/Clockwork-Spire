@@ -61,27 +61,28 @@ test('map: legend, act title, and R9 tapping a reachable node (unreachable ones 
   expect(errors).toEqual([]);
 });
 
-test('fight, reward and back to the map; the title offers Continue climb', async ({ page }) => {
+test('fight, salvage tray and back to the map; the title offers Continue climb', async ({ page }) => {
   const errors = watchErrors(page);
   await enterFirst(page);
   await expect(page.getByTestId('combat')).toBeVisible();
   const before = (await rs(page))!.bin.length;
   await page.evaluate(() => (window as unknown as { __game: G }).__game.cheat.winFight());
   await expect(page.getByTestId('screen-reward')).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByTestId('reward-cogs')).toContainText('Cogs');
+  // v2: the salvage tray replaces the pick-1-of-3 part reward; winning without breaking a part leaves it empty
+  await expect(page.getByTestId('salvage-tray')).toBeVisible();
+  await expect(page.getByTestId('salvage-cogs')).toContainText('Cogs');
+  await expect(page.getByTestId('reward-part')).toHaveCount(0);
   await noSidewaysScroll(page);
-  await expect(page.getByTestId('reward-part').first()).toContainText(/\S+/);
-  await press(page, page.getByTestId('reward-part').first());
-  await press(page, page.getByTestId('continue-node'));
+  await press(page, page.getByTestId('salvage-done'));
   await expect(page.getByTestId('map')).toBeVisible();
-  expect((await rs(page))!.bin.length).toBe(before + 1);
+  expect((await rs(page))!.bin.length).toBe(before);
 
   await press(page, page.getByTestId('run-menu'));
   await press(page, page.getByTestId('run-to-title'));
   await expect(page.getByTestId('title')).toBeVisible();
   await press(page, page.getByTestId('continue-run'));
   await expect(page.getByTestId('map')).toBeVisible();
-  expect((await rs(page))!.bin.length).toBe(before + 1);
+  expect((await rs(page))!.bin.length).toBe(before);
   expect(errors).toEqual([]);
 });
 

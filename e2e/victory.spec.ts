@@ -37,10 +37,10 @@ test('cheat to the Clockmaker, win, and see the victory screen', async ({ page }
   await expect(page.getByTestId('boss-intro')).toHaveCount(0);
   await page.evaluate(() => (window as unknown as { __game: G }).__game.cheat.winFight());
   await expect(page.getByTestId('screen-reward')).toBeVisible({ timeout: 10_000 });
-  // a boss gives a part and a trinket
-  await press(page, page.getByTestId('reward-part').first());
+  // a boss gives its salvage and a trinket choice
+  await expect(page.getByTestId('salvage-tray')).toBeVisible();
   if (await page.getByTestId('reward-trinket').count()) await press(page, page.getByTestId('reward-trinket').first());
-  await press(page, page.getByTestId('continue-node'));
+  await press(page, page.getByTestId('salvage-done'));
   await expect(page.getByTestId('victory')).toBeVisible();
   await expect(page.getByTestId('ending')).toBeVisible();
   await noSidewaysScroll(page);

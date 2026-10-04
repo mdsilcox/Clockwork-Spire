@@ -19,6 +19,7 @@ export interface AutoCtl {
   go(id: string): boolean;
   reward(i: number | null): boolean;
   rewardTrinket(i: number | null): boolean;
+  salvage(keep: number[]): boolean;
   choose(i: number): string | null;
   pickPart(uid: number): boolean;
   shopBuy(i: number): boolean;
@@ -99,6 +100,15 @@ async function playOneRun(ctl: AutoCtl, m: BotMemory): Promise<boolean> {
         ok = await playCombat(ctl, m);
         break;
       case 'reward': {
+        const sp = run.pending;
+        if (sp && sp.kind === 'salvage') {
+          // v2: keep every unlocked salvage that fits the plan's families (the bot keeps the first two), scrap the rest
+          const keep = sp.items.flatMap((it, i) => (it.locked ? [] : [i])).slice(0, 2);
+          ok = ctl.salvage(keep);
+          if (ok && sp.trinkets.length > 0 && !sp.trinketTaken) ok = ctl.rewardTrinket(0);
+          if (ok) ok = ctl.leave();
+          break;
+        }
         const pick = rewardPick(run, m);
         if (pick.part !== undefined) ok = ctl.reward(pick.part);
         if (ok && pick.trinket !== undefined) ok = ctl.rewardTrinket(pick.trinket);
