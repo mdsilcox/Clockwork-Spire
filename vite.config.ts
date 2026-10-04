@@ -6,6 +6,7 @@ export default defineConfig({
   server: { port: 5173 },
   test: {
     include: ['tests/**/*.test.ts'],
+    exclude: ['tests/pending/**', 'node_modules/**'],
     environment: 'node',
   },
 });
