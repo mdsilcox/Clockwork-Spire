@@ -37,3 +37,13 @@ Every choice the spec leaves open, with its reason. Newest last. The spec (`SPEC
 **D-012 Dominated commons fixed.** Metronome and Anchor Escapement hold on tick 1 (they starve the parts behind them that tick), so they trade against Spur and Escapement instead of beating them.
 
 **D-013 Sprocket is "he"** (a fictional dog; the spec leaves it open).
+
+## 2026-10-04 · B1 and B2
+
+**D-014 Practice fight.** Tinker start plus cam, boiler, piston, pendulum against cog-rat and two rust-mites (B1), then brass-beetle plus spring-imp (B2) once those existed: the bot wins with 40 HP left while random placement wins 1%. The B1 critic found the first version needed no choices.
+
+**D-015 Enemy strength is tuned on HP lost per fight, not win rate.** A greedy bot wins about 99% of single fights whatever the parts, so win-rate impact said nothing. Targets per tier (bot average HP lost): act 1 normal 6-9, elite 16-22, Foreman 24-32; act 2 normal 9-13, elite 20-27, Queen 28-36; act 3 normal 12-17, elite 25-33, Clockmaker 36-48. All met after raising enemy attacks 25-60% and HP 10-15% (balance/2026-10-04-fights-1.md). Run-level difficulty is set in B4 against the spec's targets.
+
+**D-016 Combat-level part report measures all 46 parts** by varying the starting set (three chassis or random commons) and including locked parts; the run pool still excludes locked parts until their blueprint is found.
+
+**D-017 Worktrees per lane, merged in dependency order** (core first), with a frozen review worktree per critic round; the Playwright port comes from PW_PORT so lanes run e2e side by side.
