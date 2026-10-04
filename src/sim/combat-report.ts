@@ -34,7 +34,12 @@ export async function loadEncounters(): Promise<Encounter[]> {
   return list.filter((e) => e.enemies.every((id) => ENEMIES[id]));
 }
 
-const CHASSIS_TINKER = ['spur', 'spur', 'spur', 'escapement', 'escapement', 'escapement', 'idler', 'coil'];
+// Chassis starting bins (docs/content.md); the fourth base is eight random commons, so starters get with/without groups too.
+const CHASSIS: string[][] = [
+  ['spur', 'spur', 'spur', 'escapement', 'escapement', 'escapement', 'idler', 'coil'],
+  ['boiler', 'boiler', 'piston', 'piston', 'escapement', 'escapement', 'safety-valve', 'spur'],
+  ['cam', 'cam', 'pendulum', 'escapement', 'escapement', 'metronome', 'spur', 'anchor'],
+];
 const ACT_HP = [50, 65, 80];
 // Cumulative odds (common, then uncommon) per act, from docs/content.md "Reward rarity by act".
 const RARITY_ODDS: Record<number, [number, number]> = { 1: [0.7, 0.95], 2: [0.55, 0.9], 3: [0.45, 0.83] };
@@ -46,14 +51,17 @@ function drawRarity(rng: RngState, act: number): Rarity {
 }
 
 export function randomBin(rng: RngState, act: number, boss = false): PartInstance[] {
-  const ids = Object.keys(PARTS).filter((id) => !PARTS[id].locked);
+  // The sandbox may use locked parts too (the run pool can't: a run-level concern).
+  const ids = Object.keys(PARTS);
   const byRarity: Record<Rarity, string[]> = { common: [], uncommon: [], rare: [] };
   for (const id of ids) byRarity[PARTS[id].rarity].push(id);
   const bin: PartInstance[] = [];
   const add = (defId: string): void => {
     if (PARTS[defId]) bin.push({ uid: bin.length + 1, defId, plus: false });
   };
-  for (const id of CHASSIS_TINKER) add(id);
+  const base = int(rng, 'reward', 4);
+  if (base < 3) for (const id of CHASSIS[base]) add(id);
+  else for (let i = 0; i < 8; i++) add(byRarity.common[int(rng, 'reward', byRarity.common.length)]);
   const extra = boss ? 8 + int(rng, 'reward', 5) : 4 + int(rng, 'reward', 7);
   for (let i = 0; i < extra; i++) {
     let pool = byRarity[drawRarity(rng, act)];
@@ -68,6 +76,8 @@ interface FightRow {
   act: number;
   tier: string;
   hpLost: number;
+  maxShare: number;
+  topPart: string;
   won: boolean;
   turns: number;
   hpLeft: number;
@@ -85,6 +95,20 @@ export interface FightsOpts {
 const f1 = (x: number): string => x.toFixed(1);
 const pct = (x: number): string => `${(x * 100).toFixed(1)}%`;
 
+function topOf(output: Record<string, number>): { id: string; share: number } {
+  let id = '';
+  let best = 0;
+  let tot = 0;
+  for (const k of Object.keys(output).sort()) {
+    tot += output[k];
+    if (output[k] > best) {
+      best = output[k];
+      id = k;
+    }
+  }
+  return { id, share: tot > 0 ? best / tot : 0 };
+}
+
 export function runFights(o: FightsOpts): { rows: FightRow[] } {
   const byAct: Record<number, Encounter[]> = { 1: [], 2: [], 3: [] };
   for (const e of o.encounters) byAct[e.act].push(e);
@@ -101,6 +125,8 @@ export function runFights(o: FightsOpts): { rows: FightRow[] } {
       act,
       tier: enc.tier === 'boss' ? 'boss' : enc.tier === 'elite' ? 'elite' : 'normal',
       hpLost: ACT_HP[act - 1] - r.hpLeft,
+      maxShare: topOf(r.output).share,
+      topPart: topOf(r.output).id,
       won: r.won,
       turns: r.turns,
       hpLeft: r.hpLeft,
@@ -122,6 +148,7 @@ export interface Summary {
   parts: Record<string, { inBins: number; winWith: number | null; winWithout: number | null; impact: number | null; hpLostWith: number | null; hpLostWithout: number | null; defenseImpact: number | null; outputShare: number | null }>;
   medianDefenseImpact: number | null;
   flagged: string[];
+  clockmaker?: { fights: number; winRate: number; avgHpLost: number; p90HpLost: number; avgTopShare: number; p90TopShare: number; topParts: string[] };
 }
 
 const avg = (xs: number[]): number => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
@@ -153,7 +180,17 @@ export function buildReportWithSummary(o: FightsOpts, date: string): { markdown:
   out.push(`Date: ${date}`);
   out.push('');
   out.push(
-    'Combat level only: the bot plays single fights with random bins (Tinker start plus 4 to 10 parts by act rarity, 8 to 12 for bosses; HP 50, 65, 80 by act). The impact ratio here is a B2 indicator, not the run-level target.',
+    'Combat level only: the bot plays single fights with random bins (a Tinker, Stoker or Horologist start, or eight random commons, plus 4 to 10 parts from the whole catalog by act rarity (8 to 12 for bosses); HP 50, 65, 80 by act). The impact ratio here is a B2 indicator, not the run-level target.',
+  );
+  out.push('');
+  out.push('VERDICT_PLACEHOLDER');
+  out.push('');
+  out.push(
+    '## How to read this',
+  );
+  out.push('');
+  out.push(
+    'The bot plays whole fights with the real rules. Win rate is nearly 100%, so it cannot rank parts; HP lost per fight is the useful signal. Defense impact above 1 means bins with the part lose less HP than bins without it, inside the same encounter. The win impact column stays near 1.00 for the same reason. Output share counts damage plus Plating. All figures are combat level, from random bins; they are indicators for tuning, not run-level targets.',
   );
   out.push('');
   out.push('## Overall');
@@ -203,9 +240,7 @@ export function buildReportWithSummary(o: FightsOpts, date: string): { markdown:
   out.push('');
 
   const MIN = 20;
-  const partIds = Object.keys(PARTS)
-    .filter((id) => !PARTS[id].locked)
-    .sort();
+  const partIds = Object.keys(PARTS).sort();
   type PR = { id: string; line: string; di: number | null };
   const prs: PR[] = [];
   for (const id of partIds) {
@@ -262,6 +297,25 @@ export function buildReportWithSummary(o: FightsOpts, date: string): { markdown:
   summary.medianDefenseImpact = med;
   summary.flagged = med === null ? [] : prs.filter((r) => r.di !== null && r.di > 2 * med).map((r) => r.id);
 
+  const cm = rows.filter((r) => r.enc.includes('clockmaker'));
+  out.push('## Clockmaker baseline (before Rewind)');
+  out.push('');
+  if (cm.length) {
+    const shares = cm.map((r) => r.maxShare);
+    const tops = new Map<string, number>();
+    for (const r of cm) tops.set(r.topPart, (tops.get(r.topPart) ?? 0) + 1);
+    const topList = [...tops.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 3);
+    const hp = cm.map((r) => r.hpLost);
+    summary.clockmaker = { fights: cm.length, winRate: stat(cm).winRate, avgHpLost: avg(hp), p90HpLost: p90(hp), avgTopShare: avg(shares), p90TopShare: p90(shares), topParts: topList.map(([id]) => id) };
+    out.push('Before Rewind (B3) exists. The share is the strongest single part (damage plus Plating) over the machine total in each fight (the contribution record does not split damage from Plating). B3 should confirm Rewind pushes these numbers the right way for one-trick builds.');
+    out.push('');
+    out.push(`- Fights: ${cm.length}, win rate ${pct(stat(cm).winRate)}`);
+    out.push(`- HP lost: average ${f1(avg(hp))}, p90 ${f1(p90(hp))}`);
+    out.push(`- Strongest single part's share of output: average ${pct(avg(shares))}, p90 ${pct(p90(shares))}`);
+    out.push(`- Most often the strongest part: ${topList.map(([id, k]) => `${id} (${k})`).join(', ')}`);
+  } else out.push('No Clockmaker fights in this run.');
+  out.push('');
+
   out.push('## Parts');
   out.push('');
   out.push(
@@ -278,5 +332,16 @@ export function buildReportWithSummary(o: FightsOpts, date: string): { markdown:
     out.push(summary.flagged.length ? `Flagged above 2x the median (${(2 * med).toFixed(2)}): ${summary.flagged.join(', ')}.` : 'No part is above 2x the median.');
     out.push('');
   }
+  const wi = Object.values(summary.parts)
+    .map((p) => p.impact)
+    .filter((x): x is number => x !== null);
+  const wiTxt = wi.length ? `win-rate impact spans ${Math.min(...wi).toFixed(2)} to ${Math.max(...wi).toFixed(2)}` : 'win-rate impact is not measurable';
+  const verdict =
+    med === null
+      ? 'Verdict: not enough data.'
+      : summary.flagged.length
+        ? `Verdict: ${summary.flagged.length} part(s) exceed 2x the median defense impact (${summary.flagged.join(', ')}); ${wiTxt}; ${dis.length} of ${partIds.length} parts measured.`
+        : `Verdict: no part exceeds 2x the median defense impact (median ${med.toFixed(2)}, max ${dis[dis.length - 1].toFixed(2)}); ${wiTxt}; ${dis.length} of ${partIds.length} parts measured.`;
+  out[out.indexOf('VERDICT_PLACEHOLDER')] = verdict;
   return { markdown: out.join('\n'), summary };
 }

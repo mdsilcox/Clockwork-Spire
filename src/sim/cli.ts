@@ -14,7 +14,7 @@ async function main(): Promise<void> {
     return;
   }
   const seed = Number(arg('seed', '1'));
-  const fights = Number(arg('fights', '2000'));
+  const fights = Number(arg('fights', '4000'));
   const date = arg('date', new Date().toISOString().slice(0, 10)); // the only clock read
   const encounters = await loadEncounters();
   const t0 = performance.now();
