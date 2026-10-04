@@ -255,6 +255,7 @@ test('rules tooltip on hover, focus and long press stays inside the screen', asy
     expect(b!.y + b!.height).toBeLessThanOrEqual(vp.height);
   };
   // keyboard focus on a hand card
+  await page.keyboard.press('Shift');
   await page.getByTestId('hand-card').first().focus();
   await expect(page.getByTestId('tooltip')).toContainText('.');
   await inside();
@@ -269,6 +270,7 @@ test('rules tooltip on hover, focus and long press stays inside the screen', asy
   await page.mouse.up();
   // a placed part shows its name and text
   await page.evaluate(() => (window as unknown as { __game: Game & { debugBoard(s: object): void } }).__game.debugBoard({ B2: 'coil' }));
+  await page.keyboard.press('Shift'); // keyboard focus (not a tap) opens the tooltip
   await page.getByTestId('cell-B2').focus();
   await expect(page.getByTestId('tooltip')).toContainText('Coil Spring');
   await expect(page.getByTestId('tooltip')).toContainText('Charge 0/3');

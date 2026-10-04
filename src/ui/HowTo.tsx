@@ -40,50 +40,74 @@ function Badge({ col, row, text }: { col: number; row: number; text: string }) {
   );
 }
 
+/** A numbered marker, drawn near the thing it explains. */
+function Marker({ x, y, n }: { x: number; y: number; n: number }) {
+  return (
+    <g class="hw-marker">
+      <circle cx={x} cy={y} r="9" />
+      <text x={x} y={y + 4} text-anchor="middle">
+        {n}
+      </text>
+    </g>
+  );
+}
+
+const LEGEND: [string, string][] = [
+  ['Mainspring', 'sends motion into the part beside it.'],
+  ['Spur Gear', 'is powered first and does its effect: Strike 3.'],
+  ['Escapements', 'get the motion next, because they touch the Spur. Each does Plate 3.'],
+  ['Coil Spring', 'holds the motion: it charges, then releases later.'],
+  ['The x3 badges', 'show how many times each part fires this turn.'],
+];
+
 export function TurnDiagram() {
   const cells: preact.JSX.Element[] = [];
   for (let r = 0; r < 3; r++) for (let c = 0; c < 5; c++) cells.push(<rect key={`${c}${r}`} x={X0 + c * C + 2} y={Y0 + r * C + 2} width={C - 4} height={C - 4} rx="5" class="hw-cell" />);
+  const teeth: string[] = [];
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    teeth.push(`M${cx(1) + Math.cos(a) * 13} ${cy(1) + Math.sin(a) * 13} L${cx(1) + Math.cos(a) * 19} ${cy(1) + Math.sin(a) * 19}`);
+  }
   return (
-    <svg class="hwdiagram" viewBox="0 0 330 238" role="img" aria-label="A turn: the Mainspring sends motion into a Spur Gear, which passes it to two Escapements and a Coil Spring that holds it. Badges show how many times each part fires." data-testid="howto-diagram">
+    <svg class="hwdiagram" viewBox="0 0 330 200" role="img" aria-label="A turn: the Mainspring sends motion into a Spur Gear, which passes it to two Escapements and a Coil Spring that holds it. Badges show how many times each part fires." data-testid="howto-diagram">
       {cells}
-      {/* the Mainspring */}
+      {/* 1: the Mainspring */}
       <circle cx={cx(0)} cy={cy(1)} r="19" class="hw-spring" />
       <path d={`M${cx(0)} ${cy(1)} m0 -3 a3 3 0 1 1 -3 3 a7 7 0 1 1 7 7 a11 11 0 1 1 -11 -11`} class="hw-swirl" />
-      {/* parts */}
-      <g>
-        <circle cx={cx(1)} cy={cy(1)} r="14" class="hw-gear" />
-        <path d={`M${cx(1)} ${cy(1) - 14} v-5 M${cx(1)} ${cy(1) + 14} v5 M${cx(1) - 14} ${cy(1)} h-5 M${cx(1) + 14} ${cy(1)} h5`} class="hw-tooth" />
-        <circle cx={cx(1)} cy={cy(0)} r="12" class="hw-tempo" />
-        <circle cx={cx(1)} cy={cy(2)} r="12" class="hw-tempo" />
-        <path d={`M${cx(2) - 13} ${cy(1) - 7} q6.5 -7 13 0 t13 0 M${cx(2) - 13} ${cy(1) + 1} q6.5 -7 13 0 t13 0 M${cx(2) - 13} ${cy(1) + 9} q6.5 -7 13 0 t13 0`} class="hw-coil" />
-      </g>
+      {/* 2: the Spur Gear, drawn as the part: a toothed brass wheel with a hub */}
+      <circle cx={cx(1)} cy={cy(1)} r="13" class="hw-gearfill" />
+      <path d={teeth.join(' ')} class="hw-tooth" />
+      <circle cx={cx(1)} cy={cy(1)} r="4.5" class="hw-hub" />
+      {/* 3: Escapements: a ring with an anchor notch */}
+      {[0, 2].map((r) => (
+        <g key={r}>
+          <circle cx={cx(1)} cy={cy(r)} r="12" class="hw-tempo" />
+          <path d={`M${cx(1) - 6} ${cy(r) + 5} L${cx(1)} ${cy(r) - 6} L${cx(1) + 6} ${cy(r) + 5}`} class="hw-anchor" />
+        </g>
+      ))}
+      {/* 4: the Coil Spring */}
+      <path d={`M${cx(2) - 13} ${cy(1) - 7} q6.5 -7 13 0 t13 0 M${cx(2) - 13} ${cy(1) + 1} q6.5 -7 13 0 t13 0 M${cx(2) - 13} ${cy(1) + 9} q6.5 -7 13 0 t13 0`} class="hw-coil" />
+      {/* 5: the preview badges */}
       <Badge col={1} row={1} text="x3" />
       <Badge col={1} row={0} text="x3" />
       <Badge col={1} row={2} text="x3" />
-      {/* motion spreads: Mainspring to the Spur, then outward */}
+      {/* motion: Mainspring to the Spur, then outward; the spring holds it */}
       <Arrow from={[0, 1]} to={[1, 1]} />
       <Arrow from={[1, 1]} to={[1, 0]} />
       <Arrow from={[1, 1]} to={[1, 2]} />
       <Arrow from={[1, 1]} to={[2, 1]} />
       <Arrow from={[2, 1]} to={[3, 1]} held />
-      {/* labels */}
-      <g class="hw-label">
-        <text x={cx(0)} y="20" text-anchor="middle">
-          1 Mainspring
-        </text>
-        <text x={cx(1) + 10} y="20" text-anchor="start">
-          2 Motion spreads
-        </text>
-        <text x={cx(3) + 20} y={Y0 + 3 * C + 16} text-anchor="middle">
-          3 A spring holds
-        </text>
-        <text x={cx(3) + 40} y={cy(1) + 4} text-anchor="middle" class="muted">
-          waits
-        </text>
-        <text x={cx(0) + 10} y={Y0 + 3 * C + 16} text-anchor="start">
-          4 Badges: times fired
-        </text>
-      </g>
+      <text x={cx(3) + 40} y={cy(1) + 4} text-anchor="middle" class="hw-note">
+        motion waits
+      </text>
+      <Marker x={cx(0) - 17} y={cy(1) - 20} n={1} />
+      <Marker x={cx(1) - 18} y={cy(1) + 16} n={2} />
+      <Marker x={cx(1) - 20} y={cy(0) - 8} n={3} />
+      <Marker x={cx(2) + 2} y={cy(1) - 24} n={4} />
+      <Marker x={cx(1) + 36} y={cy(0) - 22} n={5} />
+      <text x={X0} y={18} class="hw-title">
+        One turn, left to right
+      </text>
     </svg>
   );
 }
@@ -135,7 +159,13 @@ export function HowToScreen() {
       <div class="howbody">
         <figure class="hwfig">
           <TurnDiagram />
-          <figcaption>One turn: the Mainspring powers the Spur, the Spur passes motion on, the Coil Spring holds it.</figcaption>
+          <ol class="hwlegend" data-testid="howto-legend">
+            {LEGEND.map(([k, v]) => (
+              <li key={k}>
+                <b>{k}</b> {v}
+              </li>
+            ))}
+          </ol>
         </figure>
         <div class="hwtext">
           {SECTIONS.map((s, i) => (

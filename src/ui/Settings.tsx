@@ -61,9 +61,9 @@ export function SettingsScreen() {
           <h3>Animation</h3>
           <div class="srow">
             <span id="speed-label">Speed of a turn</span>
-            <div class="seg" role="radiogroup" aria-labelledby="speed-label">
+            <div class="seg" role="group" aria-labelledby="speed-label">
               {(['1x', '2x', 'skip'] as const).map((sp) => (
-                <button key={sp} role="radio" aria-checked={st.speed === sp} class={`segbtn ${st.speed === sp ? 'on' : ''}`} data-testid={`set-speed-${sp}`} onClick={() => updateSettings({ speed: sp })}>
+                <button key={sp} aria-pressed={st.speed === sp} class={`segbtn ${st.speed === sp ? 'on' : ''}`} data-testid={`set-speed-${sp}`} onClick={() => updateSettings({ speed: sp })}>
                   {sp === 'skip' ? 'Skip' : sp}
                 </button>
               ))}

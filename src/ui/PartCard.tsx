@@ -13,6 +13,7 @@ export function PartCard({
   selected,
   testid = 'part-card',
   tip,
+  fit,
 }: {
   defId: string;
   plus?: boolean;
@@ -24,6 +25,8 @@ export function PartCard({
   selected?: boolean;
   testid?: string;
   tip?: object;
+  /** A brass dot: its family already has 2 or more parts in the bin. */
+  fit?: boolean;
 }) {
   const def = partDef(defId);
   const body = (
@@ -35,6 +38,12 @@ export function PartCard({
         {def.rarity !== 'common' ? `, ${def.rarity}` : ''}
       </span>
       <span class="ctext">{partText(defId, plus)}</span>
+      {fit && (
+        <span class="fit" data-testid="fits">
+          <i aria-hidden="true" />
+          fits your machine
+        </span>
+      )}
       {children}
       {extra && <span class="cextra">{extra}</span>}
     </>

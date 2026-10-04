@@ -16,8 +16,8 @@ test('O3: how to play explains a turn with a diagram, in five sections linked to
   await press(page, page.getByTestId('open-howto'));
   await expect(page.getByTestId('howto')).toBeVisible();
   await expect(page.getByTestId('howto-diagram')).toBeVisible();
-  await expect(page.getByTestId('howto-diagram')).toContainText('Mainspring');
-  await expect(page.getByTestId('howto-diagram')).toContainText('holds');
+  await expect(page.getByTestId('howto-legend')).toContainText('Mainspring');
+  await expect(page.getByTestId('howto-legend')).toContainText('holds the motion');
   for (const id of ['machine', 'turn', 'enemies', 'run', 'workshop']) {
     await page.getByTestId(`howto-${id}`).scrollIntoViewIfNeeded();
     await expect(page.getByTestId(`howto-${id}`)).toBeVisible();
