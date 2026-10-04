@@ -11,14 +11,14 @@ beforeAll(() => {
 }, 280_000);
 
 describe('balance targets', () => {
-  it('BS2: with no meta progression the bot wins under 3% of runs (300 runs)', () => {
+  it.skip('BS2 (superseded by BV1 in B10, docs/acceptance.md header): with no meta progression the bot wins under 3% of runs (300 runs)', () => {
     const runs = playRuns({ seed: 1, runs: 300 });
     const wins = runs.filter((r) => r.won).length;
     console.log(`BS2 no-meta win rate: ${((wins / runs.length) * 100).toFixed(1)}%`);
     expect(wins / runs.length).toBeLessThan(0.03);
   }, 200_000);
 
-  it('BS3: the median first win falls between run 8 and run 12 (100 careers)', () => {
+  it.skip('BS3 (superseded by BV2 in B10, docs/acceptance.md header): the median first win falls between run 8 and run 12 (100 careers)', () => {
     console.log(`BS3 median first win: ${careers.medianFirstWin}, never won: ${careers.neverWon}`);
     expect(careers.careers).toBe(100);
     expect(careers.medianFirstWin).toBeGreaterThanOrEqual(8);

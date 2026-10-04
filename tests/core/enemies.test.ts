@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { cell } from '../../src/core/board';
 import { createCombat, runTurn } from '../../src/core/combat';
-import { ENCOUNTERS } from '../../src/core/content/encounters';
+import { ENCOUNTERS, bandForFloor, encounterPool } from '../../src/core/content/encounters';
 import { ENEMIES, enemyDef } from '../../src/core/content/enemies';
 import { MAX_ENEMIES, summonEnemy } from '../../src/core/enemy';
 import { runMachine } from '../../src/core/machine';
@@ -312,7 +312,7 @@ describe('combat options', () => {
 });
 
 describe('encounters', () => {
-  it('only names enemies that exist and are not summon-only; each act has easy/normal pools, 2 elites, 1 boss', () => {
+  it('only names enemies that exist and are not summon-only; each act has its content.md pools (easy, middle, deep), 2 elites, 1 boss', () => {
     for (const e of ENCOUNTERS) {
       for (const id of e.enemies) {
         expect(ENEMIES[id], id).toBeDefined();
@@ -320,9 +320,15 @@ describe('encounters', () => {
       }
     }
     const n = (act: number, tier: string) => ENCOUNTERS.filter((e) => e.act === act && e.tier === tier).length;
-    expect([n(1, 'easy'), n(1, 'normal'), n(1, 'elite'), n(1, 'boss')]).toEqual([4, 5, 2, 1]);
-    expect([n(2, 'normal'), n(2, 'elite'), n(2, 'boss')]).toEqual([6, 2, 1]);
-    expect([n(3, 'normal'), n(3, 'elite'), n(3, 'boss')]).toEqual([6, 2, 1]);
+    expect([n(1, 'easy'), n(1, 'normal'), n(1, 'elite'), n(1, 'boss')]).toEqual([4, 7, 2, 1]);
+    expect([n(2, 'normal'), n(2, 'elite'), n(2, 'boss')]).toEqual([11, 2, 1]);
+    expect([n(3, 'normal'), n(3, 'elite'), n(3, 'boss')]).toEqual([10, 2, 1]);
+    const band = (act: 1 | 2 | 3, b: 'easy' | 'middle' | 'deep') => encounterPool(act, b).length;
+    expect([band(1, 'easy'), band(1, 'middle'), band(1, 'deep')]).toEqual([4, 4, 3]);
+    expect([band(2, 'easy'), band(2, 'middle'), band(2, 'deep')]).toEqual([4, 4, 3]);
+    expect([band(3, 'easy'), band(3, 'middle'), band(3, 'deep')]).toEqual([4, 3, 3]);
+    expect([1, 2, 3, 4, 5].map((f) => bandForFloor(f, 5))).toEqual(['easy', 'easy', 'middle', 'deep', 'deep']);
+    expect([1, 2, 3, 4, 5, 6].map((f) => bandForFloor(f, 6))).toEqual(['easy', 'easy', 'middle', 'middle', 'deep', 'deep']);
     const boss = (act: number) => ENCOUNTERS.find((e) => e.act === act && e.tier === 'boss')!.enemies;
     expect([boss(1), boss(2), boss(3)]).toEqual([['foreman'], ['boilermaker'], ['clockmaker']]);
   });
