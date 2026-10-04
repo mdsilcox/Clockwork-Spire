@@ -7,9 +7,10 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "npm run test:unit && npm run test:e2e",
+    "test": "npm run test:unit && npm run test:e2e && npm run test:offline",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
+    "test:offline": "playwright test -c playwright.offline.config.ts",
     "sim": "tsx src/sim/cli.ts"
   },
   "dependencies": {
@@ -25,6 +26,9 @@
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.2",
-    "vitest": "^5.0.3"
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.0.3",
+    "workbox-build": "^7.4.1",
+    "workbox-window": "^7.4.1"
   }
 }
