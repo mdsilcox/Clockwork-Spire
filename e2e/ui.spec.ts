@@ -234,3 +234,34 @@ test('a turn summary line appears after Run', async ({ page }) => {
   await press(page, page.getByTestId('run'));
   await expect(page.getByTestId('turn-summary')).toContainText(/Chain x\d+, \d+ damage, \d+ Plating/);
 });
+
+test('every enemy slot is at least 48 px tall with 1 to 4 enemies, and a boss fits', async ({ page }) => {
+  await page.goto('/');
+  const sets = [['rust-mite'], ['cog-rat', 'rust-mite'], ['cog-rat', 'rust-mite', 'oil-slick'], ['cog-rat', 'rust-mite', 'rust-mite', 'brass-beetle'], ['foreman']];
+  for (const enemies of sets) {
+    await practice(page, { enemies, bin: 'tinker', seed: 2 });
+    await expect(page.getByTestId('enemy-0')).toBeVisible();
+    const stage = (await page.getByTestId('stage').boundingBox())!;
+    for (let i = 0; i < enemies.length; i++) {
+      const box = (await page.getByTestId(`enemy-${i}`).boundingBox())!;
+      expect(box.height, `${enemies.join()} #${i}`).toBeGreaterThanOrEqual(48);
+      expect(box.y + box.height).toBeLessThanOrEqual(stage.y + stage.height + 1);
+    }
+  }
+  await noSidewaysScroll(page);
+});
+
+test('sandbox presets: a preset bin scaled by the chosen enemy act', async ({ page }) => {
+  await page.goto('/');
+  await press(page, page.getByTestId('sandbox'));
+  // a preset is preselected
+  await expect(page.getByTestId('bin-mixed')).toHaveAttribute('aria-pressed', 'true');
+  await press(page, page.getByTestId('bin-spring-loaded'));
+  await press(page, page.getByTestId('start-practice'));
+  await expect(page.getByTestId('combat')).toBeVisible();
+  const s = await state(page);
+  const defs = Object.values(s.parts).map((p) => p.defId);
+  expect(defs.length).toBeGreaterThanOrEqual(12);
+  expect(defs).toContain('coil');
+  expect(defs).toContain('torsion');
+});

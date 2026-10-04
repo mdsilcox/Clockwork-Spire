@@ -1286,3 +1286,101 @@ button:disabled {
     padding: 3px 5px;
   }
 }
+
+/* ---------- B2 fix round: compact enemy slots (three or four enemies on a phone) ---------- */
+.nameline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
+}
+
+.enemy.compact {
+  display: block;
+}
+
+.enemy.compact .body {
+  display: none;
+}
+
+.enemy.compact .info {
+  display: contents;
+}
+
+.enemy.compact .intent {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 0;
+  min-height: 24px;
+  padding: 1px 6px;
+}
+
+.enemy.compact .intent .ilabel {
+  font-size: 12px;
+}
+
+.enemy.compact .nameline {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  bottom: 0;
+  height: 16px;
+  flex-direction: row;
+  justify-content: center;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.enemy.compact .ename {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.enemy.compact .ehp {
+  flex: none;
+}
+
+.enemy.compact .shell {
+  display: none;
+}
+
+.enemy.compact .edmg {
+  position: absolute;
+  right: 4px;
+  top: 32px;
+  font-size: 12px;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.enemy.compact.cb .edmg {
+  top: 48px;
+}
+
+.enemy.compact .pips {
+  position: absolute;
+  left: 2px;
+  bottom: 22px;
+  max-width: 56%;
+  justify-content: flex-start;
+}
+
+.enemy.compact .pip {
+  min-height: 20px;
+  padding: 0 4px;
+}
+
+.phint {
+  margin: 0 0 6px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.enemy.compact .pips {
+  bottom: 27px;
+}

@@ -1,13 +1,13 @@
 // The practice sandbox picker: any encounter, any bin. This is how every part and enemy can be tried.
 import { useMemo, useState } from 'preact/hooks';
-import { allEncounters, catalog, defaultEnemies, goTitle, startPractice } from '../app/controller';
-import type { Encounter } from '../app/controller';
+import { allEncounters, catalog, defaultEnemies, goTitle, PRESETS, presetBin, resolveBin, startPractice } from '../app/controller';
+import type { BinSpec, Encounter } from '../app/controller';
 import { enemyDef } from '../core/content/enemies';
 import { partDef } from '../core/content/parts';
 import { FAMILY_COLOR, FAMILY_LABEL } from '../render/palette';
 import { unlockAudio } from '../audio/synth';
 
-type BinMode = 'tinker' | 'random10' | 'pick';
+type BinMode = 'tinker' | 'random10' | 'pick' | `preset:${string}`;
 
 const TIER_LABEL: Record<string, string> = { easy: 'Easy', normal: 'Fight', elite: 'Elite', boss: 'Boss', practice: 'Dummy' };
 
@@ -27,16 +27,18 @@ export function PracticePicker() {
   const encounters = useMemo(() => allEncounters(), []);
   const defKey = defaultEnemies().join();
   const [enc, setEnc] = useState<number>(Math.max(0, encounters.findIndex((e) => e.enemies.join() === defKey)));
-  const [mode, setMode] = useState<BinMode>('tinker');
+  const [mode, setMode] = useState<BinMode>('preset:mixed');
   const [counts, setCounts] = useState<Record<string, number>>({});
   const parts = useMemo(() => catalog(), []);
   const chosen = parts.flatMap((p) => Array.from({ length: counts[p.id] ?? 0 }, () => p.id));
+  const act = encounters[enc]?.act ?? 1;
   const canStart = mode !== 'pick' || chosen.length > 0;
   const acts = [1, 2, 3].filter((a) => encounters.some((e) => e.act === a));
 
   const start = (): void => {
     unlockAudio();
-    startPractice({ enemies: encounters[enc].enemies, bin: mode === 'pick' ? chosen : mode });
+    const bin: BinSpec = mode === 'pick' ? chosen : mode === 'tinker' || mode === 'random10' ? mode : presetBin(mode.slice(7), act);
+    startPractice({ enemies: encounters[enc].enemies, bin });
   };
   const bump = (id: string, d: number): void => setCounts((c) => ({ ...c, [id]: Math.max(0, Math.min(9, (c[id] ?? 0) + d)) }));
 
@@ -72,7 +74,14 @@ export function PracticePicker() {
         </section>
         <section>
           <h3>Parts</h3>
+          <p class="phint">Presets grow with the enemy act: act 2 adds upgraded parts, act 3 adds rare ones.</p>
           <div class="pgrid">
+            {PRESETS.map((p) => (
+              <button key={p.id} class={`opt ${mode === `preset:${p.id}` ? 'on' : ''}`} aria-pressed={mode === `preset:${p.id}`} data-testid={`bin-${p.id}`} onClick={() => setMode(`preset:${p.id}`)}>
+                <span class="otier">{resolveBin(presetBin(p.id, act)).length} parts, {p.blurb}</span>
+                {p.name}
+              </button>
+            ))}
             <button class={`opt ${mode === 'tinker' ? 'on' : ''}`} aria-pressed={mode === 'tinker'} data-testid="bin-tinker" onClick={() => setMode('tinker')}>
               Tinker start
             </button>
