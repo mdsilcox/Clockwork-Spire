@@ -43,9 +43,12 @@ test('cheat to the Clockmaker, win, and see the victory screen', async ({ page }
   await press(page, page.getByTestId('continue-node'));
   await expect(page.getByTestId('victory')).toBeVisible();
   await expect(page.getByText('The Clockmaker stops.')).toBeVisible();
-  await expect(page.getByTestId('end-stats')).toContainText('Brass');
   await noSidewaysScroll(page);
-  await press(page, page.getByTestId('end-continue'));
-  await expect(page.getByTestId('title')).toBeVisible();
+  // the ending (and credits) lead on, to the Workshop with a slot or the title without one
+  for (let i = 0; i < 8 && (await page.getByTestId('title').or(page.getByTestId('workshop')).count()) === 0; i++) {
+    await page.getByTestId('victory').getByRole('button').last().click();
+    await page.waitForTimeout(150);
+  }
+  await expect(page.getByTestId('title').or(page.getByTestId('workshop'))).toBeVisible();
   expect(errors).toEqual([]);
 });

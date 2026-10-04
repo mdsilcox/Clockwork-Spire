@@ -5,6 +5,8 @@ import { GlossaryScreen } from './Glossary';
 import { BinViewer, MapScreen } from './Map';
 import { EventScreen, ForgeScreen, OilScreen, RewardScreen, ShopScreen } from './Nodes';
 import { PracticePicker } from './Practice';
+import { SlotsScreen } from './Slots';
+import { WorkshopScreen } from './Workshop';
 import { Title } from './Title';
 
 function RunScreens() {
@@ -37,6 +39,8 @@ export function App() {
   else if (s === 'run') body = <RunScreens />;
   else if (s === 'combat' && combat.value) body = <CombatScreen />;
   else if (s === 'practice') body = <PracticePicker />;
+  else if (s === 'slots') body = <SlotsScreen />;
+  else if (s === 'workshop') body = <WorkshopScreen />;
   else body = <Title />;
   return (
     <>

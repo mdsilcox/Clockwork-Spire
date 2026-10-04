@@ -1,5 +1,5 @@
 // The controller: holds the combat, dispatches actions, replays turns on the stage, autosaves.
-import { signal } from '@preact/signals';
+import { effect, signal } from '@preact/signals';
 import { cloneCombat, createCombat, placePart, previewTurn, runTurn, setTarget, swapParts } from '../core/combat';
 import type { CreateCombatOpts } from '../core/combat';
 import { cell as cellIndex } from '../core/board';
@@ -15,10 +15,15 @@ import type { Speed, Stage } from '../render/stage';
 import type { StageView } from '../render/replay';
 import * as audio from '../audio/synth';
 import { intentRows } from './intents';
-import { clearRun, loadPractice, loadRun, savePractice, saveRun } from './save';
-import { markTutorialDone, tutorialDone } from './prefs';
+import { clearRun, loadPractice, loadRun, loadSettings, readSlot, removeSlot, savePractice, saveRun, saveSettings, writeSlot } from './save';
+import type { SlotNo } from './save';
+import * as meta from '../core/meta';
+import type { Profile, RunRecord, SprocketMood } from '../core/types';
+import type { SprocketPose } from '../ui/Sprocket';
+import { colorBlind } from './prefs';
+import { markTutorialDone, tutorialDone, setColorBlind } from './prefs';
 
-export type Screen = 'loading' | 'title' | 'combat' | 'practice' | 'run';
+export type Screen = 'loading' | 'title' | 'combat' | 'practice' | 'run' | 'slots' | 'workshop';
 
 /** Tinker starting bin (docs/content.md) plus Cam, Boiler, Piston and Pendulum, so the practice fight has real choices. */
 const PRACTICE_BIN = ['spur', 'spur', 'spur', 'escapement', 'escapement', 'escapement', 'idler', 'coil', 'cam', 'boiler', 'piston', 'pendulum'];
@@ -192,7 +197,7 @@ function publish(): void {
 
 function persist(): void {
   if (liveRun && screen.value === 'run') {
-    void saveRun(liveRun);
+    saveActive();
     return;
   }
   if (live && !tutorial.value) void savePractice(live);
@@ -222,6 +227,11 @@ function showBanner(text: string, kind: 'phase' | 'rewind'): void {
 
 export function hasRun(): boolean {
   return !!liveRun;
+}
+
+/** A run is in progress in the active slot (not yet at its result screen). */
+export function climbing(): boolean {
+  return !!liveRun && !runFinished();
 }
 
 export function runFinished(): boolean {
@@ -256,6 +266,7 @@ function maybeBossIntro(): void {
 /** After any change to the run: show it, keep the combat in step, and save. */
 function afterRun(newScreen = false): void {
   if (!liveRun) return;
+  settleEnd();
   const wasCombat = live !== null && live === liveRun.combat;
   live = liveRun.phase === 'combat' ? liveRun.combat : null;
   runView.value = clone(liveRun);
@@ -267,7 +278,7 @@ function afterRun(newScreen = false): void {
   }
   if (newScreen && live) maybeBossIntro();
   screen.value = 'run';
-  void saveRun(liveRun);
+  saveActive();
 }
 
 function runAction<T>(fn: (r: RunState) => T): T | undefined {
@@ -278,11 +289,21 @@ function runAction<T>(fn: (r: RunState) => T): T | undefined {
   return out;
 }
 
-export function newRun(seed?: number): void {
+/** Start a run from the Workshop (or a test hook). With a slot, the profile shapes the run; without one, defaults. */
+export function newRun(seed?: number, chassis = 'tinker'): void {
   if (!liveRun) practiceStash = live;
   if (stage?.isPlaying()) stage.setSpeed('skip');
   endTutorial(true);
-  liveRun = core.newRun(core.defaultRunConfig(seed ?? clockSeed(), 'tinker'));
+  const sd = seed ?? clockSeed();
+  let cfg;
+  try {
+    cfg = active ? meta.runConfigFor(active.profile, sd, chassis) : core.defaultRunConfig(sd, chassis);
+  } catch {
+    cfg = core.defaultRunConfig(sd, chassis);
+  }
+  liveRun = core.newRun(cfg);
+  settledFor = null;
+  endSummary.value = null;
   bossIntro.value = null;
   afterRun(true);
 }
@@ -301,17 +322,271 @@ export function runToTitle(): void {
   screen.value = 'title';
 }
 
-/** Throw the run away (after the victory or defeat screen, or an abandoned climb). */
-export function dropRun(abandon = false): void {
-  if (liveRun && abandon) core.abandonRun(liveRun);
+/** Give the run up: it ends as a defeat, is settled like one, and the result screen follows. */
+export function abandonClimb(): void {
+  if (!liveRun) return;
+  core.abandonRun(liveRun);
+  afterRun(true);
+}
+
+/** Close the result screen: on to the Workshop (or the title when there is no slot). */
+export function leaveResult(): void {
+  const mood = endSummary.value?.mood ?? null;
+  const sum = endSummary.value;
+  news.value = sum && (sum.newUnlocks.length > 0 || sum.newNotes.length > 0) ? { unlocks: sum.newUnlocks, notes: sum.newNotes } : null;
   liveRun = null;
+  settledFor = null;
   runView.value = null;
+  endSummary.value = null;
   bossIntro.value = null;
-  void clearRun();
   live = practiceStash;
   practiceStash = null;
   publish();
-  screen.value = 'title';
+  if (active) {
+    screen.value = 'workshop';
+    greet(mood);
+    if (profileView.value === null) profileView.value = clone(active.profile);
+  } else {
+    void clearRun();
+    screen.value = 'title';
+  }
+}
+
+/** Test and old callers: the B3 name for leaving a finished run. */
+export function dropRun(abandon = false): void {
+  if (abandon) abandonClimb();
+  else leaveResult();
+}
+
+// ---------- save slots, the profile and the Workshop (B4) ----------
+
+export interface SlotCard {
+  n: SlotNo;
+  state: 'empty' | 'ok' | 'corrupt';
+  name?: string;
+  wins?: number;
+  bestFloor?: number;
+  runs?: number;
+  updatedAt?: string;
+  climbing?: boolean;
+}
+
+export interface EndSummary {
+  record: Omit<RunRecord, 'n' | 'endedAt'> & { n?: number; endedAt?: string };
+  mood: SprocketMood | null;
+  brass: number;
+  newUnlocks: string[];
+  newNotes: string[];
+  won: boolean;
+}
+
+export const slotCards = signal<SlotCard[] | null>(null);
+/** The profile of the active slot, copied for rendering. */
+export const profileView = signal<Profile | null>(null);
+export const slotNo = signal<SlotNo | null>(null);
+export const endSummary = signal<EndSummary | null>(null);
+/** What Sprocket is doing in the Workshop right now. */
+export const pose = signal<SprocketPose>('idle');
+export const idleShift = signal(0);
+/** What changed after the last run: new chassis and notes, shown once in the Workshop. */
+export const news = signal<{ unlocks: string[]; notes: string[] } | null>(null);
+
+let active: { n: SlotNo; profile: Profile } | null = null;
+let settledFor: RunState | null = null;
+let lastActive = Date.now();
+let greetTimer = 0;
+const SLEEP_AFTER = 20_000;
+
+/** Sprocket's greeting after a run, then back to idle after a while. */
+export function greet(mood: SprocketMood | null): void {
+  window.clearTimeout(greetTimer);
+  lastActive = Date.now();
+  idleShift.value = 0;
+  if (!mood) {
+    pose.value = 'idle';
+    return;
+  }
+  pose.value = mood;
+  greetTimer = window.setTimeout(() => {
+    if (pose.value === mood) pose.value = 'idle';
+  }, 9000);
+}
+
+/** Any touch in the Workshop: Sprocket wakes up. */
+export function poke(): void {
+  lastActive = Date.now();
+  idleShift.value = 0;
+  if (pose.value === 'sleepy') pose.value = 'idle';
+}
+
+export function petSprocket(): void {
+  window.clearTimeout(greetTimer);
+  lastActive = Date.now();
+  idleShift.value = 0;
+  pose.value = 'pet';
+  const bark = (audio as unknown as { bark?: () => void }).bark;
+  if (bark) bark();
+  else audio.heal();
+  greetTimer = window.setTimeout(() => {
+    if (pose.value === 'pet') pose.value = 'idle';
+  }, 1400);
+}
+
+/** Called about once a second by the Workshop: idle for 20 s means sleepy. */
+export function checkSleepy(): void {
+  if (screen.value !== 'workshop') return;
+  if (pose.value === 'idle' && Date.now() + idleShift.value - lastActive >= SLEEP_AFTER) pose.value = 'sleepy';
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+function saveActive(): void {
+  if (!active) {
+    if (liveRun) void saveRun(liveRun);
+    return;
+  }
+  profileView.value = clone(active.profile);
+  const terminal = !!liveRun && (liveRun.phase === 'victory' || liveRun.phase === 'defeat');
+  // one write: the profile (already settled when the run ended) and the run in progress, or none
+  void writeSlot({ slot: active.n, version: 1, profile: active.profile, run: terminal ? null : liveRun, updatedAt: nowIso() });
+}
+
+/** A run reached victory or defeat: settle it into the profile once, before any result screen or celebration. */
+function settleEnd(): void {
+  if (!liveRun || (liveRun.phase !== 'victory' && liveRun.phase !== 'defeat') || settledFor === liveRun) return;
+  settledFor = liveRun;
+  const won = liveRun.phase === 'victory';
+  if (active) {
+    try {
+      const out = meta.finishRun(active.profile, liveRun, nowIso());
+      endSummary.value = { record: out.record, mood: out.mood, brass: out.brass, newUnlocks: out.newUnlocks, newNotes: out.newNotes, won };
+      return;
+    } catch {
+      /* fall through to the plain summary */
+    }
+  }
+  let rec: EndSummary['record'];
+  try {
+    rec = core.runRecord(liveRun);
+  } catch {
+    rec = { seed: liveRun.config.seed, chassis: liveRun.config.chassis, result: won ? 'win' : 'loss', act: liveRun.act, floor: liveRun.floor, brassEarned: 0, blueprintsFound: [], partsAtEnd: [], trinkets: [], turns: 0, biggestTurn: 0 };
+  }
+  let brass = 0;
+  try {
+    brass = core.brassFor(liveRun);
+  } catch {
+    brass = 0;
+  }
+  endSummary.value = { record: rec, mood: won ? 'celebrate' : 'comfort', brass, newUnlocks: [], newNotes: [], won };
+}
+
+function enterSlot(n: SlotNo, profile: Profile, run: RunState | null): void {
+  active = { n, profile };
+  slotNo.value = n;
+  profileView.value = clone(profile);
+  liveRun = run;
+  settledFor = null;
+  try {
+    window.localStorage.setItem('cs.lastSlot', String(n));
+  } catch {
+    /* fine */
+  }
+}
+
+export async function refreshSlots(): Promise<SlotCard[]> {
+  const out: SlotCard[] = [];
+  for (const n of [1, 2, 3] as SlotNo[]) {
+    const r = await readSlot(n);
+    if (r.state === 'ok') {
+      const p = r.slot.profile;
+      out.push({ n, state: 'ok', name: p.name, wins: p.wins, bestFloor: p.bestFloor, runs: p.runsFinished, updatedAt: r.slot.updatedAt, climbing: !!r.slot.run });
+    } else out.push({ n, state: r.state });
+  }
+  slotCards.value = out;
+  return out;
+}
+
+export async function openSlots(): Promise<void> {
+  screen.value = 'slots';
+  await refreshSlots();
+}
+
+/** Open a slot: its Workshop, or the run in progress through the Continue button. */
+export async function useSlot(n: SlotNo): Promise<boolean> {
+  const r = await readSlot(n);
+  if (r.state !== 'ok') return false;
+  if (stage?.isPlaying()) stage.setSpeed('skip');
+  enterSlot(n, r.slot.profile, r.slot.run);
+  if (liveRun && liveRun.phase === 'combat' && liveRun.combat && liveRun.combat.outcome !== 'ongoing') {
+    try {
+      core.settleCombat(liveRun);
+    } catch {
+      /* leave it */
+    }
+  }
+  if (liveRun) {
+    runView.value = clone(liveRun);
+    if (!(live && live === liveRun.combat)) practiceStash = practiceStash ?? live;
+  } else runView.value = null;
+  screen.value = 'workshop';
+  greet(active?.profile.lastSprocketMood ?? null);
+  if (!liveRun) pose.value = 'idle';
+  return true;
+}
+
+export async function newSlot(n: SlotNo, name: string): Promise<boolean> {
+  const profile = meta.newProfile((name.trim() || 'Tinkerer').slice(0, 20), nowIso());
+  await writeSlot({ slot: n, version: 1, profile, run: null, updatedAt: nowIso() });
+  await refreshSlots();
+  return useSlot(n);
+}
+
+export async function deleteSlot(n: SlotNo): Promise<void> {
+  await removeSlot(n);
+  if (active && active.n === n) {
+    active = null;
+    slotNo.value = null;
+    profileView.value = null;
+    liveRun = null;
+    runView.value = null;
+    try {
+      window.localStorage.removeItem('cs.lastSlot');
+    } catch {
+      /* fine */
+    }
+  }
+  await refreshSlots();
+}
+
+/** Title: into the active slot's Workshop, or the slot screen. */
+export function enterWorkshop(): void {
+  if (active) {
+    screen.value = 'workshop';
+    poke();
+  } else void openSlots();
+}
+
+export function buyUpgrade(id: string): boolean {
+  if (!active) return false;
+  const ok = meta.buyUpgrade(active.profile, id);
+  if (ok) saveActive();
+  return ok;
+}
+
+export function buyChassisNow(id: string): boolean {
+  if (!active) return false;
+  const ok = meta.buyChassis(active.profile, id);
+  if (ok) saveActive();
+  return ok;
+}
+
+/** The door: start a run with a chassis. */
+export function climb(chassis: string): boolean {
+  if (!active || climbing()) return false;
+  newRun(undefined, chassis);
+  return true;
 }
 
 export const goNode = (id: string): boolean => runAction((r) => core.enterNode(r, id)) ?? false;
@@ -319,7 +594,7 @@ export const rewardPart = (i: number | null): boolean => runAction((r) => core.t
 export const rewardTrinket = (i: number | null): boolean => runAction((r) => core.takeRewardTrinket(r, i)) ?? false;
 export const chooseEvent = (i: number): string | null => runAction((r) => core.chooseEvent(r, i)) ?? null;
 export const pickEventPart = (uid: number): boolean => runAction((r) => core.eventPickPart(r, uid)) ?? false;
-export const buy = (i: number): boolean => runAction((r) => core.shopBuy(r, i)) ?? false;
+export const shopBuy = (i: number): boolean => runAction((r) => core.shopBuy(r, i)) ?? false;
 export const shopRemove = (uid: number): boolean => runAction((r) => core.shopRemove(r, uid)) ?? false;
 export const forge = (kind: 'upgrade' | 'remove', uid: number): boolean => runAction((r) => (kind === 'upgrade' ? core.forgeUpgrade(r, uid) : core.forgeRemove(r, uid))) ?? false;
 export const oil = (kind: 'repair' | 'polish'): boolean => runAction((r) => (kind === 'repair' ? core.oilRepair(r) : core.oilPolish(r))) ?? false;
@@ -597,6 +872,10 @@ export function cycleSpeed(): void {
 
 export function goTitle(): void {
   if (stage?.isPlaying()) stage.setSpeed('skip');
+  if (screen.value === 'workshop' || screen.value === 'slots') {
+    screen.value = 'title';
+    return;
+  }
   if (liveRun && screen.value === 'run') {
     runToTitle();
     return;
@@ -620,18 +899,69 @@ export function hasOngoingFight(): boolean {
   return !!live && live.outcome === 'ongoing' && !(liveRun && live === liveRun.combat);
 }
 
+let settingsReady = false;
+let settingsRest = { master: 0.8, music: 0.8, effects: 1, muted: false, reducedEffects: false };
+// settings live in their own record; changes to the two the game has so far are written as they happen
+effect(() => {
+  const cb = colorBlind.value;
+  const sp = speed.value;
+  if (settingsReady) void saveSettings({ version: 1, ...settingsRest, speed: sp, colorBlindIcons: cb });
+});
+
 export async function init(): Promise<void> {
-  const savedRun = await loadRun();
+  void loadSettings().then((st) => {
+    if (st) {
+      settingsRest = { master: st.master, music: st.music, effects: st.effects, muted: st.muted, reducedEffects: st.reducedEffects };
+      setColorBlind(st.colorBlindIcons);
+      speed.value = st.speed;
+    }
+    settingsReady = true;
+  });
+  // the last slot used resumes straight into a run in progress (a reload mid-combat lands where it was)
+  const last = Number(window.localStorage.getItem('cs.lastSlot') ?? '0');
+  if (last >= 1 && last <= 3) {
+    const r = await readSlot(last as SlotNo);
+    if (screen.value !== 'loading') return;
+    if (r.state === 'ok' && r.slot.run) {
+      try {
+        enterSlot(last as SlotNo, r.slot.profile, r.slot.run);
+        if (liveRun) {
+          // a reload during the beat after the last blow: settle it now
+          if (liveRun.phase === 'combat' && liveRun.combat && liveRun.combat.outcome !== 'ongoing') core.settleCombat(liveRun);
+          afterRun(true);
+          bossIntro.value = null;
+          return;
+        }
+      } catch {
+        liveRun = null;
+      }
+    }
+  }
+  // the B3 single run save (before slots): put it in slot 1 once, or keep playing it as it is
+  const legacy = await loadRun();
   if (screen.value !== 'loading') return;
-  if (savedRun) {
-    liveRun = savedRun;
-    practiceStash = null;
+  if (legacy) {
     try {
-      // a reload during the beat after the last blow: settle it now
-      if (liveRun.phase === 'combat' && liveRun.combat && liveRun.combat.outcome !== 'ongoing') core.settleCombat(liveRun);
-      afterRun(true);
-      bossIntro.value = null;
-      return;
+      const empty = (await readSlot(1)).state === 'empty';
+      if (empty) {
+        const profile = meta.newProfile('Tinkerer', new Date().toISOString());
+        enterSlot(1, profile, legacy);
+        await writeSlot({ slot: 1, version: 1, profile, run: legacy, updatedAt: new Date().toISOString() });
+        await clearRun();
+      } else {
+        liveRun = legacy;
+      }
+    } catch {
+      liveRun = legacy; // meta not available: play it as before
+      active = null;
+    }
+    try {
+      if (liveRun && liveRun.phase === 'combat' && liveRun.combat && liveRun.combat.outcome !== 'ongoing') core.settleCombat(liveRun);
+      if (liveRun) {
+        afterRun(true);
+        bossIntro.value = null;
+        return;
+      }
     } catch {
       liveRun = null;
     }
@@ -682,7 +1012,16 @@ export function installDebug(): void {
     rewardTrinket: (i: number | null): boolean => rewardTrinket(i),
     choose: (i: number): string | null => chooseEvent(i),
     pickPart: (uid: number): boolean => pickEventPart(uid),
-    buy: (i: number): boolean => buy(i),
+    shopBuy: (i: number): boolean => shopBuy(i),
+    slots: (): SlotCard[] | null => slotCards.value,
+    useSlot: (n: SlotNo): Promise<boolean> => useSlot(n),
+    newSlot: (n: SlotNo, name: string): Promise<boolean> => newSlot(n, name),
+    deleteSlot: (n: SlotNo): Promise<void> => deleteSlot(n),
+    profile: (): Profile | null => (active ? clone(active.profile) : null),
+    buy: (id: string): boolean => buyUpgrade(id),
+    buyChassis: (id: string): boolean => buyChassisNow(id),
+    climb: (chassis: string): boolean => climb(chassis),
+    sprocket: (): string => pose.value,
     remove: (uid: number): boolean => shopRemove(uid),
     forge: (kind: 'upgrade' | 'remove', uid: number): boolean => forge(kind, uid),
     oil: (kind: 'repair' | 'polish'): boolean => oil(kind),
@@ -697,6 +1036,34 @@ export function installDebug(): void {
       },
       gotoFloor: (act: 1 | 2 | 3, floor: number, type?: string): void => {
         cheatGoto(act, floor, type);
+        afterRun(true);
+      },
+      brass: (n: number): void => {
+        if (!active) return;
+        active.profile.brass += n;
+        saveActive();
+      },
+      idle: (ms: number): void => {
+        idleShift.value += ms;
+        checkSleepy();
+      },
+      /** Finish the run now as a win or a loss; with `floor` (absolute) a loss lands there. */
+      finishRun: (result: 'win' | 'loss', floor?: number): void => {
+        if (!liveRun) climb('tinker');
+        if (!liveRun) return;
+        liveRun.combat = null;
+        liveRun.pending = null;
+        if (result === 'win') {
+          liveRun.act = 3;
+          liveRun.floor = 13;
+          liveRun.phase = 'victory';
+        } else {
+          const f = Math.max(1, floor ?? 3);
+          liveRun.act = Math.min(3, Math.ceil(f / 13)) as 1 | 2 | 3;
+          liveRun.floor = ((f - 1) % 13) + 1;
+          liveRun.phase = 'defeat';
+          liveRun.killedBy = 'rust-mite';
+        }
         afterRun(true);
       },
       setCogs: (n: number): void => {

@@ -61,7 +61,7 @@ test('map: legend, act title, and R9 tapping a reachable node (unreachable ones 
   expect(errors).toEqual([]);
 });
 
-test('fight, reward and back to the map; the title offers Continue climb and asks before replacing', async ({ page }) => {
+test('fight, reward and back to the map; the title offers Continue climb', async ({ page }) => {
   const errors = watchErrors(page);
   await enterFirst(page);
   await expect(page.getByTestId('combat')).toBeVisible();
@@ -79,9 +79,6 @@ test('fight, reward and back to the map; the title offers Continue climb and ask
   await press(page, page.getByTestId('run-menu'));
   await press(page, page.getByTestId('run-to-title'));
   await expect(page.getByTestId('title')).toBeVisible();
-  await press(page, page.getByTestId('new-climb'));
-  await expect(page.getByTestId('confirm-new-climb')).toBeVisible();
-  await press(page, page.getByTestId('confirm-cancel'));
   await press(page, page.getByTestId('continue-run'));
   await expect(page.getByTestId('map')).toBeVisible();
   expect((await rs(page))!.bin.length).toBe(before + 1);
@@ -102,9 +99,14 @@ test('forge: upgrade a part through the real UI', async ({ page }) => {
   await expect(page.getByTestId('map')).toBeVisible();
 });
 
-test('oil: polish adds max HP', async ({ page }) => {
+test('oil: polish adds max HP; repair says why it is off at full HP; the screen is framed with art', async ({ page }) => {
   await toNode(page, 'oil', 1, 12);
   await expect(page.getByTestId('screen-oil')).toBeVisible();
+  await expect(page.getByTestId('oil-repair')).toBeDisabled();
+  await expect(page.getByTestId('oil-repair-text')).toContainText('Already at full HP');
+  await expect(page.locator('.nodeart svg').first()).toBeVisible();
+  const frame = (await page.locator('.nodeframe').boundingBox())!;
+  expect(frame.width).toBeLessThanOrEqual(1001);
   const max = (await rs(page))!.maxHp;
   await press(page, page.getByTestId('oil-polish'));
   await expect(page.getByTestId('oil-done')).toBeVisible();
@@ -181,7 +183,7 @@ test('defeat: the defeat screen shows the floor and leads back to the title', as
   await expect(page.getByTestId('end-stats')).toContainText('Brass');
   await noSidewaysScroll(page);
   await press(page, page.getByTestId('end-continue'));
-  await expect(page.getByTestId('title')).toBeVisible();
+  await expect(page.getByTestId('workshop').or(page.getByTestId('title'))).toBeVisible();
   await expect(page.getByTestId('continue-run')).toHaveCount(0);
 });
 

@@ -1,7 +1,7 @@
 // Node screens inside a run: reward, event, shop, forge and oil, plus the part picker they share.
 import type { ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
-import { buy, chooseEvent, forge, leave, oil, pickEventPart, rewardPart, rewardTrinket, runView, shopRemove } from '../app/controller';
+import { shopBuy, chooseEvent, forge, leave, oil, pickEventPart, rewardPart, rewardTrinket, runView, shopRemove } from '../app/controller';
 import { EVENTS } from '../core/content/events';
 import { partDef, partName, partText } from '../core/content/parts';
 import { trinketDef } from '../core/content/trinkets';
@@ -10,13 +10,23 @@ import { FAMILY_COLOR, FAMILY_LABEL } from '../render/palette';
 import { PartCard } from './PartCard';
 import { RunBar } from './Map';
 import { TrinketIcon } from './runicons';
+import { EventArt, ForgeArt, OilArt, ShopArt, SpoilsArt } from './NodeArt';
+import { SprocketEventArt } from './Sprocket';
 import { useTip } from './useTip';
 
-function Shell({ run, title, children }: { run: RunState; title: string; children: ComponentChildren }) {
+/** Every node screen sits in a framed room: a drawn vignette beside the content. */
+function Shell({ run, title, art, children }: { run: RunState; title: string; art: ComponentChildren; children: ComponentChildren }) {
   return (
     <main class="nodescreen" data-testid={`screen-${run.phase}`}>
       <RunBar run={run} title={title} />
-      <div class="nodebody">{children}</div>
+      <div class="nodebody">
+        <div class="nodeframe">
+          <aside class="nodeart" aria-hidden="false">
+            {art}
+          </aside>
+          <div class="nodecontent">{children}</div>
+        </div>
+      </div>
     </main>
   );
 }
@@ -121,7 +131,7 @@ export function RewardScreen() {
   const needTrinket = p.trinkets.length > 0 && !p.trinketTaken;
   const ready = p.partTaken && !needTrinket;
   return (
-    <Shell run={run} title="Spoils">
+    <Shell run={run} title="Spoils" art={<SpoilsArt />}>
       <section class="rewardbox">
         <p class="bigline" data-testid="reward-cogs">
           +{p.cogs} Cogs
@@ -196,7 +206,7 @@ export function EventScreen() {
   const def = EVENTS[p.eventId];
   if (!def) {
     return (
-      <Shell run={run} title="A quiet corner">
+      <Shell run={run} title="A quiet corner" art={<EventArt eventId="quiet" />}>
         <section class="eventbox">
           <p>Nothing stirs here.</p>
           <button class="primary" data-testid="continue-node" onClick={() => leave()}>
@@ -207,7 +217,7 @@ export function EventScreen() {
     );
   }
   return (
-    <Shell run={run} title={def.title}>
+    <Shell run={run} title={def.title} art={def.sprocket ? <SprocketEventArt eventId={def.id} /> : <EventArt eventId={def.id} />}>
       <section class="eventbox" data-testid="event" data-event={def.id}>
         {def.sprocket && <span class="sptag" data-testid="sprocket-tag">Sprocket</span>}
         <h2 class="evtitle">{def.title}</h2>
@@ -256,7 +266,7 @@ export function ShopScreen() {
   const p = run.pending;
   const price = (n: number): string => `${n} Cogs`;
   return (
-    <Shell run={run} title="The shop">
+    <Shell run={run} title="The shop" art={<ShopArt />}>
       <section class="shopbox">
         <p class="bigline" data-testid="shop-cogs">
           You have {run.cogs} Cogs
@@ -274,12 +284,12 @@ export function ShopScreen() {
                   disabled={cant}
                   extra={<b class={it.sold ? 'sold' : run.cogs < it.price ? 'poor' : 'price'}>{tag}</b>}
                   tip={tip.on(() => ({ title: `${partName(it.id!, false)}.`, text: partText(it.id!, false), detail: `Upgraded: ${partText(it.id!, true)}` }))}
-                  onClick={tip.guard(() => buy(i))}
+                  onClick={tip.guard(() => shopBuy(i))}
                 />
               );
             }
             if (it.kind === 'trinket' && it.id) {
-              return <TrinketCard key={i} id={it.id} testid="shop-item" disabled={cant} extra={<b class={it.sold ? 'sold' : run.cogs < it.price ? 'poor' : 'price'}>{tag}</b>} onClick={() => buy(i)} />;
+              return <TrinketCard key={i} id={it.id} testid="shop-item" disabled={cant} extra={<b class={it.sold ? 'sold' : run.cogs < it.price ? 'poor' : 'price'}>{tag}</b>} onClick={() => shopBuy(i)} />;
             }
             if (it.kind === 'removal') {
               return (
@@ -293,7 +303,7 @@ export function ShopScreen() {
               );
             }
             return (
-              <button key={i} class="card service" data-testid="shop-oil" disabled={cant} onClick={() => buy(i)}>
+              <button key={i} class="card service" data-testid="shop-oil" disabled={cant} onClick={() => shopBuy(i)}>
                 <span class="cname">Oil</span>
                 <span class="ctext">Heal 15 HP.</span>
                 <span class="cextra">
@@ -334,7 +344,7 @@ export function ForgeScreen() {
   if (!run || run.pending?.kind !== 'forge') return null;
   const p = run.pending;
   return (
-    <Shell run={run} title="The forge">
+    <Shell run={run} title="The forge" art={<ForgeArt />}>
       <section class="forgebox">
         {!p.done ? (
           <>
@@ -394,7 +404,7 @@ export function OilScreen() {
   const p = run.pending;
   const heal = Math.max(0, Math.min(run.maxHp - run.hp, Math.floor(run.maxHp * 0.3)));
   return (
-    <Shell run={run} title="The oil station">
+    <Shell run={run} title="The oil station" art={<OilArt />}>
       <section class="forgebox">
         {!p.done ? (
           <>
@@ -402,8 +412,8 @@ export function OilScreen() {
             <div class="choices two">
               <button class="choice" data-testid="oil-repair" disabled={heal <= 0} onClick={() => oil('repair')}>
                 <b>Repair</b>
-                <span>
-                  Heal {Math.floor(run.maxHp * 0.3)} HP (30% of your max). You are at {run.hp} of {run.maxHp}.
+                <span data-testid="oil-repair-text">
+                  {heal <= 0 ? 'Already at full HP.' : `Heal ${Math.floor(run.maxHp * 0.3)} HP (30% of your max). You are at ${run.hp} of ${run.maxHp}.`}
                 </span>
               </button>
               <button class="choice" data-testid="oil-polish" onClick={() => oil('polish')}>
