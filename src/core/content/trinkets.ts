@@ -14,10 +14,10 @@ export interface TrinketDef {
 }
 
 const list: TrinketDef[] = [
-  { id: 'oilcloth', name: 'Oilcloth', rarity: 'common', text: 'Start each combat with 4 Plating.' },
+  { id: 'oilcloth', name: 'Oilcloth', rarity: 'common', text: 'Start each combat with 4 Plating.', onCombatStart: (c) => { c.plating += 4; } },
   { id: 'copper-wire', name: 'Copper Wire', rarity: 'common', text: 'The first part the Mainspring powers each tick gets Boost 1.' },
   { id: 'lucky-bolt', name: 'Lucky Bolt', rarity: 'common', text: '+20% Cogs from fights.' },
-  { id: 'whetstone', name: 'Whetstone', rarity: 'common', text: 'Grit 1: every Strike +1.' },
+  { id: 'whetstone', name: 'Whetstone', rarity: 'common', text: 'Grit 1: every Strike +1.', onCombatStart: (c) => { c.playerStatuses.grit = (c.playerStatuses.grit ?? 0) + 1; } },
   { id: 'tin-cup', name: 'Tin Cup', rarity: 'common', text: 'Heal 3 after each combat.' },
   { id: 'bellows', name: 'Bellows', rarity: 'common', text: 'Start each combat with 4 Pressure.' },
   { id: 'pressure-gauge', name: 'Pressure Gauge', rarity: 'common', text: 'You overpressure above 25 instead of 20.' },

@@ -69,6 +69,7 @@ export interface EnemyState {
 export interface TurnContribution {
   value: number; // damage dealt + plating gained this turn
   fedBy: number | null; // uid of the part that first powered it, null if the Mainspring
+  dmg?: number; // ADDED in B3: damage (HP removed) alone, for the Clockmaker's Rewind heal
 }
 
 export interface CombatState {
@@ -81,6 +82,8 @@ export interface CombatState {
   discard: number[];
   parts: Record<number, PartInstance>; // every part in this combat by uid
   handSize: number; // the hand is refilled to this many parts each turn (ADDED in B1)
+  chassis?: string; // ADDED in B3: chassis id (passives)
+  flags?: Record<string, number>; // ADDED in B3: once-per-combat markers (trinkets, passives)
   extraDraw: number; // ADDED in B2: extra parts drawn at the next turn start (Sprocket Wheel); saves from B1 may lack it
   placementsLeft: number;
   swapUsed: boolean;

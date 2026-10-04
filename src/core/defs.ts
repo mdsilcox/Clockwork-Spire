@@ -110,4 +110,6 @@ export interface EnemyDef {
   afterMachine?: (c: CombatState, idx: number, events: GameEvent[]) => void;
   /** Summons this def once when its HP drops to half or below (checked at the start of its turn). */
   summonAtHalf?: string;
+  /** Rewinds the player's strongest combination at the start of its turn (the Clockmaker, rules 4.4). */
+  rewinds?: boolean;
 }

@@ -1,5 +1,6 @@
 // Enemy mechanics: creating enemies, picking intents, damage (Shell, phases), summons, strength, the enemy turn.
 // Pure and deterministic. combat.ts calls enemyTurn; machine.ts calls damageEnemy.
+import { neighbors } from './board';
 import { CELLS, MAINSPRING } from './types';
 import type { CombatState, EnemyState, GameEvent, Intent } from './types';
 import { enemyDef } from './content/enemies';
@@ -100,6 +101,7 @@ export function damageEnemy(
   opts: DamageOpts = {},
 ): number {
   const e = c.enemies[idx];
+  if (e.mem.phaseShield) return 0; // a new boss phase starts after the player's turn is over
   const absorbed = opts.ignoreShell ? 0 : Math.min(e.shell, dmg);
   e.shell -= absorbed;
   const lost = Math.min(e.hp, dmg - absorbed);
@@ -117,6 +119,8 @@ export function damageEnemy(
       e.shell = 0;
       e.statuses = {};
       e.step = 0;
+      e.mem.phaseShield = 1;
+      e.mem.phaseChanged = 1;
       events.push({ kind: 'phase', ...base, target: idx, amount: e.phase, note: ph.line });
       chooseIntent(c, idx);
       events.push({ kind: 'intent', tick: 0, step: 0, target: idx, note: e.intent.kind, amount: e.intent.amount, cell: e.intent.target });
@@ -209,6 +213,10 @@ export function enemyTurn(c: CombatState, events: GameEvent[], onAttack: (enemyI
     if (e.hp <= 0) continue;
     const def = enemyDef(e.defId);
     e.shell = 0;
+    const phaseTurn = e.mem.phaseChanged === 1;
+    delete e.mem.phaseShield;
+    delete e.mem.phaseChanged;
+    if (def.rewinds && !phaseTurn) rewind(c, i, events);
     def.onTurn?.(c, i, events);
     if (def.summonAtHalf && !e.mem.halfSummoned && e.hp * 2 <= e.maxHp) {
       e.mem.halfSummoned = 1;
@@ -264,9 +272,17 @@ function sabotage(c: CombatState, e: EnemyState, i: number, events: GameEvent[])
   const it = e.intent;
   if (it.sabotage === 'rust' || it.sabotage === 'magnetize') {
     const rust = it.sabotage === 'rust';
+    let wardDone = false;
     for (const t of it.targets ?? (it.target !== undefined ? [it.target] : [])) {
       const part = t >= 0 ? c.board[t] : null;
-      if (part) {
+      const flags = (c.flags ??= {});
+      if (part && !rust && c.trinkets.includes('magnet-ward') && !flags.magnetWard && !wardDone) {
+        flags.magnetWard = 1; // Magnet Ward: the first Magnetize each combat fails
+        wardDone = true;
+        events.push({ kind: 'sabotage', tick: 0, step: 0, cell: t, target: i, note: 'ward' });
+      } else if (part && rust && c.trinkets.includes('grease-pot') && neighbors(MAINSPRING).includes(t)) {
+        events.push({ kind: 'sabotage', tick: 0, step: 0, cell: t, target: i, note: 'grease' });
+      } else if (part) {
         if (rust) part.rusted = 1;
         else part.magnetized = true;
         events.push({ kind: 'sabotage', tick: 0, step: 0, cell: t, target: i, note: it.sabotage });
@@ -294,4 +310,71 @@ function scald(c: CombatState, e: EnemyState, i: number, events: GameEvent[]): v
   e.statuses.scald = s - 1;
   if (e.statuses.scald <= 0) delete e.statuses.scald;
   damageEnemy(c, i, s, events, NO_BASE, { ignoreShell: true, strikeEvent: false });
+}
+
+// ---------- The Clockmaker's Rewind (rules 4.4) ----------
+
+/** Cell holding the part with this uid, or -1. */
+function cellOfUid(c: CombatState, uid: number): number {
+  return c.board.findIndex((p) => p !== null && p.uid === uid);
+}
+
+/**
+ * Lift last turn's strongest combination (the part that contributed most plus the part that powered it) off the
+ * board into the top of the draw pile; he heals half of the damage it dealt. Phase 2 also resets Pressure;
+ * phase 3 lifts the two strongest distinct combinations. Parts that scored nothing are never lifted.
+ */
+function rewind(c: CombatState, idx: number, events: GameEvent[]): void {
+  const e = c.enemies[idx];
+  if (e.phase === 1 && c.pressure !== 0) {
+    events.push({ kind: 'pressure', tick: 0, step: 0, amount: -c.pressure, note: 'rewind' });
+    c.pressure = 0;
+  }
+  const lifted: number[] = []; // cells
+  let healed = 0;
+  const combos = e.phase >= 2 ? 2 : 1;
+  for (let k = 0; k < combos; k++) {
+    let best = -1;
+    let bestVal = 0;
+    for (let i = 0; i < CELLS; i++) {
+      const p = c.board[i];
+      if (!p || lifted.includes(i)) continue;
+      const v = c.lastTurnContrib[p.uid]?.value ?? 0;
+      if (v > bestVal) {
+        bestVal = v;
+        best = i;
+      }
+    }
+    if (best < 0) break;
+    const part = c.board[best]!;
+    const contrib = c.lastTurnContrib[part.uid];
+    healed += contrib.dmg ?? 0;
+    lifted.push(best);
+    if (contrib.fedBy !== null) {
+      const f = cellOfUid(c, contrib.fedBy);
+      if (f >= 0 && !lifted.includes(f)) {
+        healed += c.lastTurnContrib[contrib.fedBy]?.dmg ?? 0;
+        lifted.push(f);
+      }
+    }
+  }
+  const uids: number[] = [];
+  for (const cellIdx of lifted) {
+    const p = c.board[cellIdx]!;
+    uids.push(p.uid);
+    events.push({ kind: 'rewind', tick: 0, step: 0, cell: cellIdx, uid: p.uid });
+    c.board[cellIdx] = null;
+  }
+  uids.sort((a, b) => a - b);
+  c.draw.push(...uids); // the top of the draw pile: they come back soon, charge lost
+  if (healed > 0) healEnemy(c, idx, Math.floor(healed / 2), events);
+  // Phase 3 (Midnight): Jam the Mainspring on his 1st, 3rd, 5th... turn of the phase.
+  if (e.phase >= 2) {
+    const n = (e.mem.midnightTurns ?? 0) + 1;
+    e.mem.midnightTurns = n;
+    if (n % 2 === 1) {
+      c.jammed = 1;
+      events.push({ kind: 'sabotage', tick: 0, step: 0, target: idx, note: 'jam' });
+    }
+  }
 }

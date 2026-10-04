@@ -228,14 +228,14 @@ const list: EnemyDef[] = [
     tier: 'boss',
     hp: 110,
     pattern: [attack(20), attack(24)],
-    // Rewind (rules 4.4) is B3: it will run from a hook at the start of his turn.
+    rewinds: true, // Rewind: enemy.ts rewind(); phase 3 also Jams on alternate turns there
     phases: [
       { hp: 110, line: 'Tick. Every hour has its place.', pattern: [attack(20), attack(24)] },
       { hp: 130, line: 'Tock. Do not stop the hour.', pattern: [attack(26), attack(30)] },
       {
         hp: 150,
         line: 'Midnight. Again, and again.',
-        pattern: [attack(32), jam({ alsoAttack: 36, label: 'Jams the Mainspring, Attack 36' })],
+        pattern: [attack(32), attack(36)],
       },
     ],
   },
