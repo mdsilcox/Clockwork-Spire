@@ -1,5 +1,5 @@
 import { climbing, continueRun, enterWorkshop, hasOngoingFight, newFight, openPractice, openSlots, resume, startTutorial } from '../app/controller';
-import { colorBlind, openGlossary, setColorBlind } from '../app/prefs';
+import { colorBlind, openGlossary, openHowTo, openSettings, setColorBlind } from '../app/prefs';
 import { unlockAudio } from '../audio/synth';
 
 export function Title() {
@@ -73,8 +73,16 @@ export function Title() {
           <button class="secondary" data-testid="sandbox" onClick={openPractice}>
             Practice sandbox
           </button>
-          <button class="secondary" data-testid="open-glossary" onClick={() => openGlossary()}>
+        </div>
+        <div class="title-links">
+          <button class="secondary small" data-testid="open-howto" onClick={() => openHowTo()}>
+            How to play
+          </button>
+          <button class="secondary small" data-testid="open-glossary" onClick={() => openGlossary()}>
             Glossary
+          </button>
+          <button class="secondary small" data-testid="open-settings" onClick={() => openSettings()}>
+            Settings
           </button>
         </div>
         <label class="check">

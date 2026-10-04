@@ -184,8 +184,10 @@ test('Q3: every intent kind has its own shape, and color-blind icons add a word'
   // multi-hit reads "8 x2"
   await setIntent(page, 0, { kind: 'attack', amount: 8, hits: 2, label: 'Attack 8 x2' });
   await expect(page.getByTestId('intent-0')).toContainText('8 x2');
-  // turning the option off removes the words (title screen toggle)
-  await page.addInitScript(() => window.localStorage.setItem('cs.colorBlind', '0'));
+  // turning the option off (the settings record is the source of truth now)
+  await page.evaluate(() => (window as unknown as { __game: { setSettings(p: object): void } }).__game.setSettings({ colorBlindIcons: false }));
+  await expect(page.locator('.ilabel')).toHaveCount(0);
+  await page.waitForTimeout(300);
   await page.reload();
   await expect(page.getByTestId('combat')).toBeVisible(); // the saved fight resumes
   await expect(page.locator('.ilabel')).toHaveCount(0);

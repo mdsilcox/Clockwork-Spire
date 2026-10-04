@@ -41,11 +41,11 @@ test.beforeEach(async ({ page }) => {
 
 async function leaveResult(page: Page): Promise<void> {
   if (await page.getByTestId('victory').count()) {
-    for (let i = 0; i < 8 && (await page.getByTestId('workshop').count()) === 0; i++) {
-      await page.getByTestId('victory').getByRole('button').last().click();
-      await page.waitForTimeout(150);
-    }
-  } else await press(page, page.getByTestId('end-continue'));
+    const skip = page.getByTestId('ending-skip');
+    if (await skip.count()) await skip.click();
+    await page.getByTestId('ending-done').click({ timeout: 10_000 });
+  }
+  await press(page, page.getByTestId('end-continue'));
   await expect(page.getByTestId('workshop')).toBeVisible();
 }
 

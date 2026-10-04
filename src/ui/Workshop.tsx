@@ -1,14 +1,15 @@
 // The Workshop: the home between runs. Sprocket, the upgrade bench, the chassis rack, notes, blueprints and the door.
 import { useEffect, useState } from 'preact/hooks';
 import { abandonClimb, checkSleepy, climb, climbing, buyChassisNow, buyUpgrade, continueRun, goTitle, news, newFight, openPractice, openSlots, petSprocket, poke, pose, profileView, slotNo, startTutorial } from '../app/controller';
-import { colorBlind, openGlossary, setColorBlind } from '../app/prefs';
+import { colorBlind, openGlossary, openHowTo, openSettings, setColorBlind } from '../app/prefs';
 import { CHASSIS } from '../core/content/chassis';
+import { enemyDef } from '../core/content/enemies';
 import { partName } from '../core/content/parts';
 import { UPGRADES, UPGRADE_ORDER } from '../core/content/upgrades';
 import * as meta from '../core/meta';
 import type { Profile } from '../core/types';
 import { unlockAudio } from '../audio/synth';
-import { fmt, when } from './format';
+import { dayLabel, fmt } from './format';
 import { PartCard } from './PartCard';
 import { Sprocket } from './Sprocket';
 import { RoomArt } from './WorkshopArt';
@@ -142,16 +143,69 @@ function Blueprints({ p }: { p: Profile }) {
   );
 }
 
+function killerName(id: string | undefined): string {
+  if (!id) return 'none';
+  try {
+    return enemyDef(id).name;
+  } catch {
+    return id;
+  }
+}
+
+/** Totals over the run history of one profile (capped at 100 runs by the profile). */
+export function statsOf(p: Profile): { runs: number; wins: number; rate: number; best: number; biggest: number; favorite: string | null; killer: string | null } {
+  const runs = p.history.length;
+  const wins = p.history.filter((r) => r.result === 'win').length;
+  const parts = new Map<string, number>();
+  const killers = new Map<string, number>();
+  let biggest = 0;
+  for (const r of p.history) {
+    biggest = Math.max(biggest, r.biggestTurn ?? 0);
+    for (const id of new Set(r.partsAtEnd ?? [])) parts.set(id, (parts.get(id) ?? 0) + 1);
+    if (r.result === 'loss' && r.killedBy) killers.set(r.killedBy, (killers.get(r.killedBy) ?? 0) + 1);
+  }
+  const top = (m: Map<string, number>): string | null => [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? null;
+  return { runs, wins, rate: runs ? Math.round((wins / runs) * 100) : 0, best: p.bestFloor, biggest, favorite: top(parts), killer: top(killers) };
+}
+
 function History({ p }: { p: Profile }) {
-  if (p.history.length === 0) return <p class="empty">No climbs yet.</p>;
+  if (p.history.length === 0) return <p class="empty" data-testid="history-empty">No climbs yet. When you finish one, it is written down here.</p>;
+  const st = statsOf(p);
+  const cells: [string, string, string][] = [
+    ['Runs', fmt(st.runs), 'stat-runs'],
+    ['Wins', `${fmt(st.wins)} (${st.rate}%)`, 'stat-wins'],
+    ['Best floor', fmt(st.best), 'stat-best'],
+    ['Biggest turn', fmt(st.biggest), 'stat-biggest'],
+    ['Favorite part', st.favorite ? partName(st.favorite, false) : 'none yet', 'stat-favorite'],
+    ['Most common killer', st.killer ? killerName(st.killer) : 'none yet', 'stat-killer'],
+  ];
   return (
-    <ol class="history" data-testid="history">
-      {p.history.slice(0, 12).map((r, i) => (
-        <li key={i}>
-          <b>{r.result === 'win' ? 'Victory' : r.result === 'abandoned' ? 'Gave up' : 'Defeat'}</b> with {CHASSIS[r.chassis]?.name ?? r.chassis}, act {r.act} floor {r.floor}. {fmt(r.brassEarned)} Brass. <span class="when">{when(r.endedAt)}</span>
-        </li>
-      ))}
-    </ol>
+    <div data-testid="history">
+      <dl class="stats statsgrid" data-testid="history-stats">
+        {cells.map(([k, v, id]) => (
+          <div key={id}>
+            <dt>{k}</dt>
+            <dd data-testid={id}>{v}</dd>
+          </div>
+        ))}
+      </dl>
+      <ol class="runlist" data-testid="run-list">
+        {p.history.map((r) => (
+          <li key={r.n} class={`runrow ${r.result}`} data-testid="run-row">
+            <span class="rn">#{r.n}</span>
+            <span class="rres">
+              <b>{r.result === 'win' ? 'Victory' : r.result === 'abandoned' ? 'Gave up' : 'Defeat'}</b> as {CHASSIS[r.chassis]?.name ?? r.chassis}
+            </span>
+            <span class="rfl">
+              Act {r.act}, floor {r.floor}
+            </span>
+            <span class="rkill">{r.result === 'win' ? 'The Clockmaker stopped' : r.killedBy ? `Killed by ${killerName(r.killedBy)}` : 'Gave up'}</span>
+            <span class="rbrass">{fmt(r.brassEarned)} Brass</span>
+            <span class="when">{dayLabel(r.endedAt)}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
@@ -199,6 +253,12 @@ export function WorkshopScreen() {
             <div class="menupanel" role="menu" data-testid="ws-menu-panel">
               <button role="menuitem" onClick={() => (setMenu(false), openGlossary())}>
                 Glossary
+              </button>
+              <button role="menuitem" data-testid="ws-howto" onClick={() => (setMenu(false), openHowTo())}>
+                How to play
+              </button>
+              <button role="menuitem" data-testid="ws-settings" onClick={() => (setMenu(false), openSettings())}>
+                Settings
               </button>
               <label class="check">
                 <input type="checkbox" checked={cb} onChange={(e) => setColorBlind((e.currentTarget as HTMLInputElement).checked)} />

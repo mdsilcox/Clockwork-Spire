@@ -52,6 +52,10 @@ test('cheat to the Clockmaker, win, and see the victory screen', async ({ page }
   await expect(page.getByTestId('ending-stats')).toBeVisible();
   await noSidewaysScroll(page);
   await page.getByTestId('ending-done').click();
+  // then where the Brass came from, and on to the Workshop
+  await expect(page.getByTestId('brass-breakdown')).toContainText('Victory bonus');
+  await noSidewaysScroll(page);
+  await press(page, page.getByTestId('end-continue'));
   await expect(page.getByTestId('title').or(page.getByTestId('workshop'))).toBeVisible();
   expect(errors).toEqual([]);
 });
