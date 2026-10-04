@@ -143,7 +143,7 @@ describe('run progression', () => {
     expect(run.combat!.kind).toBe('elite');
     winCombat(run);
     const p = run.pending!;
-    if (p.kind !== 'reward') throw new Error('no reward');
+    if (p.kind !== 'salvage') throw new Error('no salvage tray');
     expect(p.trinkets.length).toBe(1);
     expect(p.blueprint).toBeDefined();
     expect(p.extraBlueprint).toBeDefined();
@@ -202,11 +202,8 @@ describe('run level trinkets and the shop', () => {
     winCombat(run);
     expect(run.hp).toBe(33);
     const p = run.pending!;
-    if (p.kind !== 'reward') throw new Error('no reward');
+    if (p.kind !== 'salvage') throw new Error('no salvage tray');
     expect(p.cogs).toBeGreaterThanOrEqual(14);
-    const cogs = run.cogs;
-    takeRewardPart(run, null);
-    expect(run.cogs).toBe(cogs + 12);
   });
 
   it('Clockwork Heart and Brass Heart raise max HP on gain; Mainspring Key lowers the hand', () => {

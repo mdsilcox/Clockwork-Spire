@@ -5,7 +5,7 @@
 import { BASE_PLACEMENTS, BASE_TICKS, createCombat } from './combat';
 import type { CreateCombatOpts } from './combat';
 import { CHASSIS } from './content/chassis';
-import { ENCOUNTERS } from './content/encounters';
+import { bandForFloor, ENCOUNTERS, encounterPool } from './content/encounters';
 import type { Encounter } from './content/encounters';
 import { EVENTS } from './content/events';
 import { candidates, EFFECTS, randomPartOf } from './eventfx';
@@ -13,6 +13,7 @@ import { generateActMap } from './map';
 import { initStreams, int, pick, shuffle } from './rng';
 import { addBlueprint, bossTrinkets, eliteTrinket, gainTrinket, heal, markOfferTaken, newPart, offerParts, recordOffers, rollBlueprint } from './rewards';
 import { makeShop as buildShop, OIL_HEAL, removalPrice } from './shop';
+import { isPartUnlocked, salvageItems } from './salvage';
 import type { CombatState, RunConfig, RunRecord, RunState, ShopItem } from './types';
 
 const BRASS_PER_FLOOR = [4, 6, 8];
@@ -92,8 +93,11 @@ export function availableNodes(run: RunState): string[] {
 
 function pickEncounter(run: RunState, tier: Encounter['tier']): Encounter {
   const act = run.act;
-  const t = tier === 'normal' && act === 1 && run.floor <= 3 ? 'easy' : tier;
-  const pool = ENCOUNTERS.filter((e) => e.act === act && e.tier === t);
+  // Fight rooms draw by band (content.md section 4); the 12 map floors count as 6 floors.
+  const pool =
+    tier === 'normal'
+      ? encounterPool(act, bandForFloor(Math.ceil(run.floor / 2), 6))
+      : ENCOUNTERS.filter((e) => e.act === act && e.tier === tier);
   const key = (e: Encounter) => `${e.act}:${e.enemies.join('+')}`;
   const fresh = pool.filter((e) => !run.recentEncounters.includes(key(e)));
   const e = pick(run.rng, 'enemy', fresh.length ? fresh : pool);
@@ -220,8 +224,6 @@ export function settleCombat(run: RunState): boolean {
   else run.stats.fights += 1;
   if (run.trinkets.includes('tin-cup')) heal(run, 3);
 
-  const parts = offerParts(run, kind);
-  recordOffers(run, parts, 'reward');
   const trinkets: string[] = [];
   if (kind === 'elite') {
     const t = eliteTrinket(run);
@@ -246,7 +248,24 @@ export function settleCombat(run: RunState): boolean {
       }
     }
   }
-  run.pending = { kind: 'reward', cogs, parts, trinkets, blueprint, extraBlueprint, partTaken: false, trinketTaken: trinkets.length === 0 };
+  if (kind === 'boss') {
+    const parts = offerParts(run, kind);
+    recordOffers(run, parts, 'reward');
+    run.pending = { kind: 'reward', cogs, parts, trinkets, blueprint, extraBlueprint, partTaken: false, trinketTaken: trinkets.length === 0 };
+  } else {
+    // v2: the salvage tray replaces the part choice after fights and elites (rules 2.5); the bin grows by choice.
+    run.pending = {
+      kind: 'salvage',
+      items: salvageItems(c, (id) => isPartUnlocked(run, id)),
+      wrecked: c.wrecked,
+      cogs,
+      trinkets,
+      blueprint,
+      extraBlueprint,
+      trinketTaken: trinkets.length === 0,
+      done: false,
+    };
+  }
   run.phase = 'reward';
   run.combat = null;
   syncBrass(run);
@@ -272,7 +291,7 @@ export function takeRewardPart(run: RunState, index: number | null): boolean {
 
 export function takeRewardTrinket(run: RunState, index: number | null): boolean {
   const p = run.pending;
-  if (run.phase !== 'reward' || !p || p.kind !== 'reward' || p.trinketTaken || p.trinkets.length === 0) return false;
+  if (run.phase !== 'reward' || !p || (p.kind !== 'reward' && p.kind !== 'salvage') || p.trinketTaken || p.trinkets.length === 0) return false;
   if (index === null) {
     p.trinketTaken = true;
     return true;

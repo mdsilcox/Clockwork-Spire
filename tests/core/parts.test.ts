@@ -17,11 +17,27 @@ describe('catalog text', () => {
     expect(PARTS['sprocket-wheel'].flavor).toContain('named after this');
     expect(PARTS['sprocket-wheel'].text).not.toContain('named after');
   });
-  it('has 46 parts: 8 gears, 7 springs, 7 cams, 8 tempo, 9 steam, 7 chimes; 17 locked', () => {
-    const fam = (f: string) => Object.values(PARTS).filter((p) => p.family === f).length;
-    expect([fam('gear'), fam('spring'), fam('cam'), fam('tempo'), fam('steam'), fam('chime')]).toEqual([8, 7, 7, 8, 9, 7]);
-    expect(Object.keys(PARTS).length).toBe(46);
-    expect(Object.values(PARTS).filter((p) => p.locked).length).toBe(17);
+  it('has 55 C/U/R parts (v1 46 plus 9 new): 10 gears, 7 springs, 10 cams, 8 tempo, 10 steam, 10 chimes; 20 locked', () => {
+    const cur = Object.values(PARTS).filter((p) => p.rarity !== 'masterwork' && p.rarity !== 'legendary');
+    const fam = (f: string) => cur.filter((p) => p.family === f).length;
+    expect([fam('gear'), fam('spring'), fam('cam'), fam('tempo'), fam('steam'), fam('chime')]).toEqual([10, 7, 10, 8, 10, 10]);
+    expect(cur.length).toBe(55);
+    expect(cur.filter((p) => p.locked).length).toBe(20);
+  });
+  it('Masterwork stubs named by salvage exist, locked, until B9 builds them', () => {
+    for (const id of ['skewframe', 'twin-mainspring', 'free-pawl', 'cascade-piston']) {
+      expect(PARTS[id].rarity, id).toBe('masterwork');
+      expect(PARTS[id].locked, id).toBe(true);
+    }
+  });
+  it('the new v2 parts read as content.md says', () => {
+    const t = (id: string) => [PARTS[id].text, PARTS[id].textPlus];
+    expect(t('pry-bar')).toEqual(['Pry 4.', 'Pry 6.']);
+    expect(t('cold-chisel')).toEqual(['Shatter 2.', 'Shatter 3.']);
+    expect(t('auger')).toEqual(['Drill 5.', 'Drill 7.']);
+    expect(t('wedge')).toEqual(['Jam. Strike 1.', 'Jam. Strike 3.']);
+    expect(t('sapper')).toEqual(['Pry 5. If it breaks a part, Plate 5.', 'Pry 8. If it breaks a part, Plate 8.']);
+    expect(PARTS.kettle.text).toContain('Patch 3');
   });
 });
 

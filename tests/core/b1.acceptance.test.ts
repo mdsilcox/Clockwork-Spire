@@ -101,8 +101,7 @@ describe('B1 combat', () => {
   });
 
   it('C2: killing every enemy wins the combat', () => {
-    const c = combatWith({ board: { B2: 'spur' }, enemies: ['rust-mite'] });
-    c.enemies[0].hp = 5;
+    const c = combatWith({ board: { B2: 'spur' }, enemies: [{ core: 5 }] });
     runTurn(c);
     expect(c.outcome).toBe('won');
   });

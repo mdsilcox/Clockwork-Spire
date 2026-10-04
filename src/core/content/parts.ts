@@ -1,4 +1,4 @@
-// Part registry: all 46 parts of docs/content.md. Tooltip `text` is the catalog's Effect column word for word;
+// Part registry: v1's 46 parts, the 9 new v2 C/U/R parts and locked Masterwork stubs for salvage ids (docs/content.md section 2). Tooltip `text` is the catalog's Effect column word for word;
 // `textPlus` spells out the whole upgraded effect (the catalog's "Upgraded" column applied to the base text).
 import { neighbors } from '../board';
 import type { PartDef, TickCtx } from '../defs';
@@ -196,8 +196,8 @@ const list: PartDef[] = [
     family: 'spring',
     rarity: 'uncommon',
     locked: false,
-    text: '+1 charge (max 5). When an enemy attacks you, release Strike 3 per charge at it.',
-    textPlus: '+1 charge (max 5). When an enemy attacks you, release Strike 4 per charge at it.',
+    text: '+1 charge (max 5). When an enemy part attacks you, release Strike 3 per charge at that part.',
+    textPlus: '+1 charge (max 5). When an enemy part attacks you, release Strike 4 per charge at that part.',
     onFire: (_ctx, p) => {
       p.charge = Math.min(5, p.charge + 1);
     },
@@ -532,13 +532,13 @@ const list: PartDef[] = [
     family: 'steam',
     rarity: 'uncommon',
     locked: false,
-    text: '+1 Pressure. The first time it fires each combat: heal 3.',
-    textPlus: '+1 Pressure. The first time it fires each combat: heal 5.',
+    text: '+1 Pressure. The first time it fires each combat: Patch 3.',
+    textPlus: '+1 Pressure. The first time it fires each combat: Patch 5.',
     onFire: (ctx, p) => {
       ctx.addPressure(1);
       if (p.counter === 0) {
         p.counter = 1; // counter doubles as the once-per-combat flag
-        ctx.heal(v(p, 3, 5));
+        ctx.patch(v(p, 3, 5));
       }
     },
   },
@@ -671,6 +671,136 @@ const list: PartDef[] = [
       if (ctx.oncePerTurn(`lamp:${p.uid}`)) ctx.addStatusBonus(v(p, 1, 2)); // a bonus for the turn, not one per tick
     },
   },
+  // ---------- v2 parts (B7): they answer the enemy machines ----------
+  {
+    id: 'auger',
+    name: 'Auger',
+    family: 'gear',
+    rarity: 'uncommon',
+    locked: false,
+    text: 'Drill 5.',
+    textPlus: 'Drill 7.',
+    onFire: (ctx, p) => ctx.drill(v(p, 5, 7)),
+  },
+  {
+    id: 'core-drill',
+    name: 'Core Drill',
+    family: 'gear',
+    rarity: 'rare',
+    locked: true,
+    text: 'Holds on tick 1. From tick 2: Drill 7 and pass.',
+    textPlus: 'Holds on tick 1. From tick 2: Drill 10 and pass.',
+    holds: (ctx) => ctx.tick === 1,
+    onFire: (ctx, p) => {
+      if (ctx.tick >= 2) ctx.drill(v(p, 7, 10));
+    },
+  },
+  {
+    id: 'pry-bar',
+    name: 'Pry Bar',
+    family: 'cam',
+    rarity: 'common',
+    locked: false,
+    text: 'Pry 4.',
+    textPlus: 'Pry 6.',
+    onFire: (ctx, p) => {
+      ctx.pry(v(p, 4, 6));
+    },
+  },
+  {
+    id: 'wedge',
+    name: 'Wedge',
+    family: 'cam',
+    rarity: 'uncommon',
+    locked: false,
+    text: 'Jam. Strike 1.',
+    textPlus: 'Jam. Strike 3.',
+    onFire: (ctx, p) => {
+      ctx.jam();
+      ctx.strike(v(p, 1, 3));
+    },
+  },
+  {
+    id: 'sapper',
+    name: 'Sapper',
+    family: 'cam',
+    rarity: 'rare',
+    locked: true,
+    text: 'Pry 5. If it breaks a part, Plate 5.',
+    textPlus: 'Pry 8. If it breaks a part, Plate 8.',
+    onFire: (ctx, p) => {
+      if (ctx.pry(v(p, 5, 8))) ctx.plate(v(p, 5, 8));
+    },
+  },
+  {
+    id: 'soothing-valve',
+    name: 'Soothing Valve',
+    family: 'steam',
+    rarity: 'uncommon',
+    locked: false,
+    text: 'Spend 2 Pressure: Patch 4. Without enough Pressure: Patch 1.',
+    textPlus: 'Spend 2 Pressure: Patch 6. Without enough Pressure: Patch 2.',
+    onFire: (ctx, p) => {
+      if (ctx.spendPressure(2)) ctx.patch(v(p, 4, 6));
+      else ctx.patch(v(p, 1, 2));
+    },
+  },
+  {
+    id: 'cold-chisel',
+    name: 'Cold Chisel',
+    family: 'chime',
+    rarity: 'common',
+    locked: false,
+    text: 'Shatter 2.',
+    textPlus: 'Shatter 3.',
+    onFire: (ctx, p) => ctx.shatter(v(p, 2, 3)),
+  },
+  {
+    id: 'mending-spool',
+    name: 'Mending Spool',
+    family: 'chime',
+    rarity: 'common',
+    locked: false,
+    text: 'The first time it fires each turn: Patch 3.',
+    textPlus: 'The first time it fires each turn: Patch 5.',
+    onFire: (ctx, p) => {
+      if (ctx.isFirstFire()) ctx.patch(v(p, 3, 5));
+    },
+  },
+  {
+    id: 'sunder',
+    name: 'Sunder',
+    family: 'chime',
+    rarity: 'rare',
+    locked: true,
+    text: 'Shatter 3 and Cracked 1.',
+    textPlus: 'Shatter 4 and Cracked 2.',
+    onFire: (ctx, p) => {
+      ctx.shatter(v(p, 3, 4));
+      ctx.applyStatus('target', 'cracked', v(p, 1, 2));
+    },
+  },
+
+  // ---------- Masterwork stubs (B9 builds them): locked, never offered, here so salvage ids resolve ----------
+  ...(
+    [
+      ['skewframe', 'Skewframe', 'gear'],
+      ['twin-mainspring', 'Twin Mainspring', 'spring'],
+      ['free-pawl', 'Free Pawl', 'spring'],
+      ['cascade-piston', 'Cascade Piston', 'steam'],
+    ] as const
+  ).map(
+    ([id, name, family]): PartDef => ({
+      id,
+      name,
+      family,
+      rarity: 'masterwork',
+      locked: true,
+      text: 'Coming soon.',
+      textPlus: 'Coming soon+.',
+      onFire: () => {},
+    }),
+  ),
 ];
 
 export const PARTS: Record<string, PartDef> = Object.fromEntries(list.map((d) => [d.id, d]));
