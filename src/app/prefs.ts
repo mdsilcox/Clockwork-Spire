@@ -70,3 +70,13 @@ export function closeTopOverlay(): boolean {
   else return false;
   return true;
 }
+
+/** A new version of the game has downloaded (offline worker): offer it quietly, never during a fight. */
+export const showUpdate = signal(false);
+let updater: (() => void) | null = null;
+export function setUpdater(fn: (() => void) | null): void {
+  updater = fn;
+}
+export function applyUpdate(): void {
+  updater?.();
+}

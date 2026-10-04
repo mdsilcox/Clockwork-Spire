@@ -18,6 +18,8 @@ import { intentRows } from './intents';
 import { clearRun, loadPractice, loadRun, loadSettings, readSlot, removeSlot, savePractice, saveRun, saveSettings, writeSlot } from './save';
 import type { SlotNo } from './save';
 import * as meta from '../core/meta';
+import { audioDebug, music, trackFor } from '../audio/music';
+import type { TrackId } from '../audio/music';
 import type { Profile, RunRecord, Settings, SprocketMood } from '../core/types';
 import type { SprocketPose } from '../ui/Sprocket';
 import { colorBlind } from './prefs';
@@ -425,9 +427,7 @@ export function petSprocket(): void {
   lastActive = Date.now();
   idleShift.value = 0;
   pose.value = 'pet';
-  const bark = (audio as unknown as { bark?: () => void }).bark;
-  if (bark) bark();
-  else audio.heal();
+  // the bark and the wiggle are Sprocket's own (the component plays them when he is tapped)
   greetTimer = window.setTimeout(() => {
     if (pose.value === 'pet') pose.value = 'idle';
   }, 1400);
@@ -907,35 +907,15 @@ export const DEFAULT_SETTINGS: Settings = { version: 1, master: 0.8, music: 0.7,
 export const settings = signal<Settings>({ ...DEFAULT_SETTINGS, colorBlindIcons: colorBlind.value });
 let settingsReady = false;
 
-// the music lane's module (src/audio/music.ts) may not exist yet: resolve to nothing until it does
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const musicModules = import.meta.glob('../audio/music.ts', { eager: true }) as Record<string, any>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function musicMod(): any {
-  return Object.values(musicModules)[0] ?? null;
-}
-
 function applyAudio(st: Settings, initial: boolean): void {
-  const m = musicMod();
-  const setVol = (ch: string, v: number): void => {
-    try {
-      if (m?.setVolume) m.setVolume(ch, v);
-      else if (ch !== 'music') audio.setVolume(ch as 'master' | 'effects', v);
-    } catch {
-      /* audio is best effort */
-    }
-  };
-  setVol('master', st.master);
-  setVol('music', st.music);
-  setVol('effects', st.effects);
-  // under automation the sound starts muted: only an explicit choice changes that
-  if (st.muted || !initial) {
-    try {
-      if (m?.setMuted) m.setMuted(st.muted);
-      else audio.setMuted(st.muted);
-    } catch {
-      /* audio is best effort */
-    }
+  try {
+    music.setVolume('master', st.master);
+    music.setVolume('music', st.music);
+    music.setVolume('effects', st.effects);
+    // under automation the sound starts muted: only an explicit choice changes that
+    if (st.muted || !initial) music.setMuted(st.muted);
+  } catch {
+    /* audio is best effort */
   }
 }
 
@@ -961,25 +941,23 @@ effect(() => {
 
 /** Music follows the screen: the Workshop for the title and Workshop, the act's track on the map and in fights. */
 effect(() => {
-  const m = musicMod();
   const scr = screen.value;
   const rv = runView.value;
   const c = combat.value;
-  if (!m?.music || !m.trackFor) return;
   try {
     const enemyIds = c ? c.enemies.map((e) => e.defId) : [];
     const clock = c?.enemies.find((e) => e.defId === 'clockmaker');
-    let track: string;
+    let track: TrackId;
     if (scr === 'run' && rv) {
-      if (rv.phase === 'combat') track = m.trackFor('combat', rv.act, enemyIds, clock?.phase ?? 0);
-      else if (rv.phase === 'victory') track = m.trackFor('ending');
-      else if (rv.phase === 'defeat') track = m.trackFor('workshop');
-      else track = m.trackFor('map', rv.act);
-    } else if (scr === 'combat') track = m.trackFor('combat', 1, enemyIds, 0);
-    else if (scr === 'workshop') track = m.trackFor('workshop');
-    else track = m.trackFor('title');
-    if (track !== m.music.current?.()) m.music.play(track);
-    if (clock && track === 'clockmaker') m.music.setIntensity?.(clock.phase ?? 0);
+      if (rv.phase === 'combat') track = trackFor('combat', rv.act, enemyIds, clock?.phase ?? 0);
+      else if (rv.phase === 'victory') track = trackFor('ending');
+      else if (rv.phase === 'defeat') track = trackFor('workshop');
+      else track = trackFor('map', rv.act);
+    } else if (scr === 'combat') track = trackFor('combat', 1, enemyIds, 0);
+    else if (scr === 'workshop') track = trackFor('workshop');
+    else track = trackFor('title');
+    if (track !== music.current()) music.play(track);
+    if (clock && track === 'clockmaker') music.setIntensity(clock.phase ?? 0);
   } catch {
     /* music is best effort */
   }
@@ -1214,14 +1192,6 @@ export function installDebug(): void {
       persist();
     },
   };
-  // the music lane's own view of the sound (current track, volumes, mute), or ours until it lands
-  Object.defineProperty(w.__game, 'audio', {
-    configurable: true,
-    get: () => {
-      const m = musicMod();
-      if (m?.audioDebug) return m.audioDebug();
-      const st = settings.value;
-      return { track: null, volumes: { master: st.master, music: st.music, effects: st.effects }, muted: st.muted };
-    },
-  });
+  // the music module's own view of the sound: current track, volumes, mute
+  Object.defineProperty(w.__game, 'audio', { configurable: true, get: () => audioDebug() });
 }

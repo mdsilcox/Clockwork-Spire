@@ -1,6 +1,6 @@
 import { useEffect } from 'preact/hooks';
 import { combat, nodeKey, runView, screen } from '../app/controller';
-import { closeTopOverlay, portrait } from '../app/prefs';
+import { applyUpdate, closeTopOverlay, portrait, showUpdate } from '../app/prefs';
 import { CombatScreen } from './Combat';
 import { EndScreen } from './End';
 import { GlossaryScreen } from './Glossary';
@@ -13,6 +13,25 @@ import { SettingsScreen } from './Settings';
 import { SlotsScreen } from './Slots';
 import { WorkshopScreen } from './Workshop';
 import { Title } from './Title';
+
+/** "A new version is ready": quiet, and only where nothing is at stake (title, slots, Workshop, the map). */
+function UpdateToast() {
+  const scr = screen.value;
+  const rv = runView.value;
+  const calm = scr === 'title' || scr === 'slots' || scr === 'workshop' || (scr === 'run' && rv?.phase === 'map');
+  if (!showUpdate.value || !calm) return null;
+  return (
+    <div class="updatetoast" role="status" data-testid="update-toast">
+      <span>A new version is ready</span>
+      <button class="primary small" data-testid="update-now" onClick={() => applyUpdate()}>
+        Update
+      </button>
+      <button class="ghostbtn small" data-testid="update-later" onClick={() => (showUpdate.value = false)}>
+        Later
+      </button>
+    </div>
+  );
+}
 
 function RunScreens() {
   const run = runView.value;
@@ -79,6 +98,7 @@ export function App() {
         <HowToScreen />
         <SettingsScreen />
         <GlossaryScreen />
+        <UpdateToast />
       </div>
       {away && <PortraitCard />}
     </>

@@ -84,6 +84,7 @@ test('each loop renders offline without NaN and stays under the limiter', async 
 });
 
 test('the track follows the screen: Workshop, a fight, the Clockmaker', async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('cs.tutorialDone', '1')); // a first launch opens the tutorial fight
   await page.goto('/?sound=1');
   const hooked = await page.evaluate(() => !!(window as unknown as { __game?: { audio?: unknown } }).__game?.audio);
   test.skip(!hooked, 'the UI lane has not registered window.__game.audio yet');

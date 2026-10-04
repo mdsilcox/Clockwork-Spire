@@ -4,6 +4,7 @@ const PORT = Number(process.env.PW_PORT ?? 5320);
 
 export default defineConfig({
   testDir: 'e2e',
+  testIgnore: 'offline.spec.ts', // runs on a production build: npm run test:offline
   workers: 2,
   timeout: 60_000,
   reporter: 'list',
