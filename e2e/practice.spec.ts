@@ -236,3 +236,56 @@ test('dragging a card onto a cell places it', async ({ page }) => {
   await expect(page.getByTestId('cell-C2')).toHaveAttribute('aria-label', /^C2, (?!empty)/);
   expect((await state(page)).board[7]).not.toBeNull();
 });
+
+test('rules tooltip on hover, focus and long press stays inside the screen', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('practice').click();
+  await newFightWithSpur(page);
+  const inside = async () => {
+    const b = await page.getByTestId('tooltip').boundingBox();
+    const vp = page.viewportSize()!;
+    expect(b!.x).toBeGreaterThanOrEqual(0);
+    expect(b!.y).toBeGreaterThanOrEqual(0);
+    expect(b!.x + b!.width).toBeLessThanOrEqual(vp.width);
+    expect(b!.y + b!.height).toBeLessThanOrEqual(vp.height);
+  };
+  // keyboard focus on a hand card
+  await page.getByTestId('hand-card').first().focus();
+  await expect(page.getByTestId('tooltip')).toContainText('.');
+  await inside();
+  // long press on a hand card (works with a mouse too)
+  await page.getByTestId('hand-card').nth(1).blur();
+  const box = (await page.getByTestId('hand-card').nth(1).boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(550);
+  await expect(page.getByTestId('tooltip')).toBeVisible();
+  await inside();
+  await page.mouse.up();
+  // a placed part shows its name and text
+  await page.evaluate(() => (window as unknown as { __game: Game & { debugBoard(s: object): void } }).__game.debugBoard({ B2: 'coil' }));
+  await page.getByTestId('cell-B2').focus();
+  await expect(page.getByTestId('tooltip')).toContainText('Coil Spring');
+  await expect(page.getByTestId('tooltip')).toContainText('Charge 0/3');
+  await inside();
+});
+
+test('no stale chain counter after a win and reload', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('practice').click();
+  await newFightWithSpur(page);
+  await page.evaluate(() => {
+    const g = (window as unknown as { __game: Game & { debugBoard(s: object): void } }).__game;
+    g.debugBoard({ B2: 'spur', A1: 'spur', A3: 'spur' });
+    g.setSpeed('skip');
+    g.setEnemyHp(1);
+  });
+  await page.getByTestId('run').click();
+  await expect(page.getByTestId('result')).toBeVisible();
+  await expect(page.getByTestId('chain')).toBeHidden();
+  await expect(page.getByTestId('result')).toContainText('Victory');
+  await page.waitForTimeout(300);
+  await page.reload();
+  await expect(page.getByTestId('result')).toBeVisible();
+  await expect(page.getByTestId('chain')).toBeHidden();
+});

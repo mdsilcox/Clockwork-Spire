@@ -10,8 +10,10 @@ import { loadPractice, savePractice } from './save';
 
 export type Screen = 'loading' | 'title' | 'combat';
 
-/** Tinker starting bin (docs/content.md): Spur x3, Escapement x3, Idler, Coil Spring. */
-const TINKER_BIN = ['spur', 'spur', 'spur', 'escapement', 'escapement', 'escapement', 'idler', 'coil'];
+/** Tinker starting bin (docs/content.md) plus Cam, Boiler, Piston and Pendulum, so the practice fight has real choices. */
+const PRACTICE_BIN = ['spur', 'spur', 'spur', 'escapement', 'escapement', 'escapement', 'idler', 'coil', 'cam', 'boiler', 'piston', 'pendulum'];
+/** Tuned with a greedy bot (about 3 turns) and a random placer (about 6 turns, loses 3 in 10). */
+const PRACTICE_ENEMIES = ['cog-rat', 'rust-mite', 'rust-mite'];
 
 export const screen = signal<Screen>('loading');
 /** A copy of the current combat for rendering. */
@@ -41,6 +43,11 @@ export function attachStage(s: Stage | null): void {
 }
 
 function onEvent(e: GameEvent, sp: Speed): void {
+  if (e.kind === 'combatEnd') {
+    if (e.note === 'won') audio.victory();
+    else audio.defeat();
+    return;
+  }
   if (sp === 'skip') return;
   if (e.kind === 'pulse') audio.tick(e.step);
   else if (e.kind === 'release') audio.chime();
@@ -63,8 +70,8 @@ export function newFight(seed?: number): void {
   if (stage?.isPlaying()) stage.setSpeed('skip');
   // The seed comes from the clock only here, in the app layer; core stays pure.
   const s = seed ?? (Date.now() ^ Math.floor(performance.now() * 1000)) >>> 0;
-  const bin: PartInstance[] = TINKER_BIN.map((defId, i) => ({ uid: i + 1, defId, plus: false }));
-  live = createCombat({ seed: s, bin, enemies: ['rust-mite', 'rust-mite'], hp: 50, maxHp: 50, kind: 'practice' });
+  const bin: PartInstance[] = PRACTICE_BIN.map((defId, i) => ({ uid: i + 1, defId, plus: false }));
+  live = createCombat({ seed: s, bin, enemies: PRACTICE_ENEMIES, hp: 50, maxHp: 50, kind: 'practice' });
   replaying.value = null;
   view.value = null;
   lastResult.value = null;

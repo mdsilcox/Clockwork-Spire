@@ -22,7 +22,7 @@ export function viewFromState(c: CombatState): StageView {
     pressure: c.pressure,
     ticks: c.ticksThisTurn,
     tick: 0,
-    chain: c.momentum,
+    chain: 0, // Momentum only shows while a turn replays
   };
 }
 

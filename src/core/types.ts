@@ -11,6 +11,10 @@ export const ROWS = 3;
 export const CELLS = COLS * ROWS;
 export const MAINSPRING = 5;
 
+/** Status ids. Enemy: scald, cracked, dazed, strength (attack bonus). Player: corroded, grit. */
+export const ENEMY_STATUSES = ['scald', 'cracked', 'dazed', 'strength'] as const;
+export const PLAYER_STATUSES = ['corroded', 'grit'] as const;
+
 // ---------- Saved state ----------
 
 export interface PartInstance {
@@ -124,7 +128,17 @@ export interface GameEvent {
     | 'enemyDied'
     | 'sabotage'
     | 'intent' // an enemy shows its next intent
-    | 'combatEnd';
+    | 'combatEnd'
+    // B2 additions (contract for the stage and UI lanes):
+    | 'echo' // a part fires its effect again (Lever, Echo Chamber)
+    | 'heal' // player healed `amount`
+    | 'statusTick' // a status ticks (e.g. scald damage at end of enemy turn), `status`, `amount`, `target`
+    | 'shell' // enemy `target` gains Shell `amount`
+    | 'buff' // enemy `target` buffs (note: what), `amount`
+    | 'summon' // enemy `target` (new index) appears; `note` = def id
+    | 'phase' // boss `target` enters phase `amount` (0-based); `note` = short line
+    | 'rewind' // Clockmaker lifts the part at `cell` (uid) back to the draw pile (B3)
+    | 'unmagnetize'; // a magnetized part at `cell` returns to the hand at turn start
   tick: number; // 0 for events outside the machine's ticks
   step: number; // breadth-first depth within the tick (0 = Mainspring)
   cell?: number;

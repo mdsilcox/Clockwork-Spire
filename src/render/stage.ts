@@ -139,7 +139,10 @@ export class Stage {
     return new Promise<void>((resolve) => {
       this.resolve = resolve;
       if (this.speed === 'skip' || events.length === 0) {
-        for (const e of events) this.applyToView(e);
+        for (const e of events) {
+          this.applyToView(e);
+          if (e.kind === 'combatEnd') this.fire(e);
+        }
         this.finishNow();
         return;
       }
@@ -272,6 +275,16 @@ export class Stage {
       }
       case 'enemyDied':
         break;
+      case 'combatEnd': {
+        if (e.note === 'won') {
+          const b = this.layout.board;
+          for (let i = 0; i < 18; i++) {
+            this.puffs.push({ x: b.x + (b.w * (i + 0.5)) / 18, y: b.y + b.h * 0.8, vx: (i % 5 - 2) * 12, vy: -50 - (i % 4) * 18, t0: t, r: this.layout.cell * 0.16 });
+          }
+          this.shimmer = 1;
+        }
+        break;
+      }
       case 'sabotage':
         if (e.cell !== undefined && e.cell >= 0 && e.note === 'rust' && this.vis[e.cell]) this.vis[e.cell].rusted = true;
         break;

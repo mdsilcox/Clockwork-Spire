@@ -416,8 +416,9 @@ button:disabled {
 }
 
 .tip {
-  position: absolute;
-  width: 200px;
+  position: fixed;
+  left: 0;
+  top: 0;
   padding: 6px 8px;
   border-radius: 8px;
   background: rgba(20, 14, 9, 0.96);
@@ -653,4 +654,27 @@ button:disabled {
   .bar i {
     transition: none;
   }
+}
+
+.pill.pressure.sputter .bar i {
+  animation: sputter 0.9s steps(6) infinite;
+}
+
+@keyframes sputter {
+  0%, 100% { opacity: 1; }
+  30% { opacity: 0.2; }
+  55% { opacity: 0.8; }
+  75% { opacity: 0.1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill.pressure.sputter .bar i {
+    animation: none;
+    opacity: 0.4;
+  }
+}
+.tipdetail {
+  display: block;
+  margin-top: 3px;
+  color: var(--lamp);
 }

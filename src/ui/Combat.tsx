@@ -13,6 +13,8 @@ import { FAMILY_COLOR, FAMILY_LABEL } from '../render/palette';
 import { viewFromState } from '../render/replay';
 import { Stage } from '../render/stage';
 import { INTENT_NAME, IntentIcon } from './icons';
+import { Tooltip } from './Tooltip';
+import type { TipInfo } from './Tooltip';
 
 function enemyNames(c: CombatState): string[] {
   const base = c.enemies.map((e) => enemyDef(e.defId).name);
@@ -50,7 +52,10 @@ export function CombatScreen() {
   const [sel, setSel] = useState<number | null>(null);
   const [cursor, setCursor] = useState<number>(cellIdx('B2'));
   const [mark, setMark] = useState<number>(-1);
-  const [hover, setHover] = useState<number>(-1);
+  const [tipInfo, setTipInfo] = useState<TipInfo | null>(null);
+  const longTimer = useRef<number>(0);
+  const hideTimer = useRef<number>(0);
+  const longFired = useRef(false);
   const [kbd, setKbd] = useState(false);
   const [toast, setToast] = useState<string>('');
   const [ghost, setGhost] = useState<{ x: number; y: number; idx: number } | null>(null);
@@ -221,15 +226,76 @@ export function CombatScreen() {
     if (target) doPlace(d.idx, Number(target.dataset.cell));
   };
   const onCardClick = (idx: number): void => {
+    if (longFired.current) {
+      longFired.current = false;
+      return;
+    }
     if (suppressClick.current || busy || over) return;
     setSel(sel === idx ? null : idx);
     setMark(-1);
   };
 
+  // ---------- rules tooltip: hover, focus, long press ----------
+  const showTip = (el: Element, info: Omit<TipInfo, 'rect'> | null): void => {
+    if (!info) return setTipInfo(null);
+    const r = el.getBoundingClientRect();
+    setTipInfo({ ...info, rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom } });
+  };
+  const hideTip = (): void => {
+    window.clearTimeout(longTimer.current);
+    window.clearTimeout(hideTimer.current);
+    setTipInfo(null);
+  };
+  /** Event handlers that show `info()` on hover, keyboard focus and a 400 ms press. */
+  const tipHandlers = (info: () => Omit<TipInfo, 'rect'> | null) => ({
+    onPointerEnter: (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') showTip(e.currentTarget as Element, info());
+    },
+    onPointerLeave: (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') hideTip();
+    },
+    onFocus: (e: FocusEvent) => showTip(e.currentTarget as Element, info()),
+    onBlur: () => hideTip(),
+    onPointerDown: (e: PointerEvent) => {
+      longFired.current = false;
+      const el = e.currentTarget as Element;
+      window.clearTimeout(longTimer.current);
+      longTimer.current = window.setTimeout(() => {
+        longFired.current = true;
+        showTip(el, info());
+        hideTimer.current = window.setTimeout(() => setTipInfo(null), 3000);
+      }, 400);
+    },
+    onPointerUp: () => window.clearTimeout(longTimer.current),
+  });
+  const cellInfo = (i: number): Omit<TipInfo, 'rect'> | null => {
+    if (i === MAINSPRING) return { title: 'Mainspring.', text: 'The source of all motion. It cannot be replaced.' };
+    const p = c.board[i];
+    if (!p) return null;
+    const bits: string[] = [];
+    if (partDef(p.defId).threshold !== undefined && partDef(p.defId).id === 'coil') bits.push(`Charge ${p.charge}/${partDef(p.defId).threshold}.`);
+    else if (p.charge > 0) bits.push(`Charge ${p.charge}.`);
+    if (p.defId === 'cam') bits.push(`Fired ${p.counter} ${p.counter === 1 ? 'time' : 'times'} this fight.`);
+    if (p.rusted > 0) bits.push('Rusted: it will not fire or pass motion on the next run.');
+    return { title: `${partName(p.defId, p.plus)}.`, text: partText(p.defId, p.plus), detail: bits.join(' ') || undefined };
+  };
+  const cardInfo = (idx: number): Omit<TipInfo, 'rect'> | null => {
+    const uid = c.hand[idx];
+    if (uid === undefined) return null;
+    const inst = c.parts[uid];
+    return { title: `${partName(inst.defId, inst.plus)}.`, text: partText(inst.defId, inst.plus), detail: `${FAMILY_LABEL[partDef(inst.defId).family]} part. Fresh: no charge yet.` };
+  };
+
+  // keyboard cursor shows the tip of the part under it
+  useEffect(() => {
+    if (!kbd || busy || over) return;
+    const el = document.querySelector(`[data-cell="${cursor}"]`);
+    if (el) showTip(el, cellInfo(cursor));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kbd, cursor, live]);
+
   // ---------- derived display ----------
   const slots = layout ? enemySlots(layout, c.enemies.length) : [];
-  const tipCell = hover >= 0 ? hover : mark >= 0 ? mark : kbd && cursor >= 0 && !busy && sel === null && c.board[cursor] ? cursor : -1;
-  const tip = tipCell >= 0 && layout ? tipFor(c, tipCell, layout) : null;
   const incoming = c.enemies.reduce((sum, e, i) => {
     if (vw.enemyHp[i] <= 0 || e.intent.kind !== 'attack') return sum;
     return sum + (e.intent.amount ?? 0) * (e.intent.hits ?? 1);
@@ -253,7 +319,7 @@ export function CombatScreen() {
           <b>{vw.plating}</b>
           {preview && preview.plating > 0 && <span class="gain">+{preview.plating}</span>}
         </div>
-        <div class={`pill pressure ${preview?.overpressure ? 'danger' : ''}`} data-testid="pressure" title="Pressure above 20 at the end of your turn costs 6 HP">
+        <div class={`pill pressure ${preview?.overpressure ? 'danger' : ''} ${c.outcome === 'lost' && !busy ? 'sputter' : ''}`} data-testid="pressure" title="Pressure above 20 at the end of your turn costs 6 HP">
           <span class="lbl">Pressure</span>
           <span class="bar gauge">
             <i style={{ width: `${pressurePct}%` }} />
@@ -303,9 +369,11 @@ export function CombatScreen() {
                       data-testid="cell-A2"
                       aria-label="A2, the Mainspring: the source of all motion"
                       title="Mainspring: the source of all motion"
-                      onPointerEnter={() => setHover(i)}
-                      onPointerLeave={() => setHover(-1)}
-                      onClick={() => tapCell(i)}
+                      {...tipHandlers(() => cellInfo(i))}
+                      onClick={() => {
+                        if (!longFired.current) tapCell(i);
+                        longFired.current = false;
+                      }}
                     />
                   );
                 }
@@ -313,7 +381,7 @@ export function CombatScreen() {
                 return (
                   <button
                     key={i}
-                    tabIndex={-1}
+                    tabIndex={part ? 0 : -1}
                     class={`cell ${part ? 'has' : ''} ${cursor === i ? 'cursor' : ''} ${mark === i ? 'marked' : ''} ${sel !== null ? 'drop' : ''}`}
                     style={style}
                     data-cell={i}
@@ -321,9 +389,11 @@ export function CombatScreen() {
                     aria-label={label}
                     title={part ? `${partName(part.defId, part.plus)}: ${partText(part.defId, part.plus)}` : undefined}
                     disabled={busy || over}
-                    onPointerEnter={() => setHover(i)}
-                    onPointerLeave={() => setHover(-1)}
-                    onClick={() => tapCell(i)}
+                    {...tipHandlers(() => cellInfo(i))}
+                    onClick={() => {
+                      if (!longFired.current) tapCell(i);
+                      longFired.current = false;
+                    }}
                   >
                     {n > 0 && (
                       <span class="badge" data-testid={`badge-${cellName(i)}`}>
@@ -372,6 +442,7 @@ export function CombatScreen() {
                       {dmg > 0 && !dead && (
                         <span class="edmg" data-testid={`edmg-${i}`}>
                           Run: -{dmg}
+                          {dmg >= hp ? ' (scrapped)' : ''}
                         </span>
                       )}
                     </span>
@@ -379,11 +450,6 @@ export function CombatScreen() {
                 );
               })}
             </div>
-            {tip && (
-              <div class="tip" style={{ left: `${tip.left}px`, top: tip.top !== undefined ? `${tip.top}px` : undefined, bottom: tip.bottom !== undefined ? `${tip.bottom}px` : undefined }} role="tooltip">
-                <b>{tip.title}</b> {tip.text}
-              </div>
-            )}
             <div class="chain" key={vw.chain} data-testid="chain" aria-live="off" hidden={vw.chain <= 0}>
               Chain x{vw.chain}
             </div>
@@ -397,10 +463,10 @@ export function CombatScreen() {
         {over && !busy && (
           <div class="result" data-testid="result" role="dialog" aria-label={c.outcome === 'won' ? 'Victory' : 'Defeat'}>
             <div class="panel">
-              <h2>{c.outcome === 'won' ? 'The machine wins' : 'The machine winds down'}</h2>
+              <h2>{c.outcome === 'won' ? 'Victory' : 'Defeat'}</h2>
               <p>
                 {c.outcome === 'won'
-                  ? `Every enemy is scrapped after ${c.turn} ${c.turn === 1 ? 'turn' : 'turns'}.`
+                  ? `The machine scrapped every enemy in ${c.turn} ${c.turn === 1 ? 'turn' : 'turns'}.`
                   : 'You ran out of HP. A good machine is built one tick at a time.'}
               </p>
               <button class="primary" data-testid="again" onClick={() => newFight()}>
@@ -426,9 +492,19 @@ export function CombatScreen() {
                 aria-pressed={sel === idx}
                 aria-label={`${idx + 1}: ${partName(inst.defId, inst.plus)}, ${FAMILY_LABEL[def.family]}. ${partText(inst.defId, inst.plus)}`}
                 disabled={busy || over}
-                onPointerDown={(e) => onCardDown(e, idx)}
-                onPointerMove={onCardMove}
-                onPointerUp={onCardUp}
+                {...tipHandlers(() => cardInfo(idx))}
+                onPointerDown={(e) => {
+                  tipHandlers(() => cardInfo(idx)).onPointerDown(e);
+                  onCardDown(e, idx);
+                }}
+                onPointerMove={(e) => {
+                  if (dragRef.current && Math.hypot(e.clientX - dragRef.current.sx, e.clientY - dragRef.current.sy) > 10) hideTip();
+                  onCardMove(e);
+                }}
+                onPointerUp={(e) => {
+                  window.clearTimeout(longTimer.current);
+                  onCardUp(e);
+                }}
                 onPointerCancel={() => {
                   dragRef.current = null;
                   setGhost(null);
@@ -470,6 +546,7 @@ export function CombatScreen() {
           </div>
         </div>
       </footer>
+      {tipInfo && <Tooltip tip={tipInfo} />}
       {ghost && c.hand[ghost.idx] !== undefined && (
         <div class="dragghost" style={{ left: `${ghost.x}px`, top: `${ghost.y}px` }}>
           {partName(c.parts[c.hand[ghost.idx]].defId, c.parts[c.hand[ghost.idx]].plus)}
@@ -479,18 +556,3 @@ export function CombatScreen() {
   );
 }
 
-function tipFor(c: CombatState, i: number, L: Layout): { title: string; text: string; left: number; top?: number; bottom?: number } | null {
-  const r = cellRect(L, i);
-  const width = 200;
-  const left = Math.max(4, Math.min(L.w - width - 4, r.x + r.w / 2 - width / 2));
-  const place: { top?: number; bottom?: number } = r.y < L.h / 2 ? { top: r.y + r.h + 4 } : { bottom: L.h - r.y + 4 };
-  if (i === MAINSPRING) return { title: 'Mainspring.', text: 'The source of all motion. It cannot be replaced.', left, ...place };
-  const p = c.board[i];
-  if (!p) return null;
-  return {
-    title: `${partName(p.defId, p.plus)}.`,
-    text: `${partText(p.defId, p.plus)}${p.rusted > 0 ? ' Rusted: it will not fire or pass motion this turn.' : ''}${p.charge > 0 ? ` Charge ${p.charge}.` : ''}`,
-    left,
-    ...place,
-  };
-}

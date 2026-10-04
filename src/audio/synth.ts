@@ -67,3 +67,13 @@ export function thud(): void {
 export function click(): void {
   tone(520, 0.04, 'square', 0.05);
 }
+
+/** Victory: a rising chime sting. */
+export function victory(): void {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, 0.55, 'sine', 0.2, undefined, i * 0.13));
+}
+
+/** Defeat: a falling, winding-down sting. */
+export function defeat(): void {
+  [392, 311.13, 233.08, 174.61].forEach((f, i) => tone(f, 0.5, 'triangle', 0.25, f * 0.9, i * 0.2));
+}
