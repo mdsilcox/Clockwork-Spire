@@ -24,3 +24,6 @@ Every run makes the player permanently stronger, and the curve matches the spec,
 
 ## Done when
 `npx vitest run` green including the targets; `tsc` clean; careers and no-meta reports in `balance/`. Report the final numbers and every changed constant.
+
+## From the B3 critic
+- 19 of 46 parts had too few offers to measure and 57% of no-meta bot runs die in act 1, so the report says little about acts 2 and 3. Careers (with meta) reach later acts: compute the offer-based impact table over all career runs so every part gets measured (report any still under 30 offers per group), and add a "strong bot" check (for example 4-choice rewards and better pathing) only if needed to measure.

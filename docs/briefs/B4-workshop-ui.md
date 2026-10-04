@@ -24,3 +24,9 @@ The game has a home: three save slots, the Workshop hub between runs with Sprock
 
 ## Done when
 Unit and e2e green in your worktree (stub-dependent specs skipped); screenshots of the slot screen, Workshop and every panel at 667x375 and 1280x800 looked at. Report per template.
+
+## From the B3 critic (must-fix in this lane)
+- The event, shop, forge and oil screens are plain text; at 1280x800 the event screen is a thin text column over an empty page. Give each node screen a bounded, framed layout with drawn art in the house style (a lamplit vignette per node type, drawn in code: the forge's anvil and sparks, the oil station's can and drip, the shop's counter and hanging parts, an event's scene card; Sprocket events use `SprocketEventArt`).
+- On phone a reward-card tooltip stays pinned over the "Spoils" header: dismiss on scroll and on any tap outside.
+- Repair is offered at full HP with no hint: disable it with "Already at full HP".
+- The rewind banner overlaps the Chain label at 667x375: move one of them.
