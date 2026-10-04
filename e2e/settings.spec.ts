@@ -49,7 +49,8 @@ test('Q2: with the speed set to skip a turn shows its result without animation d
   await page.goto('/');
   await openSettings(page);
   await press(page, page.getByTestId('set-speed-skip'));
-  await expect(page.getByTestId('set-speed-skip')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('set-speed-skip')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('set-speed-1x')).toHaveAttribute('aria-pressed', 'false');
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('settings')).toHaveCount(0);
   await press(page, page.getByTestId('practice'));
@@ -124,4 +125,19 @@ test('settings open from the Workshop and the combat menu', async ({ page }) => 
   await press(page, page.getByTestId('menu'));
   await press(page, page.getByTestId('menu-settings'));
   await expect(page.getByTestId('settings')).toBeVisible();
+});
+
+test('2x and Skip both persist across a reload, with the pressed state shown', async ({ page }) => {
+  await page.goto('/');
+  for (const sp of ['2x', 'skip'] as const) {
+    await openSettings(page);
+    await press(page, page.getByTestId(`set-speed-${sp}`));
+    await expect(page.getByTestId(`set-speed-${sp}`)).toHaveAttribute('aria-pressed', 'true');
+    await page.waitForTimeout(300);
+    await page.reload();
+    await openSettings(page);
+    await expect(page.getByTestId(`set-speed-${sp}`)).toHaveAttribute('aria-pressed', 'true');
+    for (const other of ['1x', '2x', 'skip'].filter((x) => x !== sp)) await expect(page.getByTestId(`set-speed-${other}`)).toHaveAttribute('aria-pressed', 'false');
+    await page.keyboard.press('Escape');
+  }
 });

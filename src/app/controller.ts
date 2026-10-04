@@ -336,7 +336,12 @@ export function abandonClimb(): void {
 export function leaveResult(): void {
   const mood = endSummary.value?.mood ?? null;
   const sum = endSummary.value;
-  news.value = sum && (sum.newUnlocks.length > 0 || sum.newNotes.length > 0) ? { unlocks: sum.newUnlocks, notes: sum.newNotes } : null;
+  const moment = sum?.firstWin
+    ? { title: 'First victory', text: 'The Clockmaker stopped, and the whole Workshop felt it.' }
+    : sum?.newBest
+      ? { title: 'New best', text: `You climbed to floor ${active?.profile.bestFloor ?? ''}, higher than ever before.` }
+      : undefined;
+  news.value = sum && (sum.newUnlocks.length > 0 || sum.newNotes.length > 0 || moment) ? { unlocks: sum.newUnlocks, notes: sum.newNotes, moment } : null;
   liveRun = null;
   settledFor = null;
   runView.value = null;
@@ -347,7 +352,7 @@ export function leaveResult(): void {
   publish();
   if (active) {
     screen.value = 'workshop';
-    greet(mood);
+    greet(moment && mood === 'comfort' ? 'happy' : mood);
     if (profileView.value === null) profileView.value = clone(active.profile);
   } else {
     void clearRun();
@@ -379,6 +384,9 @@ export interface EndSummary {
   mood: SprocketMood | null;
   brass: number;
   newUnlocks: string[];
+  /** A floor deeper than any climb before (not the very first run). */
+  newBest?: boolean;
+  firstWin?: boolean;
   newNotes: string[];
   won: boolean;
 }
@@ -392,7 +400,7 @@ export const endSummary = signal<EndSummary | null>(null);
 export const pose = signal<SprocketPose>('idle');
 export const idleShift = signal(0);
 /** What changed after the last run: new chassis and notes, shown once in the Workshop. */
-export const news = signal<{ unlocks: string[]; notes: string[] } | null>(null);
+export const news = signal<{ unlocks: string[]; notes: string[]; moment?: { title: string; text: string } } | null>(null);
 
 let active: { n: SlotNo; profile: Profile } | null = null;
 let settledFor: RunState | null = null;
@@ -461,8 +469,19 @@ function settleEnd(): void {
   const won = liveRun.phase === 'victory';
   if (active) {
     try {
+      const bestBefore = active.profile.bestFloor;
+      const winsBefore = active.profile.wins;
       const out = meta.finishRun(active.profile, liveRun, nowIso());
-      endSummary.value = { record: out.record, mood: out.mood, brass: out.brass, newUnlocks: out.newUnlocks, newNotes: out.newNotes, won };
+      endSummary.value = {
+        record: out.record,
+        mood: out.mood,
+        brass: out.brass,
+        newUnlocks: out.newUnlocks,
+        newNotes: out.newNotes,
+        won,
+        newBest: bestBefore > 0 && active.profile.bestFloor > bestBefore,
+        firstWin: won && winsBefore === 0,
+      };
       return;
     } catch {
       /* fall through to the plain summary */

@@ -291,6 +291,13 @@ export function WorkshopScreen() {
               <Sprocket mood={mood} size={size} onPet={petSprocket} />
             </div>
           </div>
+          {newsNow?.moment && (
+            <button class="pinnote" data-testid="moment-note" onClick={() => (news.value = { ...newsNow, moment: undefined })} aria-label={`${newsNow.moment.title}. ${newsNow.moment.text} Tap to put it away.`}>
+              <span class="pin" aria-hidden="true" />
+              <b>{newsNow.moment.title}</b>
+              <span>{newsNow.moment.text}</span>
+            </button>
+          )}
           <p class="sprocketline" data-testid="sprocket-line" aria-live="polite">
             {LINE[mood]}
           </p>

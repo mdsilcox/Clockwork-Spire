@@ -8,6 +8,7 @@ import { trinketDef } from '../core/content/trinkets';
 import type { PartInstance, RunState } from '../core/types';
 import { FAMILY_COLOR, FAMILY_LABEL } from '../render/palette';
 import { PartCard } from './PartCard';
+import { familyHint } from './synergy';
 import { RunBar } from './Map';
 import { TrinketIcon } from './runicons';
 import { EventArt, ForgeArt, OilArt, ShopArt, SpoilsArt } from './NodeArt';
@@ -129,6 +130,23 @@ export function RewardScreen() {
   if (!run || run.pending?.kind !== 'reward') return null;
   const p = run.pending;
   const needTrinket = p.trinkets.length > 0 && !p.trinketTaken;
+  // a part "fits" when its family already has two or more parts in the bin
+  const famCount = new Map<string, number>();
+  for (const b of run.bin) {
+    try {
+      const f = partDef(b.defId).family;
+      famCount.set(f, (famCount.get(f) ?? 0) + 1);
+    } catch {
+      /* unknown part: ignore */
+    }
+  }
+  const fits = (id: string): boolean => {
+    try {
+      return (famCount.get(partDef(id).family) ?? 0) >= 2;
+    } catch {
+      return false;
+    }
+  };
   const ready = p.partTaken && !needTrinket;
   return (
     <Shell run={run} title="Spoils" art={<SpoilsArt />}>
@@ -150,8 +168,9 @@ export function RewardScreen() {
                   key={`${id}${i}`}
                   defId={id}
                   testid="reward-part"
+                  fit={!p.partTaken && fits(id)}
                   disabled={p.partTaken}
-                  tip={tip.on(() => ({ title: `${partName(id, false)}.`, text: partText(id, false), detail: `${FAMILY_LABEL[partDef(id).family]} part. Upgraded: ${partText(id, true)}` }))}
+                  tip={tip.on(() => ({ title: `${partName(id, false)}.`, text: partText(id, false), detail: `${familyHint(id)} Upgraded: ${partText(id, true)}` }))}
                   onClick={tip.guard(() => rewardPart(i))}
                 />
               ))}
@@ -283,7 +302,7 @@ export function ShopScreen() {
                   testid="shop-item"
                   disabled={cant}
                   extra={<b class={it.sold ? 'sold' : run.cogs < it.price ? 'poor' : 'price'}>{tag}</b>}
-                  tip={tip.on(() => ({ title: `${partName(it.id!, false)}.`, text: partText(it.id!, false), detail: `Upgraded: ${partText(it.id!, true)}` }))}
+                  tip={tip.on(() => ({ title: `${partName(it.id!, false)}.`, text: partText(it.id!, false), detail: `${familyHint(it.id!)} Upgraded: ${partText(it.id!, true)}` }))}
                   onClick={tip.guard(() => shopBuy(i))}
                 />
               );

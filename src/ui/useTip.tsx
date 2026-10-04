@@ -60,7 +60,10 @@ export function useTip() {
     onPointerLeave: (e: PointerEvent) => {
       if (e.pointerType === 'mouse') hideSoon();
     },
-    onFocus: (e: FocusEvent) => show(e.currentTarget as Element, info()),
+    onFocus: (e: FocusEvent) => {
+      const el = e.currentTarget as Element;
+      if (el.matches(':focus-visible')) show(el, info());
+    },
     onBlur: () => hideSoon(),
     onPointerDown: (e: PointerEvent) => {
       longFired.current = false;

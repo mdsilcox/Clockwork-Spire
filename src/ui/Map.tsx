@@ -149,6 +149,62 @@ function nodeY(floor: number): number {
   return PAD + (13 - floor) * FLOOR_H;
 }
 
+/** Acts whose title card has been shown this session (a card shows once per act of a run). */
+const shownActs = new Set<string>();
+
+const ACT_LINE: Record<number, string> = {
+  1: 'Brass, oil and ticking. Mind your step.',
+  2: 'Pipes sing and the floor is warm.',
+  3: 'Bells in the dark, and a clock that remembers.',
+};
+
+function Motif({ act }: { act: number }) {
+  const st = { fill: 'none', stroke: 'currentColor', 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' } as const;
+  if (act === 2)
+    return (
+      <svg viewBox="0 0 120 60" width="120" height="60" aria-hidden="true">
+        <path {...st} d="M10 44 H50 V22 H80 M80 22 V10 M50 44 V54 M80 22 H110" />
+        <path {...st} d="M64 8 q6 -6 12 0 t12 0 M70 2 q5 -4 10 0" opacity="0.7" />
+        <circle {...st} cx="50" cy="33" r="6" />
+      </svg>
+    );
+  if (act === 3)
+    return (
+      <svg viewBox="0 0 120 60" width="120" height="60" aria-hidden="true">
+        <path {...st} d="M44 46 C44 24 50 12 60 10 C70 12 76 24 76 46 Z M38 46 H82 M60 46 V54" />
+        <circle {...st} cx="60" cy="30" r="9" />
+        <path {...st} d="M60 30 V24 M60 30 L65 33" />
+        <circle {...st} cx="60" cy="8" r="2.5" />
+      </svg>
+    );
+  return (
+    <svg viewBox="0 0 120 60" width="120" height="60" aria-hidden="true">
+      <circle {...st} cx="40" cy="32" r="12" />
+      <circle {...st} cx="72" cy="26" r="9" />
+      <path {...st} d="M40 14 V18 M40 46 V50 M22 32 H26 M54 32 H58 M72 12 V16 M72 36 V40 M58 26 H62 M82 26 H86" />
+    </svg>
+  );
+}
+
+function ActCard({ run }: { run: RunState }) {
+  const key = `${run.config.seed}-${run.act}`;
+  const [show, setShow] = useState(run.floor === 0 && !shownActs.has(key));
+  useEffect(() => {
+    if (!show) return;
+    shownActs.add(key);
+    const t = window.setTimeout(() => setShow(false), 2800);
+    return () => window.clearTimeout(t);
+  }, [show, key]);
+  if (!show) return null;
+  return (
+    <div class="actcard" data-testid="act-card" role="status">
+      <Motif act={run.act} />
+      <h2>{ACT_TITLE[run.act]}</h2>
+      <p>{ACT_LINE[run.act]}</p>
+    </div>
+  );
+}
+
 export function MapScreen() {
   const run = runView.value;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -227,6 +283,7 @@ export function MapScreen() {
           </div>
         </div>
       </div>
+      <ActCard run={run} />
       <footer class="legend" data-testid="legend">
         {TYPES.map((t) => (
           <span key={t} class="lg">

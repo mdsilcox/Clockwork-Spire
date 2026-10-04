@@ -17,6 +17,7 @@ import { viewFromState } from '../render/replay';
 import { Stage } from '../render/stage';
 import { INTENT_NAME, IntentIcon, STATUS_NAME, StatusIcon } from './icons';
 import { Coach, tutorialTargets } from './Coach';
+import { familyHint } from './synergy';
 import { ACT_TITLE, TrinketBar } from './Map';
 import { Tooltip } from './Tooltip';
 import type { TipInfo } from './Tooltip';
@@ -284,7 +285,11 @@ export function CombatScreen() {
     onPointerLeave: (e: PointerEvent) => {
       if (e.pointerType === 'mouse') hideSoon();
     },
-    onFocus: (e: FocusEvent) => showTip(e.currentTarget as Element, info()),
+    // a tap or click focuses a button too: only keyboard focus opens the tooltip
+    onFocus: (e: FocusEvent) => {
+      const el = e.currentTarget as Element;
+      if (el.matches(':focus-visible')) showTip(el, info());
+    },
     onBlur: () => hideSoon(),
     onPointerDown: (e: PointerEvent) => {
       e.stopPropagation();
@@ -310,13 +315,13 @@ export function CombatScreen() {
     else if (p.charge > 0) bits.push(`Charge ${p.charge}.`);
     if (p.defId === 'cam') bits.push(`Fired ${p.counter} ${p.counter === 1 ? 'time' : 'times'} this fight.`);
     if (p.rusted > 0) bits.push('Rusted: it will not fire or pass motion on the next run.');
-    return { title: `${partName(p.defId, p.plus)}.`, text: partText(p.defId, p.plus), detail: bits.join(' ') || undefined };
+    return { title: `${partName(p.defId, p.plus)}.`, text: partText(p.defId, p.plus), detail: [bits.join(' '), familyHint(p.defId)].filter(Boolean).join(' ') };
   };
   const cardInfo = (idx: number): Omit<TipInfo, 'rect'> | null => {
     const uid = c.hand[idx];
     if (uid === undefined) return null;
     const inst = c.parts[uid];
-    return { title: `${partName(inst.defId, inst.plus)}.`, text: partText(inst.defId, inst.plus), detail: `${FAMILY_LABEL[partDef(inst.defId).family]} part. Fresh: no charge yet.` };
+    return { title: `${partName(inst.defId, inst.plus)}.`, text: partText(inst.defId, inst.plus), detail: `${familyHint(inst.defId)} Fresh: no charge yet.` };
   };
 
   // a tap or click anywhere outside the tooltip dismisses it

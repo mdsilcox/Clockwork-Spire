@@ -20,11 +20,16 @@ function killer(id?: string): string {
   }
 }
 
+/** Floors left behind: one number for the stat tile and the Brass breakdown. */
+export function floorsClimbed(run: RunState): number {
+  return Math.max(0, absoluteFloor(run) - (run.phase === 'victory' ? 0 : 1));
+}
+
 /** Where this run's Brass came from, from the run's own stats, so the total always makes sense. */
 export function BrassBreakdown({ run, total }: { run: RunState; total: number }) {
   const s = run.stats;
   const won = run.phase === 'victory';
-  const floors = Math.max(0, absoluteFloor(run) - (won ? 0 : 1));
+  const floors = floorsClimbed(run);
   const rows: [string, number, string][] = [
     [`Floors climbed (${floors})`, s.floorBrass ?? 0, 'floors'],
     [`Elites beaten (${s.elites} x 10)`, s.elites * 10, 'elites'],
@@ -90,7 +95,7 @@ export function EndScreen() {
 
   const blueprints = sum?.record.blueprintsFound ?? s.blueprintsFound;
   const rows: [string, string | number][] = [
-    ['Floors climbed', absoluteFloor(run)],
+    ['Floors climbed', floorsClimbed(run)],
     ['Fights won', s.fights],
     ['Elites beaten', s.elites],
     ['Turns played', s.turns],
