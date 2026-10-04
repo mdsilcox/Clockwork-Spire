@@ -45,8 +45,8 @@ Rarity: C common, U uncommon, R rare. **Locked** parts start outside the run poo
 |---|---|---|---|---|---|
 | escapement | Escapement | C | | Plate 3. | Plate 5. |
 | pendulum | Pendulum | U | | Strike 1. The first time it fires each turn: +1 tick this turn. | Also Plate 4. |
-| anchor | Anchor Escapement | C | | Plate 2 x the tick number. | Plate 3 x the tick number. |
-| metronome | Metronome | C | | Strike 2 x the tick number. | Strike 3 x the tick number. |
+| anchor | Anchor Escapement | C | | Holds on tick 1. From tick 2: Plate 2 x the tick number and pass. | Plate 3 x the tick number. |
+| metronome | Metronome | C | | Holds on tick 1. From tick 2: Strike 2 x the tick number and pass. | Strike 3 x the tick number. |
 | balance-wheel | Balance Wheel | U | | On the last tick: Plate equal to your Momentum. | Momentum + 4. |
 | verge | Verge | U | yes | Holds on tick 1. Later ticks: pass with Boost 3. | Boost 5. |
 | grandfather | Grandfather Weight | R | yes | Strike 3. From your 3rd turn of a combat, the first time it fires each turn: +1 tick. | From your 2nd turn. |
@@ -77,6 +77,9 @@ Rarity: C common, U uncommon, R rare. **Locked** parts start outside the run poo
 | lamp | Inventor's Lamp | R | yes | Scald and Cracked you apply this turn are +1. | +2. |
 
 Families: 8 + 7 + 7 + 8 + 9 + 7 = 46 parts. Locked: 17.
+
+### Why no common dominates
+Commons trade against each other on the same 3-tick turn: Spur 9 damage and Escapement 9 Plating are steady and pass every tick; Metronome (10) and Anchor (10) pay a little more but hold on tick 1, starving everything behind them that tick, and only pull ahead with extra ticks; Cam (7, then 14) is lumpy; Toggle splits damage and Plating and stops what is behind it on even ticks; springs are bigger but hold. Placement cost is the same for all, so the board position and the turn number decide which is right. The balance simulator checks this with the offer-based impact metric (rules 7).
 
 ## Chassis starting bins
 | Chassis | Parts (8) | Passive |
@@ -126,6 +129,37 @@ Intents are patterns; "Rust", "Jam", "Magnetize" and "Drain" are sabotage (rules
 | **Boss** clockmaker | The Clockmaker | 110 / 130 / 150 | Three phases with Rewind (rules 4.4). Attacks 12 to 22, rising each phase. |
 
 Totals: 15 regular, 6 elites, 3 bosses.
+
+## Encounter pools
+Fights draw from their act's pool by floor; each entry is one encounter (enemy ids).
+- **Act 1, floors 1-3 (easy):** rust-mite x2; cog-rat; spring-imp; oil-slick.
+- **Act 1, floors 4-12:** brass-beetle; cog-rat + rust-mite; oil-slick + spring-imp; rust-mite x3; brass-beetle + rust-mite. Elites: gearhound; tinpot-general.
+- **Act 2:** steam-wraith; valve-crab; furnace-golem; pipe-snake + gauge-gremlin; steam-wraith x2; valve-crab + pipe-snake. Elites: pressure-warden; twin-pistons.
+- **Act 3:** bell-ringer; chime-moth x2; hour-knight; echo-sprite + chime-moth; pendulum-blade; hour-knight + echo-sprite. Elites: minute-warden; orrery.
+- The same encounter is not repeated within 3 fights.
+
+## Prices and values *(tune)*
+| Item | Price |
+|---|---|
+| Common part | 45 Cogs |
+| Uncommon part | 70 Cogs |
+| Rare part | 110 Cogs |
+| Common trinket | 120 Cogs |
+| Uncommon trinket | 160 Cogs |
+| Part removal | 60 Cogs, rising by 20 each use in a run |
+| Oil (heal 15) | 30 Cogs |
+| Selling a part (Oil Merchant event) | 25 Cogs |
+
+A shop stocks 5 parts (3 common, 1 uncommon, 1 uncommon or rare), 2 trinkets, removal and oil. Prices vary by -10% to +10% from the `shop` stream.
+
+## Reward rarity by act
+| Act | Common | Uncommon | Rare |
+|---|---|---|---|
+| 1 | 70% | 25% | 5% |
+| 2 | 55% | 35% | 10% |
+| 3 | 45% | 38% | 17% |
+
+Elite rewards shift 15 points from common to uncommon and rare. Boss rewards are all rare. Locked parts never appear until their blueprint is found.
 
 ## Trinkets (28)
 | id | Name | R | Effect |

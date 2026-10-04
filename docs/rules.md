@@ -127,7 +127,7 @@ Every run, win or lose, ends in the **Workshop**. Sprocket greets you and reacts
 ### 5.2 Earning
 - **Brass** per run *(tune)*: 4 per floor climbed (act 2 floors count 6, act 3 floors 8), plus 10 per elite, 25 per boss, plus 50 for a victory.
 - **Blueprints** are found in the Spire: every boss and elite drops one, a few events offer one, and Sprocket sniffs one out in his events. Each blueprint unlocks one specific locked part into the run pool. A run that dies still keeps its blueprints.
-- About 16 of the 44 parts start locked.
+- 17 of the 46 parts start locked (docs/content.md).
 
 ### 5.3 Permanent upgrades (the upgrade bench) *(tune)*
 | Upgrade | Levels | Cost per level | Effect |
@@ -172,8 +172,8 @@ Petting him (tap) plays a happy bark and a wiggle. His Spire appearances are in 
 - **Bot:** builds greedily using the preview (for each placement, it tries every hand part in every legal cell and keeps the best score: expected damage plus the value of Plating against the shown incoming attack, plus a small bonus for stored charge and pressure). It picks rewards with a simple synergy score (family counts in its bin), takes the shop's best affordable value, upgrades the most-used part at the Forge, rests when below 50% HP. Map pathing prefers fights early, elites when healthy, oil when hurt.
 - **Careers:** a career starts from a fresh profile and plays runs one after another, spending Brass on a fixed sensible upgrade path (Reinforced Frame, Spare Cogs, Oiled Bearings, Tool Belt, Inventor's Notes, Second Wind, Lucky Charm, then remaining levels), and unlocking chassis as earned.
 - **Report:** win rate by meta-progression level (Brass spent bands), runs-to-first-win distribution (median, quartiles), per-part pick rate and win-rate impact.
-- **Win-rate impact** of a part = win rate of runs that ended with the part in the bin, divided by the overall win rate in the same meta band (a ratio; 1.0 means no effect). Parts seen in fewer than 30 runs are excluded and listed.
+- **Win-rate impact** of a part is measured at the moment of choice, so it isn't skewed by survivorship (rare parts come from bosses that only strong runs reach). Every time the part is **offered** (reward or shop), the run joins the "took it" or the "passed" group, within the same meta band and act. Impact = win rate of "took it" divided by win rate of "passed", pooled across bands and acts weighted by offers (a ratio; 1.0 means no effect). The bot picks with a 20% random exploration rate so both groups fill. Parts with fewer than 30 offers in either group are excluded and listed. For offers in acts 1 and 2, "win" means beating that act's boss; for act 3, beating the Clockmaker, so early parts are judged by what they influence.
 - **Targets, checked by tests (`tests/sim/`):**
   1. With no meta progression, win rate under 3% (at least 300 runs).
-  2. Median first win between run 8 and run 12 inclusive (at least 100 careers).
+  2. Median first win between run 8 and run 12 inclusive (at least 100 careers; a career with no win by run 30 counts as 31).
   3. No part's win-rate impact is more than double the median part's impact.

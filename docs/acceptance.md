@@ -31,7 +31,7 @@ Test harness contract (built in B1): `src/core/testkit.ts` exports `combatWith({
 | C1 | an enemy with intent Attack 8 and the player with 5 Plating | enemy acts | player loses 3 HP; Plating is gone at the start of the next turn | U | B1 |
 | C2 | all enemies at 0 HP | the turn resolves | combat ends in victory with a reward pending | U | B1 |
 | C3 | player at 0 HP | enemy acts | the run ends in defeat; a RunRecord is written | U | B3 |
-| C4 | every enemy def (15 normal, 6 elite, 3 boss) | simulate 10 turns against a fixed board | no exception; intents always have a label and an icon kind; each def's intent sequence differs from every other def's | U | B2 |
+| C4 | every enemy def (15 normal, 6 elite, 3 boss) | simulate 10 turns against a fixed board | no exception (in B2 the Clockmaker runs without Rewind, which C6-C9 cover in B3); intents always have a label and an icon kind; each def's intent sequence differs from every other def's | U | B2 |
 | C5 | Gauge Gremlin intends Rust | its intent shows | the targeted cell is highlighted before the player builds | E | B2 |
 | C6 | the Clockmaker, phase 1, last turn the Coil (fed by the Idler) dealt the most | his turn starts | Coil and Idler return to the draw pile with charge 0; he heals half the damage they dealt | U | B3 |
 | C7 | the Clockmaker at 0 HP in phase 1 and 2 | the phase ends | the next phase starts with its own HP bar; at phase 3's end the run is won | U | B3 |
@@ -61,6 +61,7 @@ Test harness contract (built in B1): `src/core/testkit.ts` exports `combatWith({
 | W5 | idle 20 s in the Workshop | wait | Sprocket goes sleepy | E | B4 |
 | W6 | Sprocket | look at him | he reads as a corgi: short legs, big upright ears, fluffy rear; idle, happy and sleepy poses | C | B4 |
 | W7 | three save slots | create, play, reload, delete | each slot keeps its own profile; reload restores all three; delete asks to confirm | E | B4 |
+| W9 | the Sprocket Wheel part and Sprocket's Collar Tag | look them up and reach them in play | both exist, are reachable (blueprint event, pipe event) and have tooltips | U | B3 |
 | W8 | the Clockmaker defeated | the ending plays | victory ending with Sprocket, then credits; afterwards the Workshop, with the profile marked won | E | B4 |
 
 ## 5. Onboarding, settings and quality of life
@@ -74,6 +75,7 @@ Test harness contract (built in B1): `src/core/testkit.ts` exports `combatWith({
 | Q3 | color-blind icons on | look at intents | every intent shows a distinct shape and a text label, not color alone | E | B2 |
 | Q4 | finished runs | open history and statistics | each run listed with chassis, result, floor reached, killed by; totals and best turn | E | B5 |
 | Q5 | normal play through a full run | watch the console | no errors | E | B6 |
+| Q7 | a full board running at 1x | sample frame times for 5 s | average at least 55 fps at 1280x800; no frame over 50 ms | E | B2, B6 |
 | Q6 | offline | load the installed app with the network off | it starts and plays | E | B5 |
 
 ## 6. Look and sound
@@ -84,14 +86,14 @@ Test harness contract (built in B1): `src/core/testkit.ts` exports `combatWith({
 | A3 | parts firing, impacts, steam, Sprocket | play | synthesized sounds for each | C | B5 |
 | A4 | 1280x800 and 667x375 | every screen | no sideways scroll; text at least 12 px on phone; tap targets at least 40 px | E | every phase |
 
-## 7. Balance simulator
+## 7. Balance simulator (ids BS, so they don't clash with build phase names)
 | id | Given | When | Then | Kind | Phase |
 |---|---|---|---|---|---|
-| B1 | the sim, seed fixed | run twice | identical reports | S | B2 |
-| B2 | no meta progression | 300 runs | win rate under 3% | S | B4 |
-| B3 | 100 careers on the sensible upgrade path | play until first win (cap 30 runs) | median first win between run 8 and run 12 inclusive | S | B4 |
-| B4 | the per-part table | compute impact ratios | the highest is at most 2x the median | S | B4 (tracked from B2) |
-| B5 | any content or balance change | gate | a dated report exists in `balance/` | C | every phase from B2 |
+| BS1 | the sim, seed fixed | run twice | identical reports | S | B2 |
+| BS2 | no meta progression | 300 runs | win rate under 3% | S | B4 |
+| BS3 | 100 careers on the sensible upgrade path | play until first win (cap 30 runs) | median first win between run 8 and run 12 inclusive | S | B4 |
+| BS4 | the per-part table | compute offer-based impact ratios (rules 7) | the highest is at most 2x the median | S | B4 (tracked from B2) |
+| BS5 | any content or balance change | gate | a dated report exists in `balance/` | C | every phase from B2 |
 
 ## 8. Platform
 | id | Given | When | Then | Kind | Phase |
@@ -99,4 +101,5 @@ Test harness contract (built in B1): `src/core/testkit.ts` exports `combatWith({
 | P1 | a fresh clone | `npm install && npm run dev` | the game opens at the printed URL | C | B1 |
 | P2 | `npm test` | run | unit, sim and e2e suites run, green | C | every phase |
 | P3 | `window.__game` | in the browser | exposes `state()`, `place(hand, cell)`, `run()`, `choose(i)`, `go(nodeId)`, `newRun(chassis)`, `seed(n)`, `setSpeed(s)`, `cheat.*` for tests | E | B1, grows each phase |
+| P5 | a fresh save | the bot plays a full career through `window.__game` at skip speed | the Clockmaker is defeated and the victory ending shows; README explains how to run and play | E | B6 |
 | P4 | the manifest and service worker | Lighthouse-style check | installable, offline after first load | E | B5 |

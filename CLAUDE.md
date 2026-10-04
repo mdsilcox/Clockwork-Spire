@@ -13,7 +13,8 @@ Vite 8 + TypeScript (strict) + Preact 11 (`@preact/signals`) for DOM UI; Canvas 
 - `docs/` vision, data model, rules, acceptance criteria, roadmap.
 - `review/<phase>/round-<n>.md` critic verdicts, never overwritten.
 - `balance/` balance simulator reports, dated.
-- TODO: source layout (decided in D1/D2).
+- Source layout: see `docs/roadmap.md` ("Source layout"). Rules in `src/core/` (pure, no DOM), sim in `src/sim/`, canvas in `src/render/`, audio in `src/audio/`, Preact screens in `src/ui/`, controller/save/debug in `src/app/`. Tests in `tests/` (Vitest) and `e2e/` (Playwright).
+- Design docs: `docs/rules.md` (all rules), `docs/content.md` (every part, enemy, trinket, event), `docs/data-model.md` (state types, invariants), `docs/acceptance.md` (criteria ids), `docs/roadmap.md`.
 
 ## Conventions
 - American English, no em dashes anywhere (UI text, docs, comments).

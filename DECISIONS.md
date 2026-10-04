@@ -25,3 +25,15 @@ Every choice the spec leaves open, with its reason. Newest last. The spec (`SPEC
 **D-007 Tooling.** Vite 8, TypeScript (strict), Preact 11 with `@preact/signals` for UI state, Vitest 5 for unit, rules and simulator tests, Playwright 1.63 for end-to-end tests at 1280x800 and 667x375, `vite-plugin-pwa` for the offline service worker and manifest, `idb` for IndexedDB saves (`fake-indexeddb` in unit tests), `tsx` to run the balance simulator from the command line. All synthesized audio uses the Web Audio API directly (no library). Versions are pinned at install time. *Alternatives considered:* webpack or Parcel instead of Vite (slower dev loop, no gain); React, Svelte or Solid instead of Preact (React is three times the bundle for the same API; Svelte and Solid add a compiler step and are less familiar to the build agents; Preact keeps JSX and hooks at about 4 kB); Jest instead of Vitest (needs separate TypeScript and ESM transforms that Vite already provides); Cypress instead of Playwright (no WebKit, weaker multi-viewport runs).
 
 **D-008 One run, one seed.** Every run has a seed; map generation, draws, enemy choices, events and rewards each use their own RNG stream split from it, so a balance simulator run and a replayed bug reproduce exactly.
+
+## 2026-10-04 · D2 Design
+
+**D-009 Machine rules.** 5x3 grid, Mainspring fixed at A2, breadth-first motion (up, right, down, left), each part powered once per tick, 3 ticks per turn, hand 3, 2 placements per turn, one free swap, the board persists through a combat and clears after. Chosen for readability (one visible flow from one source) and because placement position is the core choice every turn. Rejected: part rotation (doubles the decision space and hurts phone readability) and energy costs per part (a second budget on top of placements).
+
+**D-010 The Clockmaker's "strongest combination"** is read as the part that contributed the most last turn plus the part that first powered it. Phase 1 rewinds one combination, phase 2 also resets Pressure, phase 3 rewinds two and Jams the Mainspring on alternate turns.
+
+**D-011 Win-rate impact (spec 5)** is measured offer-based (took it vs passed, same meta band and act) to remove survivorship bias, with 20% bot exploration. The critic noted rare parts come from bosses only strong runs reach. "No part's impact more than double the median part's" is checked on this ratio.
+
+**D-012 Dominated commons fixed.** Metronome and Anchor Escapement hold on tick 1 (they starve the parts behind them that tick), so they trade against Spur and Escapement instead of beating them.
+
+**D-013 Sprocket is "he"** (a fictional dog; the spec leaves it open).

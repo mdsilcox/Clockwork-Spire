@@ -1,0 +1,40 @@
+# Brief: B1 walking skeleton (lane `skeleton`)
+
+You build the first playable slice of Clockwork Spire, alone and in order. Read `CLAUDE.md`, then `docs/rules.md` sections 1-3 and `docs/data-model.md`. Open other docs only when this brief points to them.
+
+## Goal
+A player opens the game, starts a **practice fight**, places parts from the hand onto the board, sees an exact preview, presses Run, watches the machine animate, and wins or loses. `npm test` is green.
+
+## You own
+Everything in the repo **except**: `SPEC.md`, `docs/` (read only), `DECISIONS.md`, `PROGRESS.md`, `review/`, `balance/`, `spike/` (throwaway; don't import from it, but you may read `spike/src/render.ts` for drawing ideas), `.claude/`, and the contract files below which you must not change in meaning:
+- `src/core/types.ts` (contract; you may ADD fields or types if needed, never rename or remove; list additions in your report)
+- `tests/core/b1.acceptance.test.ts` (acceptance tests; adapt only an import path if truly needed; never weaken)
+
+## Build, in this order
+1. **Scaffold.** `package.json` (name `clockwork-spire`, `"type": "module"`), Vite 8, TypeScript strict, Preact 11 + `@preact/signals`, `@preact/preset-vite`, Vitest 5, Playwright 1.63, `idb`, `fake-indexeddb` (dev), `tsx` (dev). Scripts: `dev`, `build` (`tsc --noEmit && vite build` or equivalent type check), `preview`, `test` (unit then e2e), `test:unit` (`vitest run`), `test:e2e` (`playwright test`), `sim` (placeholder `tsx src/sim/cli.ts` printing "not yet"). Check current APIs with Context7 when unsure (Vite 8, Vitest 5, Preact 11). PWA plugin is NOT needed yet.
+2. **Core rules** in `src/core/` (pure, no DOM, no `Math.random`, no `Date`):
+   - `rng.ts`: mulberry32-style seeded streams; `split(seed, stream)`; helpers `next`, `int`, `pick`, `shuffle` that take and advance a stream state stored in `CombatState.rng`.
+   - `board.ts`: `cell('B2') -> 6` (column letter A-E, row 1-3, index = row*5 + col), `cellName(i)`, `neighbors(i)` in the order up, right, down, left (and `diagonals(i)`).
+   - `content/parts.ts`: a `PartDef` registry with the 8 B1 parts from `docs/content.md`: spur, idler, coil, escapement, cam, boiler, piston, pendulum, with base and `+` numbers. Shape it so 38 more parts can be added by appending entries (hooks per docs/data-model.md: `onFire`, `holds`, thresholds).
+   - `content/enemies.ts`: `dummy` (999 HP, intent `{kind:'special', label:'Waits'}`, never acts), `rust-mite`, `cog-rat` per docs/content.md (act 1). Intent patterns are data; sabotage Rust targets a random occupied cell via the `enemy` stream when the intent is chosen, and shows `target`.
+   - `machine.ts`: tick resolution exactly per rules 1.4-1.5: breadth-first from the Mainspring, neighbor order up/right/down/left, each part powered at most once per tick, holds vs passes, Boost, Momentum, Rust blocks, Pressure (cap 30, overpressure above 20 at end of turn: 6 damage, Pressure to 10). Emits `GameEvent`s with `tick` and `step`. Records `lastTurnContrib` (value and fedBy).
+   - `combat.ts` (exact exports, used by tests): `createCombat({ seed, bin, enemies, hp, maxHp, kind?, trinkets?, handSize? }): CombatState`; `placePart(c, handIndex, cell): boolean`; `swapParts(c, a, b): boolean` (free, once per turn); `setTarget(c, idx)`; `previewTurn(c): TurnPreview` (runs the machine on a fast hand-written copy, never mutates); `runTurn(c): TurnResult` (machine ticks, end-of-turn effects, discard unplaced hand, enemy actions with Shell/Plating/attacks/sabotage, win/lose check, then start the next turn: Plating to 0, statuses tick, draw to hand size, placements reset to 2). Functions mutate `c` in place. `cloneCombat(c)`.
+   - `testkit.ts`: `cell` re-export; `combatWith({ board?: Record<string,string>, enemies?: string[], hand?: string[], pressure?: number, ticks?: number, hp?: number })` builds a ready CombatState (turn 1, placements 2, enemies default `['dummy']`, `'coil+'` means upgraded), plus test-only enemy `test-attacker-8` (99 HP, always Attack 8) registered only via the testkit.
+3. **Stage** in `src/render/`: one canvas, device pixels, DPR capped at 2, sized by CSS. Draws the board, the Mainspring and the 8 parts in code (brass, copper, lamplight; see spike), enemies as simple drawn automatons with HP bars, and replays a `TurnResult.events` list: pulses along links in tick/step order, gears turn while powered (meshing neighbors counter-rotate), coil compresses and snaps, cam lobe turns, boiler glow and steam puffs, piston stroke, pendulum swing, Plating shimmer, damage popups, a chain counter (Momentum). Speeds 1x, 2x, skip. Idle gears turn slowly. The renderer never re-runs rules.
+4. **UI** in `src/ui/` (Preact, DOM over the canvas): title screen (name "Clockwork Spire", buttons "Practice fight"), combat screen: hand of part cards (name, family color band, one-line text), board cells as DOM hit targets aligned over the canvas (tap a card then a cell; or drag; keyboard: 1-4 picks a hand slot, arrows move a cell cursor, Enter places, R runs), preview totals (damage per enemy, Plating, ticks) and per-cell badges ("x3"), enemy intent icon + number with shape not just color, player HP and Plating, placements left, Run button, speed toggle, win and lose panels with "Again". Part names and tooltips are DOM, not canvas text. Works at 1280x800 and 667x375 landscape with no sideways scroll; tap targets at least 40 px; text at least 12 px.
+5. **App** in `src/app/`: a controller holding the combat in a signal, dispatching actions, autosaving the fight to IndexedDB slot `practice` after each action, restoring on reload; `window.__game` with `state()`, `place(handIndex, cellName)`, `run()`, `newFight(seed?)`, `setSpeed('1x'|'2x'|'skip')`, `preview()`. Practice fight: Tinker starting bin (docs/content.md "Chassis starting bins"), seed from time unless set, enemies `['rust-mite','rust-mite']`, 50 HP.
+6. **Sound**: `src/audio/`: a tiny Web Audio synth started on first user gesture: a tick per pulse step, a chime on release, a thud on hit. Muted under tests (`navigator.webdriver`).
+7. **Tests**: make `tests/core/b1.acceptance.test.ts` pass. Add unit tests for rng determinism, board geometry, every B1 part's base and `+` effect, Shell, overpressure, rust blocking, sabotage targeting. Playwright: `e2e/` with projects `desktop` (1280x800) and `phone` (667x375, `isMobile`, `hasTouch`), a `webServer` on a port you choose (5320) with `reuseExistingServer: false`, workers 2. One spec plays a practice fight through the real UI (tap cards and cells, check that preview badges appear and the preview damage equals the damage dealt, press Run, set skip speed, win via `__game` cheats if needed) and checks no console errors and no horizontal scroll at both sizes.
+
+## Assumptions and decisions
+- Rules come from `docs/rules.md`; numbers from `docs/content.md`. If a rule is ambiguous, pick the simplest reading and list it under "Decisions I made".
+- Pendulum's extra tick: once per turn per Pendulum; a turn's ticks are capped at 8.
+- Boost applies to the *next part powered by this part's motion* that tick: implement as "each part this part passes motion to" gets the boost (all children in the breadth-first tree), since BFS visits several. State this in your report.
+- Piston without 3 Pressure strikes 2 and spends nothing.
+- Sabotage targets are fixed when the intent is shown (enemy stream); if the cell is empty by then, the sabotage fizzles.
+- American English, no em dashes in UI text, comments or docs.
+- No image, font or audio files anywhere (test A1). System font stack: `"Trebuchet MS", "Segoe UI", system-ui, sans-serif`.
+- Shared working tree rules: never `git stash`, `checkout`, `reset`, `restore` or `commit`. Stop any server you start by its PID only.
+
+## Done when
+`npm install && npm run dev` serves the game; `npm test` is green (unit + e2e both sizes); you played one practice fight in the browser at both sizes and looked at screenshots. Report per your template, plus the files of the public API you exported.
