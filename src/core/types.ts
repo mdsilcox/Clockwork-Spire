@@ -198,8 +198,8 @@ export interface ShopItem {
 }
 
 export type Pending =
-  | { kind: 'reward'; cogs: number; parts: string[]; trinkets: string[]; blueprint?: string; partTaken: boolean; trinketTaken: boolean }
-  | { kind: 'event'; eventId: string; result?: string; needsPart?: 'remove' | 'upgrade' | 'duplicate' | 'transform' | 'sell' }
+  | { kind: 'reward'; cogs: number; parts: string[]; trinkets: string[]; blueprint?: string; extraBlueprint?: string; partTaken: boolean; trinketTaken: boolean }
+  | { kind: 'event'; eventId: string; result?: string; needsPart?: 'remove' | 'upgrade' | 'duplicate' | 'transform' | 'sell'; choice?: number; partFilter?: Family } // choice, partFilter ADDED in B3
   | { kind: 'shop'; stock: ShopItem[]; removalsBought: number }
   | { kind: 'forge'; done: boolean }
   | { kind: 'oil'; done: boolean };
@@ -212,6 +212,9 @@ export interface RunStats {
   bossesBeaten: number;
   brassEarned: number;
   blueprintsFound: string[];
+  removals?: number; // ADDED in B3: shop removals bought this run (raises the price)
+  floorBrass?: number; // ADDED in B3: Brass from floors climbed (4/6/8 by act)
+  bonusBrass?: number; // ADDED in B3: Brass from events
   offers: { partId: string; taken: boolean; act: number; source: 'reward' | 'shop' }[]; // for the balance sim (rules 7)
 }
 
