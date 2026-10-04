@@ -6,6 +6,7 @@ import {
   coilWireV, disc, ellipse, eyes, fillStroke, flat, gear, hub, metal, poly, rrect, spokes, state,
 } from './kit';
 import type { Pal } from './kit';
+import { ATTACK_TIME, BOSS_PAINT, atk } from './bosses';
 
 export interface EnemyLook {
   hit: number; // 0..1 flash, decays
@@ -16,9 +17,10 @@ export interface EnemyLook {
   phase: number; // boss phase, 0-based
   heat: number; // 0..1, the Boilermaker Queen and friends
   drop: number; // 1 .. 0 summon drop-in
+  morph: number; // 1 .. 0 after a phase change (cracks of light)
 }
 
-export const newLook = (seed: number): EnemyLook => ({ hit: 0, dead: 0, t: 0, seed, lunge: 99, phase: 0, heat: 0, drop: 0 });
+export const newLook = (seed: number): EnemyLook => ({ hit: 0, dead: 0, t: 0, seed, lunge: 99, phase: 0, heat: 0, drop: 0, morph: 0 });
 
 type EnemyFn = (c: CanvasRenderingContext2D, r: number, L: EnemyLook) => void;
 
@@ -991,6 +993,7 @@ const PAINT: Record<string, EnemyFn> = {
   'minute-warden': minuteWarden,
   orrery,
   clockmaker,
+  ...BOSS_PAINT,
 };
 
 /** Ids with a dedicated painter (used by the preview test). */
@@ -1005,23 +1008,88 @@ function painterFor(id: string): EnemyFn {
 }
 
 /** Draw one enemy centered at (x, y) filling a `size` box, with idle bob, hit flash and shake, lunge and death collapse. */
+type Style = 'lunge' | 'slam' | 'blast' | 'lean';
+/** How each creature attacks: dash at the board, rise and slam, swell and blast, or lean back and swing. */
+export const ATTACK_STYLE: Record<string, Style> = {
+  foreman: 'slam',
+  'furnace-golem': 'slam',
+  'pressure-warden': 'slam',
+  'twin-pistons': 'slam',
+  'bell-ringer': 'slam',
+  'brass-beetle': 'slam',
+  boilermaker: 'blast',
+  'steam-wraith': 'blast',
+  orrery: 'blast',
+  'pipe-snake': 'blast',
+  clockmaker: 'lean',
+  'hour-knight': 'lean',
+  'minute-warden': 'lean',
+  'pendulum-blade': 'lean',
+  'tinpot-general': 'lean',
+  'echo-sprite': 'lean',
+};
+
+const BIG = new Set(['foreman', 'boilermaker', 'clockmaker', 'gearhound', 'tinpot-general', 'pressure-warden', 'twin-pistons', 'minute-warden', 'orrery']);
+/** Bosses and elites: richer art, stronger sounds. */
+export const isBig = (id: string): boolean => BIG.has(id);
+
+export function attackStyle(id: string): Style {
+  return ATTACK_STYLE[id] ?? 'lunge';
+}
+
+export const BOSS_IDS = new Set(['foreman', 'boilermaker', 'clockmaker']);
+
+/** Draw one enemy centered at (x, y) filling a `size` box: idle breathing, attack wind-up and strike, hit recoil, death collapse. */
 export function drawEnemy(c: CanvasRenderingContext2D, defId: string, x: number, y: number, size: number, L: EnemyLook): void {
   const r = size / 2;
   const bob = Math.sin(L.t * 2 + L.seed) * r * 0.04;
-  // lunge: pull back a little, then dash at the board (to the left) and return
-  let lx = 0;
-  if (L.lunge < 0.55) {
-    const k = L.lunge / 0.55;
-    lx = k < 0.25 ? (k / 0.25) * r * 0.1 : -Math.sin(((k - 0.25) / 0.75) * Math.PI) * r * 0.55;
+  const breathe = 1 + Math.sin(L.t * 2.3 + L.seed) * 0.015;
+  const style = attackStyle(defId);
+  const { w, s } = atk(L);
+  let ox = 0;
+  let oy = 0;
+  let rot = Math.sin(L.t * 1.3 + L.seed) * 0.015;
+  let sx = breathe;
+  let sy = 2 - breathe;
+  if (L.lunge < ATTACK_TIME) {
+    if (style === 'lunge') {
+      ox = w * r * 0.14 - s * r * 0.6;
+      sx *= 1 + s * 0.08;
+    } else if (style === 'slam') {
+      oy = -w * r * 0.2 + s * r * 0.22;
+      sy *= 1 + w * 0.08 - s * 0.14;
+      sx *= 1 - w * 0.04 + s * 0.1;
+    } else if (style === 'blast') {
+      sx *= 1 + w * 0.12 - s * 0.08;
+      sy *= 1 + w * 0.12 - s * 0.08;
+      ox = Math.sin(L.t * 60) * w * r * 0.02 - s * r * 0.12;
+    } else {
+      rot += w * 0.14 - s * 0.26;
+      ox = w * r * 0.08 - s * r * 0.3;
+    }
   }
   const drop = L.drop > 0 ? -L.drop * L.drop * r * 2.4 : 0;
   c.save();
   c.globalAlpha = Math.max(0, 1 - L.dead * L.dead * 0.95);
-  c.translate(x + lx + Math.sin(L.hit * 30) * L.hit * r * 0.08, y + bob + drop + L.dead * r * 0.35);
+  // hit reaction: knocked back, a tilt and a shake
+  c.translate(x + ox + L.hit * r * 0.14 + Math.sin(L.hit * 30) * L.hit * r * 0.06, y + bob + oy + drop + L.dead * r * 0.35);
+  c.rotate(rot + L.hit * 0.07);
+  c.scale(sx, sy);
   if (L.dead > 0) c.scale(1 + L.dead * 0.12, 1 - L.dead * 0.5);
+  // wind-up glow behind the creature: bigger and warmer for bosses and elites
+  if (w > 0.05) {
+    const big = BIG.has(defId);
+    const g = c.createRadialGradient(0, 0, r * 0.2, 0, 0, r * (big ? 1.3 : 1.0));
+    const col = style === 'blast' ? '190, 220, 255' : '255, 160, 80';
+    g.addColorStop(0, `rgba(${col}, ${w * (big ? 0.5 : 0.32)})`);
+    g.addColorStop(1, `rgba(${col}, 0)`);
+    c.fillStyle = g;
+    c.fillRect(-r * 1.4, -r * 1.4, r * 2.8, r * 2.8);
+  }
   c.lineJoin = 'round';
   c.lineCap = 'round';
   c.lineWidth = Math.max(1.5, r * 0.06);
+  if (BIG.has(defId)) c.scale(0.86, 0.86); // the layered art runs a little taller than its box
   state.flash = L.hit > 0.55;
   painterFor(defId)(c, r, L);
   state.flash = false;

@@ -229,8 +229,27 @@ export function overpressure(): void {
   tone(1300, 0.3, 'triangle', 0.08, 300, 0.02);
 }
 
-export function enemyWhoosh(): void {
-  noise(0.34, 'bandpass', 320, 1.3, 0.16, 1700);
+export function enemyWhoosh(big = false): void {
+  noise(big ? 0.5 : 0.34, 'bandpass', big ? 220 : 320, 1.3, big ? 0.22 : 0.16, big ? 2200 : 1700);
+  if (big) tone(70, 0.5, 'sawtooth', 0.06, 45);
+}
+
+/** A strike on a boss: deeper, with a metallic ring. */
+export function bossHit(damage: number): void {
+  const k = Math.min(1, damage / 16);
+  tone(95 - k * 25, 0.3 + k * 0.2, 'sine', 0.3 + k * 0.2, 38);
+  noise(0.12, 'lowpass', 1200, 0.9, 0.14 + k * 0.1, 200);
+  tone(520, 0.5, 'sine', 0.05 + k * 0.04, undefined, 0.01);
+  tone(1130, 0.35, 'sine', 0.03, undefined, 0.01);
+}
+
+/** A boss fight begins: a low swell, a bell toll and a rising brass-like fifth. */
+export function bossIntro(): void {
+  tone(55, 1.6, 'sine', 0.3, 48);
+  tone(110, 1.4, 'triangle', 0.1, 98);
+  for (const [k, g] of [[1, 0.16], [2.76, 0.08], [5.4, 0.04]] as const) tone(146.8 * k, 1.8 / Math.sqrt(k), 'sine', g, undefined, 0.15);
+  [196, 293.7, 392].forEach((f, i) => tone(f, 0.9, 'triangle', 0.07, f * 1.01, 0.5 + i * 0.18));
+  noise(0.7, 'lowpass', 500, 0.8, 0.1, 1800, 0.1);
 }
 
 /** The player takes a hit. */
@@ -352,7 +371,14 @@ export function sabotage(kind: string): void {
 }
 
 /** A boss changes phase: a long gong and a low swell. */
-export function phaseGong(): void {
+export function phaseGong(clockmaker = false): void {
+  if (clockmaker) {
+    // glass cracking, then the clock running backwards
+    noise(0.05, 'highpass', 5000, 0.7, 0.2);
+    noise(0.05, 'highpass', 3500, 0.7, 0.16, undefined, 0.07);
+    for (let i = 0; i < 8; i++) tone(1800 - i * 150, 0.05, 'triangle', 0.05, undefined, 0.15 + i * 0.05);
+    tone(220, 1.2, 'sine', 0.1, 880, 0.2);
+  }
   for (const [k, g] of [[1, 0.2], [2.76, 0.1], [5.4, 0.06], [8.9, 0.03]] as const) tone(98 * k, 2.0 / Math.sqrt(k), 'sine', g);
   tone(49, 1.4, 'sine', 0.2, 41);
   noise(0.3, 'lowpass', 900, 0.8, 0.1, 200);
