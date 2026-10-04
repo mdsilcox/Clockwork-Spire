@@ -18,6 +18,9 @@ import { intentRows } from './intents';
 import { clearRun, loadPractice, loadRun, loadSettings, readSlot, removeSlot, savePractice, saveRun, saveSettings, writeSlot } from './save';
 import type { SlotNo } from './save';
 import * as meta from '../core/meta';
+import { runAutoplay } from './autoplay';
+import { crashNow } from './ErrorBoundary';
+import type { AutoOpts, AutoResult } from './autoplay';
 import { audioDebug, music, trackFor } from '../audio/music';
 import type { TrackId } from '../audio/music';
 import type { Profile, RunRecord, Settings, SprocketMood } from '../core/types';
@@ -177,10 +180,18 @@ export function attachStage(s: Stage | null): void {
   s.onEvent = onEvent;
 }
 
+/** Sound is best effort: an audio exception never reaches the game. */
+function safely(fn: () => void): void {
+  try {
+    fn();
+  } catch {
+    /* no sound is better than a broken turn */
+  }
+}
+
 function onEvent(e: GameEvent, sp: Speed): void {
   if (e.kind === 'combatEnd') {
-    if (e.note === 'won') audio.victory();
-    else audio.defeat();
+    safely(() => (e.note === 'won' ? audio.victory() : audio.defeat()));
     return;
   }
   if (e.kind === 'phase') showBanner(e.note ?? 'He changes.', 'phase');
@@ -189,9 +200,9 @@ function onEvent(e: GameEvent, sp: Speed): void {
     showBanner(inst ? `The Clockmaker rewinds your ${partName(inst.defId, inst.plus)}.` : 'The Clockmaker rewinds a part.', 'rewind');
   }
   if (sp === 'skip') return;
-  if (e.kind === 'pulse') audio.tick(e.step);
-  else if (e.kind === 'release') audio.chime();
-  else if ((e.kind === 'strike' && (e.amount ?? 0) > 0) || (e.kind === 'playerHit' && (e.amount ?? 0) > 0)) audio.thud();
+  if (e.kind === 'pulse') safely(() => audio.tick(e.step));
+  else if (e.kind === 'release') safely(() => audio.chime());
+  else if ((e.kind === 'strike' && (e.amount ?? 0) > 0) || (e.kind === 'playerHit' && (e.amount ?? 0) > 0)) safely(() => audio.thud());
 }
 
 function publish(): void {
@@ -584,9 +595,9 @@ export function buyChassisNow(id: string): boolean {
 }
 
 /** The door: start a run with a chassis. */
-export function climb(chassis: string): boolean {
+export function climb(chassis: string, seed?: number): boolean {
   if (!active || climbing()) return false;
-  newRun(undefined, chassis);
+  newRun(seed, chassis);
   return true;
 }
 
@@ -639,6 +650,43 @@ export async function cheatWinFight(): Promise<void> {
   await run();
 }
 
+
+/** The combat being played right now (not a copy), for the autoplay bot; never mutate it outside the actions. */
+export function liveCombat(): CombatState | null {
+  return live;
+}
+
+/** Debug: play the real game with the sim bots through the actions above, until the Clockmaker falls. */
+export function autoplay(opts: AutoOpts = {}): Promise<AutoResult> {
+  return runAutoplay(
+    {
+      profile: () => (active ? clone(active.profile) : null),
+      newSlot: (n, name) => newSlot(n, name),
+      buy: (id) => buyUpgrade(id),
+      climb: (chassis, seed) => climb(chassis, seed),
+      runState: () => (liveRun ? clone(liveRun) : null),
+      combat: () => (liveRun && liveRun.phase === 'combat' ? live : null),
+      go: (id) => goNode(id),
+      reward: (i) => rewardPart(i),
+      rewardTrinket: (i) => rewardTrinket(i),
+      choose: (i) => chooseEvent(i),
+      pickPart: (uid) => pickEventPart(uid),
+      shopBuy: (i) => shopBuy(i),
+      remove: (uid) => shopRemove(uid),
+      forge: (kind, uid) => forge(kind, uid),
+      oil: (kind) => oil(kind),
+      leave: () => leave(),
+      place: (h, c) => place(h, c),
+      swap: (a, b) => swap(a, b),
+      target: (i) => target(i),
+      run: () => run(),
+      leaveResult: () => leaveResult(),
+      abandon: () => abandonClimb(),
+      setSpeed: (s) => setSpeed(s),
+    },
+    opts,
+  );
+}
 
 export function isBusy(): boolean {
   return replaying.value !== null;
@@ -1080,6 +1128,7 @@ export function installDebug(): void {
     buy: (id: string): boolean => buyUpgrade(id),
     buyChassis: (id: string): boolean => buyChassisNow(id),
     climb: (chassis: string): boolean => climb(chassis),
+    autoplay: (o?: AutoOpts): Promise<AutoResult> => autoplay(o),
     sprocket: (): string => pose.value,
     settings: (): Settings => clone(settings.value),
     setSettings: (patch: Partial<Settings>): void => updateSettings(patch),
@@ -1088,6 +1137,10 @@ export function installDebug(): void {
     oil: (kind: 'repair' | 'polish'): boolean => oil(kind),
     leave: (): boolean => leave(),
     cheat: {
+      /** Make the next render throw, to see the error boundary. */
+      crash: (): void => {
+        crashNow.value = true;
+      },
       winFight: (): Promise<void> => cheatWinFight(),
       setHp: (n: number): void => {
         if (!liveRun) return;
