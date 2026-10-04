@@ -56,6 +56,73 @@ export function catalog(): { id: string; name: string }[] {
   return Object.values(PARTS).map((p) => ({ id: p.id, name: p.name }));
 }
 
+/** Preset bins that show off a synergy. A trailing + means upgraded. Act 2 adds upgraded parts, act 3 adds rares too. */
+export interface Preset {
+  id: string;
+  name: string;
+  blurb: string;
+  base: string[];
+  act2: string[];
+  act3: string[];
+}
+
+export const PRESETS: Preset[] = [
+  {
+    id: 'mixed',
+    name: 'Mixed best-of',
+    blurb: 'A bit of everything',
+    base: ['spur', 'spur', 'idler', 'lever', 'coil', 'coil', 'boiler', 'piston', 'pendulum', 'escapement', 'escapement', 'chime'],
+    act2: ['spur+', 'coil+'],
+    act3: ['planetary', 'steam-hammer'],
+  },
+  {
+    id: 'gear-train',
+    name: 'Gear train',
+    blurb: 'Long chains of gears',
+    base: ['spur', 'spur', 'spur', 'idler', 'idler', 'lever', 'bevel', 'crown', 'escapement', 'escapement', 'coil', 'cam'],
+    act2: ['spur+', 'bevel+'],
+    act3: ['planetary', 'flywheel'],
+  },
+  {
+    id: 'spring-loaded',
+    name: 'Spring loaded',
+    blurb: 'Charge up, then release',
+    base: ['coil', 'coil', 'coil', 'leaf', 'leaf', 'torsion', 'trap', 'recoil', 'trip-hammer', 'spur', 'spur', 'escapement'],
+    act2: ['coil+', 'torsion+'],
+    act3: ['volute', 'hairspring'],
+  },
+  {
+    id: 'full-steam',
+    name: 'Full steam',
+    blurb: 'Pressure for big Strikes',
+    base: ['boiler', 'boiler', 'boiler', 'piston', 'piston', 'whistle', 'safety-valve', 'firebox', 'spur', 'spur', 'escapement', 'idler'],
+    act2: ['piston+', 'boiler+'],
+    act3: ['steam-hammer', 'governor'],
+  },
+  {
+    id: 'clockwork-tempo',
+    name: 'Clockwork tempo',
+    blurb: 'Cams and extra ticks',
+    base: ['cam', 'cam', 'triple-cam', 'tappet', 'cam-follower', 'pendulum', 'metronome', 'anchor', 'verge', 'spur', 'spur', 'escapement'],
+    act2: ['cam+', 'pendulum+'],
+    act3: ['chronometer', 'balance-wheel'],
+  },
+  {
+    id: 'bells',
+    name: 'Bells and statuses',
+    blurb: 'Chimes that apply statuses',
+    base: ['chime', 'chime', 'bell-hammer', 'bell-hammer', 'tuning-fork', 'alarm-clock', 'lamp', 'gong', 'spur', 'spur', 'idler', 'escapement'],
+    act2: ['chime+', 'spur+'],
+    act3: ['oil-can', 'gong'],
+  },
+];
+
+/** The part ids of a preset for an act (1 to 3). Parts missing from the catalog are dropped when the fight starts. */
+export function presetBin(id: string, act: number): string[] {
+  const p = PRESETS.find((x) => x.id === id) ?? PRESETS[0];
+  return [...p.base, ...(act >= 2 ? p.act2 : []), ...(act >= 3 ? p.act3 : [])];
+}
+
 export type BinSpec = 'tinker' | 'random10' | string[];
 
 export function resolveBin(spec: BinSpec, rnd: () => number = Math.random): string[] {
@@ -68,7 +135,7 @@ export function resolveBin(spec: BinSpec, rnd: () => number = Math.random): stri
     for (let i = 0; i < 10; i++) out.push(all[Math.floor(rnd() * all.length)]);
     return out;
   }
-  return spec.filter(have);
+  return spec.filter((id) => have(id.replace(/\+$/, '')));
 }
 
 export const screen = signal<Screen>('loading');
@@ -128,7 +195,7 @@ function clockSeed(): number {
 }
 
 function toBin(ids: string[]): PartInstance[] {
-  return ids.map((defId, i) => ({ uid: i + 1, defId, plus: false }));
+  return ids.map((id, i) => ({ uid: i + 1, defId: id.replace(/\+$/, ''), plus: id.endsWith('+') }));
 }
 
 function resetView(): void {

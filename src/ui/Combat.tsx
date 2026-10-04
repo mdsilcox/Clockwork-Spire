@@ -10,7 +10,7 @@ import { partDef, partName, partText } from '../core/content/parts';
 import { COLS, MAINSPRING } from '../core/types';
 import type { CombatState, TurnPreview } from '../core/types';
 import { click, unlockAudio } from '../audio/synth';
-import { cellRect, enemySlots } from '../render/layout';
+import { cellRect, enemySlots, isCompact } from '../render/layout';
 import type { Layout } from '../render/layout';
 import { FAMILY_COLOR, FAMILY_LABEL } from '../render/palette';
 import { viewFromState } from '../render/replay';
@@ -544,7 +544,7 @@ export function CombatScreen() {
                 return (
                   <div
                     key={i}
-                    class={`enemy ${isTarget ? 'target' : ''} ${dead ? 'dead' : ''}`}
+                    class={`enemy ${isTarget ? 'target' : ''} ${dead ? 'dead' : ''} ${isCompact(slot) ? 'compact' : ''} ${cb ? 'cb' : ''}`}
                     style={{ left: `${slot.x}px`, top: `${slot.y}px`, width: `${slot.w}px`, height: `${slot.h}px` }}
                     onPointerEnter={(ev) => ev.pointerType === 'mouse' && setHoverEnemy(i)}
                     onPointerLeave={(ev) => ev.pointerType === 'mouse' && setHoverEnemy(null)}
@@ -579,7 +579,7 @@ export function CombatScreen() {
                         }}
                       >
                         <span class="irow">
-                          <IntentIcon kind={e.intent.kind} />
+                          <IntentIcon kind={e.intent.kind} size={isCompact(slot) ? 18 : 22} />
                           {num && <b>{num}</b>}
                         </span>
                         {cb && <span class="ilabel">{INTENT_NAME[e.intent.kind]}</span>}
@@ -589,10 +589,12 @@ export function CombatScreen() {
                     )}
                     <span class="body" />
                     <span class="info">
-                      <span class="ename">{names[i]}</span>
-                      <span class="ehp" data-testid={`ehp-${i}`}>
-                        {dead ? 'Scrapped' : `${hp}/${e.maxHp}`}
-                        {shell > 0 && <span class="shell"> Shell {shell}</span>}
+                      <span class="nameline">
+                        <span class="ename">{names[i]}</span>
+                        <span class="ehp" data-testid={`ehp-${i}`}>
+                          {dead ? 'Scrapped' : `${hp}/${e.maxHp}`}
+                          {shell > 0 && <span class="shell"> Shell {shell}</span>}
+                        </span>
                       </span>
                       {dmg > 0 && !dead && (
                         <span class="edmg" data-testid={`edmg-${i}`}>

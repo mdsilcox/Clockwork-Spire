@@ -53,6 +53,12 @@ export function enemySlots(L: Layout, n: number): Rect[] {
   return out;
 }
 
+/** Slots shorter than this (three or four enemies on a phone) use the compact layout. */
+export const COMPACT_SLOT_H = 130;
+export const isCompact = (slot: Rect): boolean => slot.h < COMPACT_SLOT_H;
+/** Compact slots: the name and HP share one short line at the bottom, the intent chip sits top right. */
+const COMPACT_TEXT_H = 16;
+
 /** The DOM slot is a grid of intent (22%, at least 26px), body (the rest) and name/HP text (28%). */
 function bodyBand(slot: Rect): { top: number; bottom: number } {
   const top = slot.y + Math.max(slot.h * 0.22, 26);
@@ -62,9 +68,15 @@ function bodyBand(slot: Rect): { top: number; bottom: number } {
 
 /**
  * Where the automaton is drawn: inside the body row, below the intent pill and above the HP bar,
- * so the sprite, the bar and the DOM rows never overlap.
+ * so the sprite, the bar and the DOM rows never overlap. In a compact slot it sits left of the intent chip.
  */
 export function enemyBody(slot: Rect): Rect {
+  if (isCompact(slot)) {
+    const barY = slot.y + slot.h - COMPACT_TEXT_H - 7;
+    const room = barY - slot.y - 3;
+    const size = Math.max(16, Math.min(slot.w * 0.56, room));
+    return { x: slot.x + 2 + (slot.w * 0.56 - size) / 2, y: slot.y + 1 + (room - size) / 2, w: size, h: size };
+  }
   const { top, bottom } = bodyBand(slot);
   const size = Math.min(slot.w * 0.9, bottom - top);
   return { x: slot.x + (slot.w - size) / 2, y: top + (bottom - top - size) / 2, w: size, h: size };
@@ -73,5 +85,6 @@ export function enemyBody(slot: Rect): Rect {
 /** The HP bar rectangle: just above the name text. */
 export function enemyBar(slot: Rect): Rect {
   const w = Math.min(slot.w * 0.8, 120);
+  if (isCompact(slot)) return { x: slot.x + (slot.w - w) / 2, y: slot.y + slot.h - COMPACT_TEXT_H - 7, w, h: 5 };
   return { x: slot.x + (slot.w - w) / 2, y: slot.y + slot.h * 0.72 - 15, w, h: 5 };
 }
