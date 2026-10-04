@@ -162,9 +162,11 @@ export function doMap(run: RunState, m: BotMemory): void {
 
 // ---------- Reward ----------
 
-export function doReward(run: RunState, m: BotMemory): void {
+/** What to take from a reward screen: a part index (or null to skip) and a trinket index; undefined = nothing to take. */
+export function rewardPick(run: RunState, m: BotMemory): { part?: number | null; trinket?: number } {
   const p = run.pending;
-  if (!p || p.kind !== 'reward') return;
+  const out: { part?: number | null; trinket?: number } = {};
+  if (!p || p.kind !== 'reward') return out;
   if (p.parts.length > 0 && !p.partTaken) {
     let idx: number | null = null;
     if (roll(m) < EXPLORE) idx = pickIdx(m, p.parts.length);
@@ -179,12 +181,18 @@ export function doReward(run: RunState, m: BotMemory): void {
       });
       if (run.bin.length > 20 && bestV < 3) idx = null;
     }
-    check(m, 'takeRewardPart', takeRewardPart(run, idx));
+    out.part = idx;
   }
-  if (p.trinkets.length > 0 && !p.trinketTaken) {
-    const idx = roll(m) < EXPLORE ? pickIdx(m, p.trinkets.length) : 0;
-    check(m, 'takeRewardTrinket', takeRewardTrinket(run, idx));
-  }
+  if (p.trinkets.length > 0 && !p.trinketTaken) out.trinket = roll(m) < EXPLORE ? pickIdx(m, p.trinkets.length) : 0;
+  return out;
+}
+
+export function doReward(run: RunState, m: BotMemory): void {
+  const p = run.pending;
+  if (!p || p.kind !== 'reward') return;
+  const pick = rewardPick(run, m);
+  if (pick.part !== undefined) check(m, 'takeRewardPart', takeRewardPart(run, pick.part));
+  if (pick.trinket !== undefined) check(m, 'takeRewardTrinket', takeRewardTrinket(run, pick.trinket));
   check(m, 'leaveNode', leaveNode(run));
 }
 
@@ -218,7 +226,7 @@ const EVENT_PREF: Record<string, number> = {
 
 const HP_LOSS = /lose \d+ (max )?hp/i;
 
-function eventChoice(run: RunState, eventId: string): number {
+export function eventChoice(run: RunState, eventId: string): number {
   const def = EVENTS[eventId];
   if (!def) return 0;
   const ok = (i: number): boolean => {
@@ -236,18 +244,26 @@ function eventChoice(run: RunState, eventId: string): number {
   return 0;
 }
 
+/** The part to hand an event that asked for one (respects the event's family filter), or null. */
+export function eventPartUid(run: RunState, m: BotMemory): number | null {
+  const p = run.pending;
+  if (!p || p.kind !== 'event' || !p.needsPart) return null;
+  const filter: Family | undefined = p.partFilter;
+  let pool = run.bin.filter((x) => (!filter || PARTS[x.defId]?.family === filter) && (p.needsPart !== 'upgrade' || !x.plus));
+  if (pool.length === 0) pool = run.bin;
+  let uid: number | null = null;
+  if (p.needsPart === 'upgrade') uid = mostFired(run, m, false, pool);
+  else if (p.needsPart === 'duplicate') uid = mostFired(run, m, true, pool);
+  else uid = weakestStarter(run, m, pool) ?? weakestAny(run, m, pool);
+  if (uid === null) uid = pool[0]?.uid ?? null;
+  return uid;
+}
+
 export function doEvent(run: RunState, m: BotMemory): void {
   const p = run.pending;
   if (!p || p.kind !== 'event') return;
   if (p.needsPart) {
-    const filter: Family | undefined = p.partFilter;
-    let pool = run.bin.filter((x) => (!filter || PARTS[x.defId]?.family === filter) && (p.needsPart !== 'upgrade' || !x.plus));
-    if (pool.length === 0) pool = run.bin;
-    let uid: number | null = null;
-    if (p.needsPart === 'upgrade') uid = mostFired(run, m, false, pool);
-    else if (p.needsPart === 'duplicate') uid = mostFired(run, m, true, pool);
-    else uid = weakestStarter(run, m, pool) ?? weakestAny(run, m, pool);
-    if (uid === null) uid = pool[0]?.uid ?? null;
+    const uid = eventPartUid(run, m);
     if (uid !== null) check(m, 'eventPickPart', eventPickPart(run, uid));
     if (run.pending && run.pending.kind === 'event' && run.pending.needsPart) return; // caller guards against loops
   } else if (p.result === undefined) {
@@ -261,51 +277,61 @@ export function doEvent(run: RunState, m: BotMemory): void {
 
 // ---------- Shop, forge, oil ----------
 
+/** The next shop action: buy an item, remove a part, or null when done. */
+export function shopStep(run: RunState, m: BotMemory): { kind: 'buy'; index: number } | { kind: 'remove'; uid: number } | null {
+  const p = run.pending;
+  if (!p || p.kind !== 'shop') return null;
+  let best = -1;
+  let bestV = 0;
+  p.stock.forEach((it, i) => {
+    if (it.sold || it.price > run.cogs) return;
+    let v = 0;
+    if (it.kind === 'part' && it.id) v = partValue(run, it.id, m) / Math.max(1, it.price / 45);
+    else if (it.kind === 'trinket' && it.id) v = TRINKETS[it.id]?.rarity === 'boss' ? 0 : 2.2 / Math.max(1, it.price / 100);
+    else if (it.kind === 'oil') v = run.hp / run.maxHp < 0.6 ? 3 : 0;
+    else return; // removal is handled below
+    if (v > bestV + 1e-9) {
+      bestV = v;
+      best = i;
+    }
+  });
+  if (best >= 0) return { kind: 'buy', index: best };
+  const removal = p.stock.find((it) => it.kind === 'removal');
+  const weak = weakestStarter(run, m);
+  if (removal && !removal.sold && removal.price <= run.cogs && run.bin.length > 9 && weak !== null) return { kind: 'remove', uid: weak };
+  return null;
+}
+
 export function doShop(run: RunState, m: BotMemory): void {
   for (let guard = 0; guard < 20; guard++) {
-    const p = run.pending;
-    if (!p || p.kind !== 'shop') break;
-    let best = -1;
-    let bestV = 0;
-    p.stock.forEach((it, i) => {
-      if (it.sold || it.price > run.cogs) return;
-      let v = 0;
-      if (it.kind === 'part' && it.id) v = partValue(run, it.id, m) / Math.max(1, it.price / 45);
-      else if (it.kind === 'trinket' && it.id) v = TRINKETS[it.id]?.rarity === 'boss' ? 0 : 2.2 / Math.max(1, it.price / 100);
-      else if (it.kind === 'oil') v = run.hp / run.maxHp < 0.6 ? 3 : 0;
-      else return; // removal is handled below
-      if (v > bestV + 1e-9) {
-        bestV = v;
-        best = i;
-      }
-    });
-    if (best >= 0) {
-      if (!check(m, 'shopBuy', shopBuy(run, best))) break;
-      continue;
-    }
-    const removal = p.stock.find((it) => it.kind === 'removal');
-    const weak = weakestStarter(run, m);
-    if (removal && !removal.sold && removal.price <= run.cogs && run.bin.length > 9 && weak !== null) {
-      if (!check(m, 'shopRemove', shopRemove(run, weak))) break;
-      continue;
-    }
-    break;
+    const s = shopStep(run, m);
+    if (!s) break;
+    const ok = s.kind === 'buy' ? check(m, 'shopBuy', shopBuy(run, s.index)) : check(m, 'shopRemove', shopRemove(run, s.uid));
+    if (!ok) break;
   }
   check(m, 'leaveNode', leaveNode(run));
+}
+
+/** The forge action: remove a starter when the bin is big, else upgrade the part that fired most. */
+export function forgeStep(run: RunState, m: BotMemory): { kind: 'remove' | 'upgrade'; uid: number } | null {
+  const weak = weakestStarter(run, m);
+  if (run.bin.length > 14 && weak !== null) return { kind: 'remove', uid: weak };
+  const uid = mostFired(run, m, false);
+  return uid !== null ? { kind: 'upgrade', uid } : null;
 }
 
 export function doForge(run: RunState, m: BotMemory): void {
-  const weak = weakestStarter(run, m);
-  if (run.bin.length > 14 && weak !== null) check(m, 'forgeRemove', forgeRemove(run, weak));
-  else {
-    const uid = mostFired(run, m, false);
-    if (uid !== null) check(m, 'forgeUpgrade', forgeUpgrade(run, uid));
-  }
+  const s = forgeStep(run, m);
+  if (s) check(m, s.kind === 'remove' ? 'forgeRemove' : 'forgeUpgrade', s.kind === 'remove' ? forgeRemove(run, s.uid) : forgeUpgrade(run, s.uid));
   check(m, 'leaveNode', leaveNode(run));
 }
 
+export function oilStep(run: RunState): 'repair' | 'polish' {
+  return run.hp / run.maxHp < 0.7 ? 'repair' : 'polish';
+}
+
 export function doOil(run: RunState, m: BotMemory): void {
-  if (run.hp / run.maxHp < 0.7) check(m, 'oilRepair', oilRepair(run));
+  if (oilStep(run) === 'repair') check(m, 'oilRepair', oilRepair(run));
   else check(m, 'oilPolish', oilPolish(run));
   check(m, 'leaveNode', leaveNode(run));
 }

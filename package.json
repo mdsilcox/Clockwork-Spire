@@ -7,10 +7,11 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "npm run test:unit && npm run test:e2e && npm run test:offline",
+    "test": "npm run test:unit && npm run test:e2e && npm run test:offline && npm run test:career",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "test:offline": "playwright test -c playwright.offline.config.ts",
+    "test:career": "playwright test -c playwright.career.config.ts",
     "sim": "tsx src/sim/cli.ts"
   },
   "dependencies": {
