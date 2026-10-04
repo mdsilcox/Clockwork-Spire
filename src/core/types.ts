@@ -171,3 +171,101 @@ export interface TurnResult {
   events: GameEvent[];
   preview: TurnPreview; // what the machine part of the turn did (equals the preview taken before Run)
 }
+
+// ---------- The run (B3 contract; see docs/data-model.md and docs/rules.md section 4) ----------
+
+export type NodeType = 'fight' | 'elite' | 'event' | 'forge' | 'oil' | 'shop' | 'boss';
+
+export interface MapNode {
+  id: string; // `${act}-${floor}-${lane}`
+  floor: number; // 1..13 (13 = boss)
+  lane: number; // 0..3
+  type: NodeType;
+  next: string[]; // node ids on floor + 1
+  visited: boolean;
+}
+
+export interface ActMap {
+  act: 1 | 2 | 3;
+  nodes: MapNode[];
+}
+
+export interface ShopItem {
+  kind: 'part' | 'trinket' | 'removal' | 'oil';
+  id?: string; // part or trinket id
+  price: number;
+  sold: boolean;
+}
+
+export type Pending =
+  | { kind: 'reward'; cogs: number; parts: string[]; trinkets: string[]; blueprint?: string; partTaken: boolean; trinketTaken: boolean }
+  | { kind: 'event'; eventId: string; result?: string; needsPart?: 'remove' | 'upgrade' | 'duplicate' | 'transform' | 'sell' }
+  | { kind: 'shop'; stock: ShopItem[]; removalsBought: number }
+  | { kind: 'forge'; done: boolean }
+  | { kind: 'oil'; done: boolean };
+
+export interface RunStats {
+  turns: number;
+  biggestTurn: number;
+  fights: number;
+  elites: number;
+  bossesBeaten: number;
+  brassEarned: number;
+  blueprintsFound: string[];
+  offers: { partId: string; taken: boolean; act: number; source: 'reward' | 'shop' }[]; // for the balance sim (rules 7)
+}
+
+/** Everything a run needs from the profile at its start (B4 fills it from upgrades; B3 uses defaults). */
+export interface RunConfig {
+  seed: number;
+  chassis: string; // 'tinker' | 'stoker' | 'horologist'
+  maxHp: number; // base 50 (+5 per Reinforced Frame)
+  cogs: number; // base 0 (+25 per Spare Cogs)
+  handSize: number; // 3 (4 with Tool Belt)
+  upgradedStarters: number; // Oiled Bearings level
+  trinkets: string[]; // e.g. Lucky Charm's random common
+  unlockedParts: string[]; // blueprint ids found so far (locked parts that are now in the pool)
+  rewardChoices: number; // 3 (4 with Inventor's Notes I)
+  extraEliteBlueprint: boolean; // Inventor's Notes II
+  secondWind: boolean;
+}
+
+export interface RunState {
+  version: number;
+  config: RunConfig;
+  rng: Record<RngStream, number>;
+  act: 1 | 2 | 3;
+  floor: number; // 0 before choosing the first node; 1..13
+  hp: number;
+  maxHp: number;
+  cogs: number;
+  bin: PartInstance[];
+  nextUid: number;
+  trinkets: string[];
+  map: ActMap;
+  nodeId: string | null;
+  phase: 'map' | 'combat' | 'reward' | 'event' | 'shop' | 'forge' | 'oil' | 'victory' | 'defeat';
+  combat: CombatState | null;
+  pending: Pending | null;
+  recentEncounters: string[]; // last 3 encounter keys, to avoid repeats
+  stats: RunStats;
+  flags: Record<string, boolean>; // secondWindUsed, firstEliteThisAct..., event once-flags
+  killedBy?: string;
+}
+
+export interface RunRecord {
+  n: number;
+  seed: number;
+  chassis: string;
+  result: 'win' | 'loss' | 'abandoned';
+  act: number;
+  floor: number;
+  killedBy?: string;
+  brassEarned: number;
+  blueprintsFound: string[];
+  partsAtEnd: string[];
+  trinkets: string[];
+  turns: number;
+  biggestTurn: number;
+  endedAt: string; // ISO; filled by the app, never by core
+}
