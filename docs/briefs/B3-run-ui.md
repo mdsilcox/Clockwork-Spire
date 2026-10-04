@@ -30,3 +30,4 @@ A player climbs the Spire: picks a chassis (only Tinker for now), sees a beautif
 
 ## Done when
 Unit and e2e green in your worktree (with run-dependent specs skipped until the merge); you looked at screenshots of every new screen at 667x375 and 1280x800. Report per template.
+- Dismiss any open tooltip when a fight starts or the screen changes (B2 critic: a stale "The Clockmaker" tooltip stayed over a new fight on phone).
