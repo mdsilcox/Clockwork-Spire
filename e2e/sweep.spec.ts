@@ -78,8 +78,8 @@ test('every screen is clean', async ({ page }, info) => {
   };
   const leaveReward = async (): Promise<void> => {
     await look(page, 'screen-reward');
-    await call(page, 'g.reward(0)');
     await call(page, 'g.rewardTrinket(0)');
+    await call(page, 'g.salvage([])');
     await call(page, 'g.leave()');
   };
 

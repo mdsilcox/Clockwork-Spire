@@ -1,7 +1,7 @@
 // Node screens inside a run: reward, event, shop, forge and oil, plus the part picker they share.
 import type { ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
-import { shopBuy, chooseEvent, forge, leave, oil, pickEventPart, rewardPart, rewardTrinket, runView, shopRemove } from '../app/controller';
+import { shopBuy, chooseEvent, forge, leave, oil, pickEventPart, rewardPart, rewardTrinket, runView, salvageDone, shopRemove } from '../app/controller';
 import { EVENTS } from '../core/content/events';
 import { partDef, partName, partText } from '../core/content/parts';
 import { trinketDef } from '../core/content/trinkets';
@@ -204,6 +204,95 @@ export function RewardScreen() {
         </div>
       </section>
       {tip.node}
+    </Shell>
+  );
+}
+
+// ---------- salvage (B7: replaces the part reward after fights) ----------
+
+const RARITY_LABEL: Record<string, string> = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', masterwork: 'Masterwork', legendary: 'Legendary' };
+
+export function SalvageScreen() {
+  const run = runView.value;
+  const [keep, setKeep] = useState<number[]>([]);
+  if (!run || run.pending?.kind !== 'salvage') return null;
+  const p = run.pending;
+  const needTrinket = p.trinkets.length > 0 && !p.trinketTaken;
+  const toggle = (n: number): void => setKeep(keep.includes(n) ? keep.filter((k) => k !== n) : [...keep, n]);
+  const scrapped = p.items.filter((it, n) => it.locked || !keep.includes(n));
+  const finish = (): void => {
+    if (!salvageDone(keep)) return;
+    if (runView.value?.phase === 'reward') leave();
+  };
+  return (
+    <Shell run={run} title="Salvage" art={<SpoilsArt />}>
+      <section class="rewardbox salvagebox" data-testid="salvage-tray" aria-label="Salvage tray">
+        <p class="bigline" data-testid="salvage-cogs">
+          +{p.cogs} Cogs
+        </p>
+        {p.blueprint && (
+          <p class="banner-line" data-testid="blueprint-banner">
+            Blueprint found: {partName(p.blueprint, false)}. It is now in the pool.
+          </p>
+        )}
+        {p.items.length > 0 ? (
+          <>
+            <p class="salvage-note">Keep any of these parts for your bin. What you leave is scrapped for Cogs.</p>
+            <div class="salvage-list">
+              {p.items.map((it, n) => {
+                const key = it.salvage === 'spire-key';
+                const name = key ? 'Spire Key' : partName(it.salvage, false);
+                const kept = keep.includes(n);
+                return (
+                  <div key={`${it.enemy}.${it.partId}`} class={`salvage-item ${kept ? 'kept' : ''} ${it.locked ? 'locked' : ''}`} data-testid={`salvage-item-${n}`}>
+                    <span class="sname">{name}</span>
+                    <span class="srarity">{RARITY_LABEL[it.rarity] ?? it.rarity}</span>
+                    {!key && <span class="ctext">{partText(it.salvage, false)}</span>}
+                    {it.locked ? (
+                      <span class="snote" data-testid={`salvage-locked-${n}`}>
+                        Locked: you could almost see how it worked. It is scrapped for 6 Cogs.
+                      </span>
+                    ) : (
+                      <button class={kept ? 'primary skeep' : 'secondary skeep'} data-testid={`salvage-keep-${n}`} aria-pressed={kept} onClick={() => toggle(n)}>
+                        {kept ? 'Keeping it' : 'Keep it'}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <p class="salvage-note" data-testid="salvage-empty">
+            Nothing to salvage: no part of the machine broke. Take down the parts, not only the core, to bring some home.
+          </p>
+        )}
+        {scrapped.length > 0 && (
+          <p class="salvage-note" data-testid="salvage-scrap">
+            Scrapped: {scrapped.length}.
+          </p>
+        )}
+        {p.trinkets.length > 0 && (
+          <>
+            <h3>{p.trinketTaken ? 'Trinket taken' : 'Take a trinket'}</h3>
+            <div class="cardrow" data-testid="reward-trinkets">
+              {p.trinkets.map((id, i) => (
+                <TrinketCard key={id} id={id} testid="reward-trinket" disabled={p.trinketTaken} onClick={() => rewardTrinket(i)} />
+              ))}
+            </div>
+            {!p.trinketTaken && (
+              <button class="secondary" data-testid="reward-trinket-skip" onClick={() => rewardTrinket(null)}>
+                Skip the trinket
+              </button>
+            )}
+          </>
+        )}
+        <div class="nodeactions">
+          <button class="primary" data-testid="salvage-done" disabled={needTrinket} onClick={finish}>
+            Done
+          </button>
+        </div>
+      </section>
     </Shell>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { attachStage, banner, bossIntro, combat, cycleSpeed, goTitle, lastResult, newFight, place, replaying, run, runView, screen, speed, swap, target, tutorial, tutorialAck, view } from '../app/controller';
+import { attachStage, banner, bossIntro, combat, cycleSpeed, goTitle, lastResult, newFight, place, replaying, run, runView, screen, speed, swap, target, toggleTarget, tutorial, tutorialAck, view } from '../app/controller';
 import { colorBlind, glossaryOpen, openGlossary, openHowTo, openSettings, setColorBlind } from '../app/prefs';
 import { intentTargets } from '../app/intents';
 import { glossaryFor } from '../core/content/glossary';
@@ -8,7 +8,7 @@ import { previewTurn } from '../core/combat';
 import { enemyDef } from '../core/content/enemies';
 import { partDef, partName, partText } from '../core/content/parts';
 import { COLS, MAINSPRING } from '../core/types';
-import type { CombatState, TurnPreview } from '../core/types';
+import type { CombatState, TargetRef, TurnPreview } from '../core/types';
 import { click, unlockAudio } from '../audio/synth';
 import { cellRect, enemySlots, isCompact } from '../render/layout';
 import type { Layout } from '../render/layout';
@@ -19,6 +19,7 @@ import { INTENT_NAME, IntentIcon, STATUS_NAME, StatusIcon } from './icons';
 import { Coach, tutorialTargets } from './Coach';
 import { familyHint } from './synergy';
 import { ACT_TITLE, TrinketBar } from './Map';
+import { EnemyMachine } from './EnemyParts';
 import { Tooltip } from './Tooltip';
 import type { TipInfo } from './Tooltip';
 
@@ -207,6 +208,14 @@ export function CombatScreen() {
         setKbd(true);
       }
       else if (e.key === 'r' || e.key === 'R') L.doRun();
+      else if (e.key === 't' || e.key === 'T') {
+        // cycle keyboard focus over the target markers; Enter on a focused marker toggles it
+        const marks = Array.from(document.querySelectorAll<HTMLElement>('[data-target-marker]')).filter((m) => !(m as HTMLButtonElement).disabled);
+        if (marks.length === 0) return;
+        const at = marks.indexOf(document.activeElement as HTMLElement);
+        marks[(at + 1) % marks.length].focus();
+        setKbd(false);
+      }
       else if (e.key === 'Escape') {
         setSel(null);
         setMark(-1);
@@ -346,9 +355,28 @@ export function CombatScreen() {
   // ---------- derived display ----------
   const slots = layout ? enemySlots(layout, c.enemies.length) : [];
   const incoming = c.enemies.reduce((sum, e, i) => {
-    if (vw.enemyHp[i] <= 0 || e.intent.kind !== 'attack') return sum;
+    if (vw.enemyHp[i] <= 0) return sum;
+    if (e.parts.length > 0) {
+      const gone = new Set((preview?.cancelled ?? []).filter((x) => x.enemy === i).map((x) => x.partId));
+      return (
+        sum +
+        e.intents.filter((it) => !gone.has(it.partId)).reduce((t, it) => t + it.actions.filter((a) => a.kind === 'attack' || a.kind === 'pierce').reduce((u, a) => u + (a.amount ?? 0) * (a.hits ?? 1), 0), 0)
+      );
+    }
+    if (e.intent.kind !== 'attack') return sum;
     return sum + (e.intent.amount ?? 0) * (e.intent.hits ?? 1);
   }, 0);
+  const tapTarget = (ref: TargetRef): void => {
+    if (longFired.current) {
+      longFired.current = false;
+      return;
+    }
+    if (busy || over) return;
+    if (!toggleTarget(ref)) {
+      const sealed = ref.endsWith('.core') && c.enemies[Number(ref.slice(1, ref.indexOf('.')))]?.sealed;
+      flash(sealed ? 'The core is sealed. Break its keystones first.' : c.order.length >= 6 ? 'The order holds 6 targets at most.' : 'That target is out of reach.');
+    }
+  };
   const pressurePct = Math.min(100, (vw.pressure / 30) * 100);
   const calm = !busy && !over;
   const targets = c.enemies.map((_, i) => (calm ? intentTargets(c, i) : { cells: [] as number[], mainspring: false, pressure: false }));
@@ -584,7 +612,7 @@ export function CombatScreen() {
                         longFired.current = false;
                       }}
                     />
-                    {!dead ? (
+                    {e.parts.length > 0 ? null : !dead ? (
                       <span
                         class={`intent k-${e.intent.kind} ${glow.has('intent') ? 'tut-glow' : ''}`}
                         tabIndex={0}
@@ -611,6 +639,7 @@ export function CombatScreen() {
                       <span class="intent none" />
                     )}
                     <span class="body" />
+                    <EnemyMachine c={c} i={i} slot={slot} vw={vw} preview={preview} name={names[i]} cb={cb} interactive={calm} tip={tipHandlers as never} onTap={tapTarget} />
                     <span class="info">
                       <span class="nameline">
                         <span class="ename">{names[i]}</span>

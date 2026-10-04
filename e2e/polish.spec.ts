@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { partDef } from '../src/core/content/parts';
 import { noSidewaysScroll, press, showTip, skipFirstLaunch, watchErrors } from './helpers';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -60,20 +59,13 @@ test('part tooltips name the family and what it works well with', async ({ page 
   expect(errors).toEqual([]);
 });
 
-test('reward parts that match a family with two or more parts in the bin show a dot', async ({ page }) => {
-  await call(page, 'g.climb("tinker")');
-  await call(page, 'g.cheat.gotoFloor(1, 2, "fight")');
-  await call(page, 'g.go(g.nodes()[0])');
+test('after a won fight the salvage tray lists the broken parts and fits a phone', async ({ page }) => {
+  await call(page, 'g.cheat.runFight(["cog-rat"])');
+  await call(page, 'g.cheat.breakPart(0, "rat-jaw")');
   await call(page, 'g.cheat.winFight()');
-  await expect(page.getByTestId('reward-part').first()).toBeVisible();
-  const run = await call<any>(page, 'g.runState()');
-  const fam = (id: string): string => partDef(id).family;
-  const counts = new Map<string, number>();
-  for (const b of run.bin) counts.set(fam(b.defId), (counts.get(fam(b.defId)) ?? 0) + 1);
-  for (let i = 0; i < run.pending.parts.length; i++) {
-    const want = (counts.get(fam(run.pending.parts[i])) ?? 0) >= 2;
-    await expect(page.getByTestId('reward-part').nth(i).getByTestId('fits')).toHaveCount(want ? 1 : 0);
-  }
+  await expect(page.getByTestId('salvage-tray')).toBeVisible();
+  await expect(page.getByTestId('salvage-item-0')).toBeVisible();
+  await expect(page.getByTestId('salvage-keep-0')).toBeVisible();
   await noSidewaysScroll(page);
 });
 

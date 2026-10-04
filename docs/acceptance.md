@@ -72,7 +72,7 @@ Test harness contract (built in B1): `src/core/testkit.ts` exports `combatWith({
 | id | Given | When | Then | Kind | Phase |
 |---|---|---|---|---|---|
 | O1 | a brand-new profile | the first run starts | a guided first fight teaches place, preview, run, intents in short steps; it can't be lost | E | B2 |
-| O2 | any screen | open the glossary | every term in docs/rules.md marked bold has an entry (reads docs/v1/rules.md until the v2 glossary build) | U, E | B2 |
+| O2 | any screen | open the glossary | every term in docs/rules.md sections 1 to 5 marked bold has an entry (reads docs/rules.md again since B7) | U, E | B2 |
 | O3 | how to play | open it | a short page explains a turn with a diagram | E | B5 |
 | Q1 | settings | change music, effects volume, mute | audio levels change and persist across reload | E | B5 |
 | Q2 | animation speed set to skip | run a turn | the result appears with no animation delay | E | B5 |

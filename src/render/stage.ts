@@ -7,6 +7,7 @@ import * as audio from '../audio/synth';
 import { drawEcho, drawEnemy, drawMainspring, drawPart, drawShell, drawStatuses, newLook, newVis, partFamily, isBig, BOSS_IDS, attackStyle } from './draw';
 import type { EnemyLook, Vis } from './draw';
 import { TAU, gearPath } from './kit';
+import { partAnchors } from './anchors';
 import { cellRect, computeLayout, enemyBar, enemyBody, enemySlots } from './layout';
 import type { Layout, Rect } from './layout';
 import { COLOR, FONT } from './palette';
@@ -282,6 +283,15 @@ export class Stage {
     return b.y + b.h / 2;
   }
 
+  /** Where part `part` of enemy `i` sits (anchors.ts decides; the core and unknown parts sit at the body center). */
+  private partAt(i: number, part: string | undefined): { x: number; y: number } {
+    const slot = this.slotList()[i];
+    if (!slot) return { x: this.enemyX(i), y: this.enemyY(i) };
+    const ids = (this.after?.enemies[i] ?? this.state?.enemies[i])?.parts?.map((p) => p.id) ?? [];
+    const a = partAnchors(enemyBody(slot), ids);
+    return a[part ?? 'core'] ?? a.core;
+  }
+
   private enemySize(i: number): number {
     const slot = this.slotList()[i];
     return slot ? enemyBody(slot).w : 60;
@@ -467,6 +477,67 @@ export class Stage {
           if (en && BOSS_IDS.has(en.defId)) audio.bossHit(amt);
           else audio.strike(amt);
         }
+        break;
+      }
+      case 'partHit': {
+        if (ti < 0) break;
+        const at = this.partAt(ti, e.part);
+        this.addFloat(at.x, at.y - 18, String(e.amount ?? 0), COLOR.hurt, (e.amount ?? 0) >= 7);
+        this.sparks(at.x, at.y, 5 + Math.min(10, e.amount ?? 0), '#ff9a70', 90, 150);
+        if (snd) audio.strike(e.amount ?? 0);
+        break;
+      }
+      case 'partBroken': {
+        if (ti < 0) break;
+        const at = this.partAt(ti, e.part);
+        // a crack (two quick sparks lines) and the marker falls away in the DOM (class `broken`)
+        this.sparks(at.x, at.y, 12, '#ffd27a', 130, 220);
+        this.cogs(at.x, at.y, 5, es * 0.4);
+        this.ring(at.x, at.y, es * 0.3, '255, 226, 154', 0.5);
+        this.bump(2.5);
+        if (snd) audio.enemyDeath();
+        break;
+      }
+      case 'lost':
+      case 'braced': {
+        if (ti < 0) break;
+        const at = this.partAt(ti, e.part);
+        this.addFloat(at.x + 14, at.y - 6, `${e.kind === 'braced' ? 'Braced ' : ''}${e.amount ?? 0}`, COLOR.inkSoft, false);
+        break;
+      }
+      case 'corrode': {
+        const b = this.layout.board;
+        this.addFloat(b.x + b.w / 2, b.y + b.h * 0.3, `Corrode -${e.amount ?? 0} Plating`, COLOR.hurt, false);
+        this.sparks(b.x + b.w / 2, b.y + 10, 8, '#c9a070', 60, 80);
+        if (snd) audio.plateClink();
+        break;
+      }
+      case 'pierce': {
+        const b = this.layout.board;
+        this.addFloat(b.x + b.w / 2, b.y + b.h * 0.2, `Pierce -${e.amount ?? 0}`, COLOR.hurt, true);
+        this.sparks(b.x + b.w * 0.9, b.y + b.h / 2, 10, '#ff7a55', 160, 100);
+        this.hurt = Math.max(this.hurt, 0.25);
+        break;
+      }
+      case 'siphon': {
+        if (ti < 0) break;
+        const at = this.partAt(ti, 'core');
+        this.addFloat(at.x, at.y - 24, `+${e.amount ?? 0}`, COLOR.good, false);
+        this.steam(at.x, at.y, 4, 2);
+        break;
+      }
+      case 'gauge': {
+        if (ti < 0) break;
+        const at = this.partAt(ti, e.part);
+        this.addFloat(at.x, at.y - 22, String(e.amount ?? 0), COLOR.lamp, false);
+        break;
+      }
+      case 'phaseAction': {
+        if (ti >= 0) {
+          this.ring(ex, ey, es * 1.1, '255, 226, 154', 0.8);
+          this.cogs(ex, ey, 8, es);
+        }
+        this.bump(4);
         break;
       }
       case 'sweep': {

@@ -1,4 +1,4 @@
-// O2: every term marked bold in docs/v1/rules.md (v1 rules, until the v2 glossary build moves this back to docs/rules.md) (the player-facing sections 1 to 5) has a glossary entry.
+// O2: every term marked bold in docs/rules.md (the player-facing sections 1 to 5) has a glossary entry.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { GLOSSARY, glossaryFor, LINK_TERMS } from '../../src/core/content/glossary';
@@ -6,11 +6,11 @@ import { GLOSSARY, glossaryFor, LINK_TERMS } from '../../src/core/content/glossa
 const norm = (t: string): string => t.trim().replace(/[.:]+$/, '').replace(/ x$/i, '').toLowerCase();
 
 function boldTerms(): string[] {
-  const lines = readFileSync('docs/v1/rules.md', 'utf8').split('\n');
+  const lines = readFileSync('docs/rules.md', 'utf8').split('\n');
   const end = lines.findIndex((l) => l.startsWith('## 6.')); // sections 6 and 7 are about saves and the simulator
   const out = new Set<string>();
-  // Line 3 only explains the bold convention.
-  lines.slice(3, end < 0 ? lines.length : end).forEach((l) => {
+  // Lines 1 to 5 hold the title and the sentence that explains the bold convention.
+  lines.slice(5, end < 0 ? lines.length : end).forEach((l) => {
     for (const m of l.matchAll(/\*\*([^*]+)\*\*/g)) out.add(norm(m[1]));
   });
   return [...out];

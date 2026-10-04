@@ -5,7 +5,7 @@ import { CombatScreen } from './Combat';
 import { EndScreen } from './End';
 import { GlossaryScreen } from './Glossary';
 import { BinViewer, MapScreen } from './Map';
-import { EventScreen, ForgeScreen, OilScreen, RewardScreen, ShopScreen } from './Nodes';
+import { EventScreen, ForgeScreen, OilScreen, RewardScreen, SalvageScreen, ShopScreen } from './Nodes';
 import { HowToScreen } from './HowTo';
 import { PortraitCard } from './PortraitCard';
 import { PracticePicker } from './Practice';
@@ -42,7 +42,7 @@ function RunScreens() {
     case 'combat':
       return combat.value ? <CombatScreen key={nodeKey.value} /> : <MapScreen />;
     case 'reward':
-      return <RewardScreen />;
+      return run.pending?.kind === 'salvage' ? <SalvageScreen /> : <RewardScreen />;
     case 'event':
       return <EventScreen />;
     case 'shop':

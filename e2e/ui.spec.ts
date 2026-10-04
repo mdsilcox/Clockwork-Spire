@@ -8,7 +8,8 @@ test.beforeEach(async ({ page }) => {
   await skipFirstLaunch(page);
 });
 
-async function fightWithSpur(page: Page, enemies = ['rust-mite', 'cog-rat']): Promise<void> {
+async function fightWithSpur(page: Page, enemies = ['tutorial-automaton', 'tutorial-automaton']): Promise<void> {
+  // legacy (core-only) enemies: these tests read the single intent chip and set intents by hand; frame enemies show part intents (v2-machines.spec.ts)
   await page.goto('/');
   await expect(page.getByTestId('title')).toBeVisible();
   for (let seed = 1; seed < 80; seed++) {
@@ -171,7 +172,7 @@ test('C5: a Rust intent outlines its cell before the player builds; Jam and Drai
 test('Q3: every intent kind has its own shape, and color-blind icons add a word', async ({ page }) => {
   const errors = watchErrors(page);
   await page.addInitScript(() => window.localStorage.setItem('cs.colorBlind', '1'));
-  await fightWithSpur(page, ['rust-mite']);
+  await fightWithSpur(page, ['tutorial-automaton']);
   const shapes = new Set<string>();
   for (const kind of KINDS) {
     await setIntent(page, 0, { kind, amount: 8, hits: kind === 'attack' ? 2 : undefined, label: kind });
@@ -215,7 +216,7 @@ test('four enemies fit, the sandbox picker starts any encounter, and the screen 
   expect(s.enemies).toHaveLength(4);
   const stage = (await page.getByTestId('stage').boundingBox())!;
   for (let i = 0; i < 4; i++) {
-    const intent = (await page.getByTestId(`intent-${i}`).boundingBox())!;
+    const intent = (await page.getByTestId(`enemy-core-e${i}`).boundingBox())!;
     const tap = (await page.getByTestId(`enemy-${i}`).boundingBox())!;
     expect(intent.x).toBeGreaterThanOrEqual(stage.x);
     expect(intent.x + intent.width).toBeLessThanOrEqual(stage.x + stage.width + 1);

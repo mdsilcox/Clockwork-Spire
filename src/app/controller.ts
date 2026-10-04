@@ -6,7 +6,9 @@ import { cell as cellIndex } from '../core/board';
 import { ENEMIES } from '../core/content/enemies';
 import { PARTS } from '../core/content/parts';
 import { GLOSSARY } from '../core/content/glossary';
-import type { CombatState, GameEvent, PartInstance, RunState, TurnPreview, TurnResult } from '../core/types';
+import type { CombatState, GameEvent, PartInstance, RunState, SalvageItem, TargetRef, TurnPreview, TurnResult } from '../core/types';
+import { frontOf, setOrder, toggleTarget as toggleOrder } from '../core/frames';
+import { takeSalvage } from '../core/salvage';
 import * as core from '../core/run';
 import { generateActMap } from '../core/map';
 import { partName } from '../core/content/parts';
@@ -175,7 +177,7 @@ export function attachStage(s: Stage | null): void {
   s.setSpeed(speed.value);
   s.reducedEffects = settings.value.reducedEffects;
   s.onView = (v) => {
-    view.value = replaying.value ? { ...v, enemyHp: v.enemyHp.slice(), enemyShell: v.enemyShell.slice() } : null;
+    view.value = replaying.value ? { ...v, enemyHp: v.enemyHp.slice(), enemyShell: v.enemyShell.slice(), partHp: { ...v.partHp }, partBroken: { ...v.partBroken } } : null;
   };
   s.onEvent = onEvent;
 }
@@ -622,6 +624,7 @@ export function climb(chassis: string, seed?: number): boolean {
 
 export const goNode = (id: string): boolean => runAction((r) => core.enterNode(r, id)) ?? false;
 export const rewardPart = (i: number | null): boolean => runAction((r) => core.takeRewardPart(r, i)) ?? false;
+export const salvageDone = (keep: number[]): boolean => runAction((r) => takeSalvage(r, keep)) ?? false;
 export const rewardTrinket = (i: number | null): boolean => runAction((r) => core.takeRewardTrinket(r, i)) ?? false;
 export const chooseEvent = (i: number): string | null => runAction((r) => core.chooseEvent(r, i)) ?? null;
 export const pickEventPart = (uid: number): boolean => runAction((r) => core.eventPickPart(r, uid)) ?? false;
@@ -687,6 +690,7 @@ export function autoplay(opts: AutoOpts = {}): Promise<AutoResult> {
       combat: () => (liveRun && liveRun.phase === 'combat' ? live : null),
       go: (id) => goNode(id),
       reward: (i) => rewardPart(i),
+      salvage: (keep) => salvageDone(keep),
       rewardTrinket: (i) => rewardTrinket(i),
       choose: (i) => chooseEvent(i),
       pickPart: (uid) => pickEventPart(uid),
@@ -881,10 +885,72 @@ export function swap(a: number | string, b: number | string): boolean {
 
 export function target(idx: number): void {
   if (!live || isBusy()) return;
-  setTarget(live, idx);
+  const front = (live.enemies[idx]?.parts?.length ?? 0) > 0 ? frontOf(live, idx) : null;
+  if (front) setOrder(live, [front]);
+  else setTarget(live, idx);
   publish();
   persist();
 }
+
+/** v2: tap a part or core: add it to the target order, or remove it. */
+export function toggleTarget(ref: TargetRef): boolean {
+  if (!live || isBusy() || live.outcome !== 'ongoing') return false;
+  const changed = toggleOrder(live, ref);
+  if (changed) {
+    publish();
+    persist();
+  }
+  return changed;
+}
+
+export const currentOrder = (): TargetRef[] => (live ? live.order.slice() : []);
+
+/** Test cheat: a new run (seed 1) already in a fight against exactly these enemies. */
+function cheatRunFight(enemies: string[]): void {
+  newRun(1);
+  const r = liveRun;
+  if (!r) return;
+  const id = core.availableNodes(r)[0];
+  const node = r.map.nodes.find((n) => n.id === id);
+  if (!node) return;
+  node.type = 'fight';
+  core.enterNode(r, id);
+  r.combat = createCombat({
+    seed: 1,
+    bin: r.bin,
+    enemies: enemies.filter((e) => ENEMIES[e]),
+    hp: r.hp,
+    maxHp: r.maxHp,
+    kind: 'fight',
+    trinkets: r.trinkets,
+    handSize: r.config.handSize,
+    chassis: r.config.chassis,
+  } as CreateCombatOpts);
+  afterRun(true);
+}
+
+/** Test cheat: break a part as if it had been hit, recording its salvage (the engine's breaking rules are not re-run). */
+function cheatBreakPart(enemy: number, partId: string): void {
+  const c = live;
+  const e = c?.enemies[enemy];
+  if (!c || !e) return;
+  const st = e.parts.find((p) => p.id === partId);
+  if (!st || st.broken) return;
+  const fr = enemyDef(e.defId).frame;
+  const defs = fr ? [...fr.parts, ...(fr.phases ?? []).flatMap((ph) => ph.parts)] : [];
+  const def = defs.find((d) => d.id === partId);
+  st.hp = 0;
+  st.broken = true;
+  e.intents = e.intents.filter((it) => it.partId !== partId);
+  c.order = c.order.filter((r) => r !== `e${enemy}.${partId}`);
+  if (def?.salvage) {
+    const item: SalvageItem = { enemy, partId, salvage: def.salvage, rarity: def.rarity, locked: false };
+    c.broken.push(item);
+  }
+  publish();
+  persist();
+}
+
 
 export function preview(): TurnPreview | null {
   return live ? previewTurn(live) : null;
@@ -1135,6 +1201,9 @@ export function installDebug(): void {
     go: (id: string): boolean => goNode(id),
     nodes: (): string[] => availableNow(),
     reward: (i: number | null): boolean => rewardPart(i),
+    order: (): string[] => currentOrder(),
+    toggleTarget: (ref: string): boolean => toggleTarget(ref as TargetRef),
+    salvage: (keep: number[]): boolean => salvageDone(keep),
     rewardTrinket: (i: number | null): boolean => rewardTrinket(i),
     choose: (i: number): string | null => chooseEvent(i),
     pickPart: (uid: number): boolean => pickEventPart(uid),
@@ -1161,6 +1230,16 @@ export function installDebug(): void {
         crashNow.value = true;
       },
       winFight: (): Promise<void> => cheatWinFight(),
+      runFight: (enemies: string[]): void => cheatRunFight(enemies),
+      /** Show a post-fight pending screen (a salvage tray, say) without playing the fight. */
+      setPending: (pending: RunState['pending']): void => {
+        if (!liveRun) return;
+        liveRun.combat = null;
+        liveRun.pending = pending;
+        liveRun.phase = pending ? 'reward' : 'map';
+        afterRun(true);
+      },
+      breakPart: (enemy: number, partId: string): void => cheatBreakPart(enemy, partId),
       setHp: (n: number): void => {
         if (!liveRun) return;
         liveRun.hp = n;
