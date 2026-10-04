@@ -3,7 +3,10 @@
 A turn-based roguelite for browser (desktop and phone landscape). The player builds a machine of clockwork parts that runs each combat turn. Full brief: `SPEC.md` (never edit it). Decisions: `DECISIONS.md`. State of the run: `PROGRESS.md`.
 
 ## Stack and commands
-TODO (decided in D1).
+Vite 8 + TypeScript (strict) + Preact 11 (`@preact/signals`) for DOM UI; Canvas 2D for the machine/combat stage; Vitest 5; Playwright 1.63; `vite-plugin-pwa`; `idb` (IndexedDB); Web Audio for all sound. See DECISIONS.md D-006, D-007.
+- `npm install && npm run dev` start the game. `npm test` runs everything (unit, sim targets, e2e).
+- `npm run sim -- --careers 200 --seed 1` writes a balance report to `balance/`.
+- TODO: exact scripts once the skeleton exists (B1).
 
 ## Directory layout
 - `SPEC.md` the owner's spec, frozen.
