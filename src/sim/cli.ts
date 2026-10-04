@@ -2,6 +2,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { botStats } from './bot';
 import { buildReportWithSummary, loadEncounters } from './combat-report';
+import { buildCareerReport } from './career-report';
 import { buildRunReport } from './run-report';
 
 function arg(name: string, def: string): string {
@@ -11,6 +12,22 @@ function arg(name: string, def: string): string {
 
 async function main(): Promise<void> {
   const mode = arg('mode', '');
+  if (mode === 'careers') {
+    const seed = Number(arg('seed', '1'));
+    const careers = Number(arg('careers', '100'));
+    const date = arg('date', new Date().toISOString().slice(0, 10)); // the only clock read
+    const full = process.argv.includes('--full');
+    const t0 = performance.now();
+    const { markdown, summary } = buildCareerReport({ seed, careers, continueAfterWin: full }, date);
+    const secs = (performance.now() - t0) / 1000;
+    mkdirSync('balance', { recursive: true });
+    const file = `balance/${date}-careers-${seed}.md`;
+    writeFileSync(file, markdown + '\n');
+    const json = arg('json', '');
+    if (json) writeFileSync(json, JSON.stringify(summary, null, 1) + '\n');
+    console.log(`Wrote ${file}: ${careers} careers (${summary.runsPlayed} runs) in ${secs.toFixed(1)} s, median first win ${summary.medianFirstWin}, never won ${summary.neverWon}.`);
+    return;
+  }
   if (mode === 'runs') {
     const seed = Number(arg('seed', '1'));
     const runs = Number(arg('runs', '300'));

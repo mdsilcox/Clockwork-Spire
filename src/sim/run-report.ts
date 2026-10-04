@@ -43,6 +43,74 @@ export function playRuns(o: RunsOpts): RunResult[] {
   return out;
 }
 
+export interface ImpactResult {
+  rowsOut: { id: string; line: string; impact: number | null }[];
+  imps: number[];
+  med: number | null;
+  ids: string[];
+  impact: Record<string, { tookOffers: number; passedOffers: number; impact: number | null }>;
+  flagged: string[];
+  /** Parts with fewer than `minOffers` offers on either side. */
+  unmeasured: string[];
+}
+
+/** Offer-based impact (rules 7): took vs passed within act, pooled by offers. */
+export function impactOf(results: RunResult[], minOffers: number): ImpactResult {
+  type G = { took: number; tookWin: number; passed: number; passedWin: number };
+  const perPart = new Map<string, Map<number, G>>();
+  for (const r of results) {
+    for (const of_ of r.offers) {
+      let acts = perPart.get(of_.partId);
+      if (!acts) perPart.set(of_.partId, (acts = new Map()));
+      let g = acts.get(of_.act);
+      if (!g) acts.set(of_.act, (g = { took: 0, tookWin: 0, passed: 0, passedWin: 0 }));
+      const w = offerWon(r, of_.act) ? 1 : 0;
+      if (of_.taken) {
+        g.took += 1;
+        g.tookWin += w;
+      } else {
+        g.passed += 1;
+        g.passedWin += w;
+      }
+    }
+  }
+  const ids = [...new Set([...Object.keys(PARTS), ...perPart.keys()])].sort();
+  const impactMap: ImpactResult['impact'] = {};
+  const rowsOut: { id: string; line: string; impact: number | null }[] = [];
+  for (const id of ids) {
+    const acts = perPart.get(id) ?? new Map<number, G>();
+    let took = 0;
+    let passed = 0;
+    let wSum = 0;
+    let tw = 0;
+    let pw = 0;
+    for (const g of acts.values()) {
+      took += g.took;
+      passed += g.passed;
+      if (g.took === 0 || g.passed === 0) continue;
+      const w = g.took + g.passed;
+      wSum += w;
+      tw += w * (g.tookWin / g.took);
+      pw += w * (g.passedWin / g.passed);
+    }
+    const ok = took >= minOffers && passed >= minOffers && wSum > 0 && pw > 0;
+    const val = ok ? tw / pw : null;
+    impactMap[id] = { tookOffers: took, passedOffers: passed, impact: val };
+    rowsOut.push({
+      id,
+      impact: val,
+      line: `| ${PARTS[id]?.name ?? id} (${id}) | ${took} | ${passed} | ${val === null ? 'n/a' : val.toFixed(2)} |`,
+    });
+  }
+  rowsOut.sort((a, b) => (b.impact ?? -1) - (a.impact ?? -1) || a.id.localeCompare(b.id));
+  const imps = rowsOut.map((r) => r.impact).filter((x): x is number => x !== null).sort((a, b) => a - b);
+  const med = imps.length ? imps[Math.floor(imps.length / 2)] : null;
+  const flagged = med === null ? [] : rowsOut.filter((r) => r.impact !== null && r.impact > 2 * med).map((r) => r.id);
+  const unmeasured = rowsOut.filter((r) => r.impact === null).map((r) => r.id);
+
+  return { rowsOut, imps, med, ids, impact: impactMap, flagged, unmeasured };
+}
+
 export function buildRunReport(o: RunsOpts, date: string, wallSeconds?: number): { markdown: string; summary: RunsSummary } {
   const results = playRuns(o);
   const n = results.length;
@@ -138,58 +206,12 @@ export function buildRunReport(o: RunsOpts, date: string, wallSeconds?: number):
   if (dk.length === 0) out.push('| none | 0 | n/a |');
   out.push('');
 
-  // Offer-based impact, within act.
-  type G = { took: number; tookWin: number; passed: number; passedWin: number };
-  const perPart = new Map<string, Map<number, G>>();
-  for (const r of results) {
-    for (const of_ of r.offers) {
-      let acts = perPart.get(of_.partId);
-      if (!acts) perPart.set(of_.partId, (acts = new Map()));
-      let g = acts.get(of_.act);
-      if (!g) acts.set(of_.act, (g = { took: 0, tookWin: 0, passed: 0, passedWin: 0 }));
-      const w = offerWon(r, of_.act) ? 1 : 0;
-      if (of_.taken) {
-        g.took += 1;
-        g.tookWin += w;
-      } else {
-        g.passed += 1;
-        g.passedWin += w;
-      }
-    }
-  }
-  const ids = [...new Set([...Object.keys(PARTS), ...perPart.keys()])].sort();
-  const rowsOut: { id: string; line: string; impact: number | null }[] = [];
-  for (const id of ids) {
-    const acts = perPart.get(id) ?? new Map<number, G>();
-    let took = 0;
-    let passed = 0;
-    let wSum = 0;
-    let tw = 0;
-    let pw = 0;
-    for (const g of acts.values()) {
-      took += g.took;
-      passed += g.passed;
-      if (g.took === 0 || g.passed === 0) continue;
-      const w = g.took + g.passed;
-      wSum += w;
-      tw += w * (g.tookWin / g.took);
-      pw += w * (g.passedWin / g.passed);
-    }
-    const ok = took >= minOffers && passed >= minOffers && wSum > 0 && pw > 0;
-    const impact = ok ? tw / pw : null;
-    summary.impact[id] = { tookOffers: took, passedOffers: passed, impact };
-    rowsOut.push({
-      id,
-      impact,
-      line: `| ${PARTS[id]?.name ?? id} (${id}) | ${took} | ${passed} | ${impact === null ? 'n/a' : impact.toFixed(2)} |`,
-    });
-  }
-  rowsOut.sort((a, b) => (b.impact ?? -1) - (a.impact ?? -1) || a.id.localeCompare(b.id));
-  const imps = rowsOut.map((r) => r.impact).filter((x): x is number => x !== null).sort((a, b) => a - b);
-  const med = imps.length ? imps[Math.floor(imps.length / 2)] : null;
+  const imp = impactOf(results, minOffers);
+  const { rowsOut, imps, med, ids } = imp;
+  summary.impact = imp.impact;
   summary.medianImpact = med;
   summary.maxImpact = imps.length ? imps[imps.length - 1] : null;
-  summary.flagged = med === null ? [] : rowsOut.filter((r) => r.impact !== null && r.impact > 2 * med).map((r) => r.id);
+  summary.flagged = imp.flagged;
 
   out.push('## Part impact (offer-based)');
   out.push('');

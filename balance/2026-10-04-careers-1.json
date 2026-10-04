@@ -1,0 +1,272 @@
+{
+ "seed": 1,
+ "careers": 100,
+ "runsPlayed": 976,
+ "medianFirstWin": 9,
+ "q1FirstWin": 7,
+ "q3FirstWin": 12,
+ "neverWon": 0,
+ "bands": [
+  {
+   "band": "0",
+   "runs": 127,
+   "winRate": 0
+  },
+  {
+   "band": "1-99",
+   "runs": 101,
+   "winRate": 0.019801980198019802
+  },
+  {
+   "band": "100-249",
+   "runs": 138,
+   "winRate": 0.028985507246376812
+  },
+  {
+   "band": "250-499",
+   "runs": 201,
+   "winRate": 0.06467661691542288
+  },
+  {
+   "band": "500+",
+   "runs": 409,
+   "winRate": 0.1980440097799511
+  }
+ ],
+ "medianImpact": 0.9667000053904866,
+ "maxImpact": 1.1729020265773824,
+ "flagged": [],
+ "unmeasured": [],
+ "impact": {
+  "alarm-clock": {
+   "tookOffers": 106,
+   "passedOffers": 567,
+   "impact": 1.0077408036315993
+  },
+  "anchor": {
+   "tookOffers": 671,
+   "passedOffers": 905,
+   "impact": 1.0692698228957334
+  },
+  "balance-wheel": {
+   "tookOffers": 612,
+   "passedOffers": 413,
+   "impact": 0.9889430003497849
+  },
+  "bell-hammer": {
+   "tookOffers": 160,
+   "passedOffers": 1478,
+   "impact": 1.0427559526438053
+  },
+  "bevel": {
+   "tookOffers": 461,
+   "passedOffers": 553,
+   "impact": 0.8308810614273039
+  },
+  "boiler": {
+   "tookOffers": 278,
+   "passedOffers": 1336,
+   "impact": 1.040150272026879
+  },
+  "cam": {
+   "tookOffers": 212,
+   "passedOffers": 1378,
+   "impact": 1.0620947701263221
+  },
+  "cam-follower": {
+   "tookOffers": 235,
+   "passedOffers": 1387,
+   "impact": 1.1729020265773824
+  },
+  "chime": {
+   "tookOffers": 168,
+   "passedOffers": 1467,
+   "impact": 0.986337734414413
+  },
+  "chronometer": {
+   "tookOffers": 484,
+   "passedOffers": 261,
+   "impact": 0.8526953316412705
+  },
+  "coil": {
+   "tookOffers": 235,
+   "passedOffers": 1351,
+   "impact": 0.9335531214132745
+  },
+  "condenser": {
+   "tookOffers": 185,
+   "passedOffers": 434,
+   "impact": 0.9244212558038625
+  },
+  "crown": {
+   "tookOffers": 459,
+   "passedOffers": 556,
+   "impact": 0.7409131333610662
+  },
+  "escapement": {
+   "tookOffers": 396,
+   "passedOffers": 1261,
+   "impact": 1.1385377683968914
+  },
+  "firebox": {
+   "tookOffers": 380,
+   "passedOffers": 710,
+   "impact": 0.8916798932221459
+  },
+  "flywheel": {
+   "tookOffers": 382,
+   "passedOffers": 445,
+   "impact": 0.8211399936143932
+  },
+  "gong": {
+   "tookOffers": 211,
+   "passedOffers": 598,
+   "impact": 0.9081728318527107
+  },
+  "governor": {
+   "tookOffers": 322,
+   "passedOffers": 511,
+   "impact": 0.8473043860032361
+  },
+  "grandfather": {
+   "tookOffers": 512,
+   "passedOffers": 326,
+   "impact": 0.9490651353389227
+  },
+  "hairspring": {
+   "tookOffers": 216,
+   "passedOffers": 577,
+   "impact": 0.8903350520848362
+  },
+  "idler": {
+   "tookOffers": 498,
+   "passedOffers": 1104,
+   "impact": 0.8517335261176929
+  },
+  "kettle": {
+   "tookOffers": 352,
+   "passedOffers": 680,
+   "impact": 0.97011300101119
+  },
+  "lamp": {
+   "tookOffers": 180,
+   "passedOffers": 572,
+   "impact": 0.8942151622240698
+  },
+  "leaf": {
+   "tookOffers": 224,
+   "passedOffers": 1415,
+   "impact": 1.1224825896216517
+  },
+  "lever": {
+   "tookOffers": 283,
+   "passedOffers": 811,
+   "impact": 1.0783740263979722
+  },
+  "metronome": {
+   "tookOffers": 700,
+   "passedOffers": 937,
+   "impact": 0.9707641717053344
+  },
+  "oil-can": {
+   "tookOffers": 147,
+   "passedOffers": 1452,
+   "impact": 0.8443436898667578
+  },
+  "pendulum": {
+   "tookOffers": 655,
+   "passedOffers": 413,
+   "impact": 1.0422648658305067
+  },
+  "piston": {
+   "tookOffers": 293,
+   "passedOffers": 1332,
+   "impact": 0.9392269875709943
+  },
+  "planetary": {
+   "tookOffers": 378,
+   "passedOffers": 425,
+   "impact": 0.8121367991524542
+  },
+  "ratchet": {
+   "tookOffers": 249,
+   "passedOffers": 366,
+   "impact": 0.9745888255879579
+  },
+  "recoil": {
+   "tookOffers": 135,
+   "passedOffers": 524,
+   "impact": 0.9756690027181357
+  },
+  "safety-valve": {
+   "tookOffers": 329,
+   "passedOffers": 1211,
+   "impact": 0.9883239403710702
+  },
+  "sprocket-wheel": {
+   "tookOffers": 324,
+   "passedOffers": 417,
+   "impact": 0.9327137478863753
+  },
+  "spur": {
+   "tookOffers": 360,
+   "passedOffers": 1253,
+   "impact": 0.9377701371561581
+  },
+  "steam-hammer": {
+   "tookOffers": 287,
+   "passedOffers": 504,
+   "impact": 0.8116080434212118
+  },
+  "tappet": {
+   "tookOffers": 286,
+   "passedOffers": 798,
+   "impact": 1.0110871172727047
+  },
+  "toggle": {
+   "tookOffers": 223,
+   "passedOffers": 1415,
+   "impact": 1.1391486727334974
+  },
+  "torsion": {
+   "tookOffers": 256,
+   "passedOffers": 738,
+   "impact": 0.936346940512341
+  },
+  "trap": {
+   "tookOffers": 258,
+   "passedOffers": 792,
+   "impact": 0.837178806916834
+  },
+  "trip-hammer": {
+   "tookOffers": 234,
+   "passedOffers": 1350,
+   "impact": 1.12185278020746
+  },
+  "triple-cam": {
+   "tookOffers": 297,
+   "passedOffers": 744,
+   "impact": 1.1163120915087883
+  },
+  "tuning-fork": {
+   "tookOffers": 129,
+   "passedOffers": 569,
+   "impact": 0.9667000053904866
+  },
+  "verge": {
+   "tookOffers": 351,
+   "passedOffers": 276,
+   "impact": 0.9400127406108673
+  },
+  "volute": {
+   "tookOffers": 244,
+   "passedOffers": 582,
+   "impact": 0.9305530047734724
+  },
+  "whistle": {
+   "tookOffers": 356,
+   "passedOffers": 1230,
+   "impact": 0.9809595621148934
+  }
+ }
+}

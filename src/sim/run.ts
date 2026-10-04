@@ -48,6 +48,11 @@ function playCombat(run: RunState, m: BotMemory): void {
 }
 
 export function playRun(cfg: RunConfig, botSeed: number): RunResult {
+  return playRunState(cfg, botSeed).result;
+}
+
+/** Like playRun, but also returns the finished RunState (careers settle it with finishRun). */
+export function playRunState(cfg: RunConfig, botSeed: number): { result: RunResult; run: RunState } {
   const run = newRun(cfg);
   const m = newMemory(botSeed);
   const hpAtBoss: (number | null)[] = [null, null, null];
@@ -85,7 +90,7 @@ export function playRun(cfg: RunConfig, botSeed: number): RunResult {
   }
   if (run.phase !== 'victory' && run.phase !== 'defeat') abandonRun(run);
   const record = runRecord(run);
-  return {
+  const result: RunResult = {
     won: record.result === 'win',
     act: record.act,
     floor: record.floor,
@@ -97,4 +102,5 @@ export function playRun(cfg: RunConfig, botSeed: number): RunResult {
     turns: run.stats.turns,
     illegal: m.illegal,
   };
+  return { result, run };
 }
