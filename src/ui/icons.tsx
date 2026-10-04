@@ -67,3 +67,88 @@ export function IntentIcon({ kind, size = 22 }: { kind: IntentKind; size?: numbe
       );
   }
 }
+
+/** Little shapes for statuses and gauges. Each is distinct in outline, so color is never the only cue. */
+export function StatusIcon({ kind, size = 16 }: { kind: string; size?: number }) {
+  const common = { width: size, height: size, viewBox: '0 0 24 24', 'aria-hidden': true, focusable: 'false' } as const;
+  const stroke = { fill: 'none', stroke: 'currentColor', 'stroke-width': 2.4, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' } as const;
+  switch (kind) {
+    case 'scald': // flame
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M12 3 C14 7 18 9 18 14 A6 6 0 0 1 6 14 C6 11 8 10 9 8 C10 10 11 10 12 8 Z" />
+        </svg>
+      );
+    case 'cracked': // crack
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M12 2 L9 9 L14 12 L8 22" />
+        </svg>
+      );
+    case 'dazed': // stars in orbit
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M12 4 V8 M12 16 V20 M4 12 H8 M16 12 H20 M7 7 L9.5 9.5 M14.5 14.5 L17 17 M17 7 L14.5 9.5 M9.5 14.5 L7 17" />
+        </svg>
+      );
+    case 'strength': // fist block with up chevron
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M6 20 H18 M12 17 V6 M7 11 L12 6 L17 11" />
+        </svg>
+      );
+    case 'shell': // hexagon
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M12 3 L20 8 V16 L12 21 L4 16 V8 Z" />
+        </svg>
+      );
+    case 'plating': // shield
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M12 3 L20 6 V12 C20 17 16 20 12 22 C8 20 4 17 4 12 V6 Z" />
+        </svg>
+      );
+    case 'corroded': // drip
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M12 3 C16 9 18 12 18 15 A6 6 0 0 1 6 15 C6 12 8 9 12 3 Z" />
+        </svg>
+      );
+    case 'grit': // diamond
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M12 3 L21 12 L12 21 L3 12 Z" />
+        </svg>
+      );
+    case 'pressure': // gauge
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M4 17 A9 9 0 1 1 20 17 M12 14 L16 9" />
+        </svg>
+      );
+    case 'jam': // wedge
+      return (
+        <svg {...common}>
+          <path {...stroke} d="M3 19 L21 19 L21 8 Z" />
+        </svg>
+      );
+    default:
+      return (
+        <svg {...common}>
+          <circle {...stroke} cx="12" cy="12" r="7" />
+        </svg>
+      );
+  }
+}
+
+export const STATUS_NAME: Record<string, string> = {
+  scald: 'Scald',
+  cracked: 'Cracked',
+  dazed: 'Dazed',
+  strength: 'Strength',
+  shell: 'Shell',
+  corroded: 'Corroded',
+  grit: 'Grit',
+  plating: 'Plating',
+};
