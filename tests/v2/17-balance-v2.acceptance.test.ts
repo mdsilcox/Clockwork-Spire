@@ -11,7 +11,7 @@ describe('v2 17. Balance v2 (rules 7.4)', () => {
   it.todo('BV6 [S] Given the expert bot; when a career; then under 50 ms per turn on average');
   it.todo('BV7 [S] Given a fixed seed; when run any sim mode twice; then identical reports (v1 BS1, kept)');
   it.todo('BV8 [S] Given the turtle bot, per act; when count enemy turns; then its Plating fully absorbs at most 40% of them');
-  it.todo('BV9 [U] Given each act\'s regular pool in content; when compute from the defs; then at least 30% of expected damage per turn ignores or strips Plating (Pierce, Corrode, Siphon)');
+  it.todo('BV9 [U] Given each act\'s regular pool in content; when compute from the defs (rules 7.4 target 7); then at least 30% of expected damage per turn is Pierce or Siphon; Corrode credit reported, not counted');
   it.todo('BV10 [S] Given 100 greedy careers; when until first win; then median first win at most run 20');
   it.todo('BV11 [S] Given rusher, grinder and expert route policies, same combat bot; when 300 runs each; then the expert wins more often than both');
 });

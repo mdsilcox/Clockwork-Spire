@@ -3,10 +3,10 @@
 import { describe, it } from 'vitest';
 
 describe('v2 16. Art and atmosphere (D-026, docs/art-direction.md)', () => {
-  it.todo('AR1 [U] Given the build; when scan `src/` and `public/`; then images only under `public/art/`, WebP only, each in the art manifest with a source folder in `art/`; no audio or font files (rescoped A1)');
+  it.todo('AR1 [U] Given the build; when scan `src/` and `public/`; then no audio or font files; images only as WebP under `public/art/`, none in `src/`, no SVG; each listed in `src/art/manifest.ts` with an existing source under `art/`, and every manifest entry has its file; at most 120 KB per regular cut-out, 250 KB per warden, 6 MB in all (rescoped A1, D-033)');
   it.todo('AR2 [U] Given every enemy, warden and Sprocket in the manifest; when load its rig; then idle, attack, hurt (wardens also phase; Sprocket happy, sleepy, walk) and an anchor for every part in its def');
   it.todo('AR3 [E, C] Given the title screen at both sizes; when open the game; then the painted title with animated steam and lamps; Continue, New run, Settings; the tower not covered');
-  it.todo('AR4 [E] Given combat with 3 rigged enemies at 667x375 with 4x CPU throttling; when 10 s; then median and p95 frame time within the budget in docs/spike-art.md');
+  it.todo('AR4 [E] Given combat with 3 rigged enemies at 667x375 with 4x CPU throttling; when 10 s; then rig work per frame median at most 16 ms and p95 at most 22 ms (half-density meshes, D-033); after a simulated WebGL context loss and restore, the enemies draw again');
   it.todo('AR5 [C] Given each art gate; when the owner reviews; then one clip per asset; an art-reviewer verdict in `review/<phase>/`');
   it.todo('AR6 [C, E] Given each act and Bellfoot; when play there; then a painted backdrop with code ambience (steam, lamps) and an ambient sound bed');
 });

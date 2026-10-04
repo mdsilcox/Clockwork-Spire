@@ -138,7 +138,7 @@ Test harness addition: `combatWith` accepts `enemies: [{ core: 40, parts: [{ id:
 | EA8 | Mend (rebuild) on a broken Jaw | enemy acts | the Jaw returns at half HP with its action; its salvage no longer counts as broken | U | |
 | EA9 | Jam on a part | next enemy turn | that part skips; the turn after it acts normally | U | |
 | EA10 | Patch 5 at 30 of 50 HP; Patch 5 at 48 of 50 | run | 35; 50 | U | |
-| EA11 | every regular enemy | read its def | at least one part punishes Plating stacking or burst (tagged in content); at least half the regulars punish Plating, at least a third punish burst | U | |
+| EA11 | every regular enemy | read its def | at least one part has an action or passive that answers Plating (Pierce, Corrode, Siphon, Ratchet, Countdown) or burst (Bulwark, Governor, Shell); at least half the regulars carry a Plating answer and at least a third a burst answer, checked from the actions, not from tags | U | |
 
 ## 11. Wardens and phases (rules 4.7 to 4.9)
 | id | Given | When | Then | Kind | Phase |
@@ -170,7 +170,7 @@ Test harness addition: `combatWith` accepts `enemies: [{ core: 40, parts: [{ id:
 ## 13. Salvage, Scrap, workbench, traders (rules 2.5, 4.4, 4.5)
 | id | Given | When | Then | Kind | Phase |
 |---|---|---|---|---|---|
-| SV1 | a fight won after breaking a Jaw (salvage gnasher) with a Plate left standing | the salvage tray shows | Gnasher offered (keep, or scrap for 3); the wrecked Plate gave 1 Scrap; enemy Scrap added; no pick-1-of-3 screen | U, E | |
+| SV1 | a fight won after breaking the Cog Rat's jaw (salvage spur) with its plate left standing | the salvage tray shows | a Spur Gear offered (keep, or scrap for 3); the wrecked Plate gave 1 Scrap; enemy Scrap added; no pick-1-of-3 screen | U, E | |
 | SV2 | a broken part whose salvage is locked | the tray shows | 6 Scrap instead and a journal note | U | |
 | SV3 | two Common Gears and a workbench | fuse | both leave the bin; two Uncommon Gear candidates show; the picked one joins the bin | U | |
 | SV4 | a trader with a Rare (value 60); the player offers a Common (20) and 40 Scrap | barter | the Rare joins the bin, the Common leaves, Scrap -40; buying with Scrap alone costs 75 | U | |
@@ -201,10 +201,10 @@ Test harness addition: `combatWith` accepts `enemies: [{ core: 40, parts: [{ id:
 ## 16. Art and atmosphere (D-026, docs/art-direction.md)
 | id | Given | When | Then | Kind | Phase |
 |---|---|---|---|---|---|
-| AR1 | the build | scan `src/` and `public/` | images only under `public/art/`, WebP only, each in the art manifest with a source folder in `art/`; no audio or font files (rescoped A1) | U | |
+| AR1 | the build | scan `src/` and `public/` | no audio or font files; images only as WebP under `public/art/`, none in `src/`, no SVG; each listed in `src/art/manifest.ts` with an existing source under `art/`, and every manifest entry has its file; at most 120 KB per regular cut-out, 250 KB per warden, 6 MB in all (rescoped A1, D-033) | U | |
 | AR2 | every enemy, warden and Sprocket in the manifest | load its rig | idle, attack, hurt (wardens also phase; Sprocket happy, sleepy, walk) and an anchor for every part in its def | U | |
 | AR3 | the title screen at both sizes | open the game | the painted title with animated steam and lamps; Continue, New run, Settings; the tower not covered | E, C | |
-| AR4 | combat with 3 rigged enemies at 667x375 with 4x CPU throttling | 10 s | median and p95 frame time within the budget in docs/spike-art.md | E | |
+| AR4 | combat with 3 rigged enemies at 667x375 with 4x CPU throttling | 10 s | rig work per frame median at most 16 ms and p95 at most 22 ms (half-density meshes, D-033); after a simulated WebGL context loss and restore, the enemies draw again | E | |
 | AR5 | each art gate | the owner reviews | one clip per asset; an art-reviewer verdict in `review/<phase>/` | C | |
 | AR6 | each act and Bellfoot | play there | a painted backdrop with code ambience (steam, lamps) and an ambient sound bed | C, E | |
 
@@ -219,6 +219,6 @@ Test harness addition: `combatWith` accepts `enemies: [{ core: 40, parts: [{ id:
 | BV6 | the expert bot | a career | under 50 ms per turn on average | S | |
 | BV7 | a fixed seed | run any sim mode twice | identical reports (v1 BS1, kept) | S | |
 | BV8 | the turtle bot, per act | count enemy turns | its Plating fully absorbs at most 40% of them | S | |
-| BV9 | each act's regular pool in content | compute from the defs | at least 30% of expected damage per turn ignores or strips Plating (Pierce, Corrode, Siphon) | U | |
+| BV9 | each act's regular pool in content | compute from the defs (rules 7.4 target 7) | at least 30% of expected damage per turn is Pierce or Siphon; Corrode credit reported, not counted | U | |
 | BV10 | 100 greedy careers | until first win | median first win at most run 20 | S | |
 | BV11 | rusher, grinder and expert route policies, same combat bot | 300 runs each | the expert wins more often than both | S | |

@@ -165,8 +165,10 @@ interface EnemyPartDef { id: string; name: string; hp: number; rarity: Rarity;
   cadence: 'every' | 'odd' | 'even' | 'once' | { of: number; at: number[] }   // { of: 3, at: [1, 2] } = turns 1 and 2 of every 3
          | { countdown: number } | { buildUp: number; to: number; bonus?: 'drained' };
   escalate?: number;             // the action's amount grows by this each time it acts (Spring Imp's tail)
+  escalateResetAt?: number;      // back to the base amount after reaching this (Pendulum Blade: resets after 24)
+  actionsByTurn?: Record<number, ActionDef[]>; // different action lists on different turns of its cycle (the Midnight Bell)
   salvage: string | 'spire-key' | null; keystone?: boolean; anchor: string; }
-type ActionDef = { kind: 'attack'|'pierce'|'corrode'|'siphon'|'shell'|'mend'|'rebuild'|'rust'|'jam'|'magnetize'|'drain'|'status'|'summon'|'buff'|'purge'|'echo'|'rewind'; amount?: number; pct?: number; hits?: number; status?: string; summon?: string; count?: number };
+type ActionDef = { kind: 'attack'|'pierce'|'corrode'|'siphon'|'shell'|'mend'|'rebuild'|'rust'|'jam'|'magnetize'|'drain'|'reset-pressure'|'status'|'summon'|'buff'|'purge'|'echo'|'rewind'; amount?: number; pct?: number; hits?: number; status?: string; summon?: string; count?: number };
 // Corrode uses pct (rules 2.4); wardens' keystones and last-phase core are Braced by tier, not by a field.
 interface AchievementDef { id; name; text; tier: 'easy'|'medium'|'hard'; hidden: boolean;
   check: (ctx: AchievementCtx) => boolean;  // evaluated at run end and at named moments
@@ -204,7 +206,7 @@ interface EnemyState { defId: string; core: { hp: number; maxHp: number; sealed:
   phase: number; phaseTurn: number; phaseActionPending: boolean; overwound: boolean; coreTookThisTurn: number; shell: number; strength: number; statuses: Record<string, number>;
   intents: { partId: string | 'core'; action: ActionDef; target?: number }[]; mem: Record<string, number>; }
 interface CombatState { /* v1 fields, targetIdx replaced by */ order: TargetRef[]; brokenThisFight: { enemy: number; partId: string }[]; }
-type TargetRef = `e${number}.${string}`;     // 'e0.jaw', 'e1.core'
+type TargetRef = `e${number}.${string}`;     // 'e0.rat-jaw', 'e1.core' (part ids as content.md)
 type Pending = { kind: 'salvage'; parts: { defId: string; rarity: Rarity }[]; scrap: number; trinket?: string; blueprint?: string }
              | { kind: 'event'; eventId: string; result?: string }
              | { kind: 'trader'; stock: TradeItem[] }
@@ -221,7 +223,7 @@ type Pending = { kind: 'salvage'; parts: { defId: string; rarity: Rarity }[]; sc
 
 ### A v2 act walked through the model
 1. Bellfoot, slot 1 (migrated from v1: brass 120 kept, cogs dropped, `version: 2`). Journeyman, Tinker. RunState: scrap 0, act 1, section generated (18 rooms, 2 loops, gearhound patrol r7-r8-r11-r10), roomId 'r0' (entry), hour 0.
-2. Move to r3 (fight): hour 1; the gearhound steps r7 -> r8. Combat: Cog Rat (core and parts as content.md: a jaw that attacks on odd turns, a plate that shells on even turns, a ratcheting tail) + Rust Mite. order ['e0.jaw', 'e1.core']. Turn 1 breaks the jaw (cancels its intent) and kills the mite. Turn 2 the rat's plate shells; the core dies turn 3; the plate is wrecked.
-3. `pending: {kind: 'salvage', parts: [{defId: 'gnasher', rarity: 'common'}], scrap: 5 + 1}`. Keep Gnasher: new PartInstance. phase 'section'.
+2. Move to r3 (fight): hour 1; the gearhound steps r7 -> r8. Combat: Cog Rat (core and parts as content.md: a jaw that attacks on odd turns, a plate that shells on even turns, a ratcheting tail) + Rust Mite. order ['e0.rat-jaw', 'e1.core']. Turn 1 breaks the jaw (cancels its intent) and kills the mite. Turn 2 the rat's plate shells; the core dies turn 3; the plate is wrecked.
+3. `pending: {kind: 'salvage', parts: [{defId: 'spur', rarity: 'common'}], scrap: 3 + 1}`. Keep the Spur: new PartInstance. phase 'section'.
 4. Move to r6 (trader), hour 2; barter Spur + 20 Scrap for a Rare Bellows... (the walkthrough in docs/vision-v2.md continues the act).
 Found while walking it (and in the D3 critic round): Braced needs damage taken this turn per keystone and core (`tookThisTurn`, `coreTookThisTurn`); phase timing needs `phaseTurn` and `phaseActionPending`; cadences need `{ of, at }`, `once`, Build-up gauges and several actions per part; the salvage tray needs the broken list per fight (`brokenThisFight`); elites need `at` as an index into the patrol; `stats.plan` accumulates damage and Plating by source for the Clockmaker's memory; a passage can be locked, so locks live on passages, not rooms.

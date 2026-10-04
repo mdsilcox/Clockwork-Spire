@@ -176,7 +176,7 @@ Enemy words (all in rules 2.4): Pierce, Corrode, Siphon, Mend, Ratchet, Countdow
 
 ### 3.0 The Plating answer, in numbers
 
-Rules 7.4 (7): at least 30% of each act's regular expected damage per turn must ignore or strip Plating. Method: expected damage per turn is the average over the part's cadence cycle with every part alive and no Strength growth (Ratchet and escalation are listed but not counted), each regular weighted equally. **Pierce** ignores Plating. **Siphon** is counted at its attack value (Plating still absorbs the hit, but the enemy heals by what it removed, so the stack buys nothing). **Corrode credit** is the Plating the part strips at the act's reference stack, capped at the Attack it shares a turn with; it is reported separately and **not** in the headline share. Reference stacks are the spike's mean peak Plating: 37 (act 1), 50 (act 2), 59 (act 3); p90 is 68 to 109, so 50% Corrode on a p90 stack still leaves a lot, which is why the headline share rests on Pierce and Siphon only.
+Rules 7.4 (7): at least 30% of each act's regular expected damage per turn must ignore or strip Plating. Method: expected damage per turn is the average over the part's cadence cycle with every part alive and no Strength growth from Ratchet; a part whose own number escalates (the Spring Imp's tail, the Pendulum Blade) counts at its average over one escalation cycle; each regular weighted equally. **Pierce** ignores Plating. **Siphon** is counted at its attack value (Plating still absorbs the hit, but the enemy heals by what it removed, so the stack buys nothing). **Corrode credit** is the Plating the part strips at the act's reference stack, capped at the Attack it shares a turn with; it is reported separately and **not** in the headline share. The headline share is Pierce plus Siphon; the Pierce-alone share is shown too, and it clears 30% in every act on its own. Reference stacks are the spike's mean peak Plating: 37 (act 1), 50 (act 2), 59 (act 3); p90 is 68 to 109, so 50% Corrode on a p90 stack still leaves a lot, which is why the headline share rests on Pierce and Siphon only.
 
 | Act 1 regular | Damage per turn | Pierce | Siphon | Corrode credit | Notes |
 |---|---|---|---|---|---|
@@ -184,8 +184,8 @@ Rules 7.4 (7): at least 30% of each act's regular expected damage per turn must 
 | Cog Rat | 5.0 | 0 | 0 | 0 | Ratchet grows it |
 | Brass Beetle | 6.0 | 0 | 0 | 0 | Attack 12 every other turn |
 | Oil Slick | 4.5 | 0 | 0 | 4.5 | Corrode 50% strips 18 of 37, capped at the Attack 9 it feeds |
-| Spring Imp | 4.0 | 4.0 | 0 | 0 | Pierce 3, +1 each time it acts (3, 4, 5) |
-| **Act 1 total** | **22.8** | **7.3** | 0 | 4.5 | **Share without credit 32%, with credit 52%** |
+| Spring Imp | 5.0 | 5.0 | 0 | 0 | Pierce 4, +1 each time it acts (4, 5, 6) |
+| **Act 1 total** | **23.8** | **8.3** | 0 | 4.5 | **Share 35% (Pierce alone 35%); with Corrode credit 54%** |
 
 | Act 2 regular | Damage per turn | Pierce | Siphon | Corrode credit | Notes |
 |---|---|---|---|---|---|
@@ -203,7 +203,7 @@ Rules 7.4 (7): at least 30% of each act's regular expected damage per turn must 
 | Hour Hand Knight | 13.3 | 0 | 0 | 0 | Attack 20, turns 1 and 3 of 3 |
 | Echo Sprite | 10.0 | 10.0 | 0 | 0 | Echo Pierce, min 6 max 18, taken as 10 *(tune)* |
 | Pendulum Blade | 16.0 | 0 | 0 | 0 | Attack 8, 12, 16, 20, 24; Ratchet grows it |
-| **Act 3 total** | **55.3** | **21.0** | 0 | 0 | **Share 38%** |
+| **Act 3 total** | **55.3** | **21.0** | 0 | 0 | **Share 38% (Pierce alone 38%)** |
 
 Reading it: v1's per-turn damage is kept (act 1 about 23 across the roster against v1's 27, act 2 36 against 38, act 3 55 against 63). Against the spike's turtle (loses 7 percent of max HP in act 1), act 1's Pierce alone is about 3 to 4 HP a turn per enemy that survives, so a pure Plating stack loses HP in every act 1 fight longer than 3 turns. Elites and wardens add Corrode at 50% to 75% on their big hitters (below), which does bite: Corrode 75% on a 59 stack leaves 15, so an Attack 24 lands 9. The sim reports this share, the Pierce and Corrode parts of it, and turtle HP lost per act (rules 7.4 targets 3 and 7).
 
@@ -243,7 +243,7 @@ Punishes: Plating stacking (the Nozzle strips half your Plating just before the 
 Punishes: Plating stacking (the Tail Pierces, a little more each time) and slow builds (the Key ratchets). Answer: Key (3 HP) and Tail (5 HP) die first.
 | id | Name | HP | Action | Cadence | R | Salvage | Key | Anchor |
 |---|---|---|---|---|---|---|---|---|
-| imp-tail | Coil Tail | 5 | Pierce 3, +1 each time it acts | every | C | coil | - | the coiled tail |
+| imp-tail | Coil Tail | 5 | Pierce 4, +1 each time it acts | every | C | coil | - | the coiled tail |
 | imp-key | Wind-up Key | 3 | Ratchet 1 (passive) | passive | U | ratchet | - | the key in its back |
 
 ### 3.2 Act 1: elites and the Foreman
@@ -449,7 +449,7 @@ Totals without the memory part: phase 1 parts 50, phase 2 parts 62, phase 3 core
 Each pays Brass 4. The archivist (present from the first run) names the part before the run.
 
 ### 3.7 Counterplay tally (rules 2.4)
-- **Plating stacking is punished in the numbers** (3.0): act 1 share 32% (52% with Corrode credit), act 2 64%, act 3 38%. Regulars with a real bypass: Rust Mite, Spring Imp, Oil Slick (Corrode 50%) in act 1; Wraith (Siphon), Golem, Snake, Gremlin in act 2; Ringer, Moth, Sprite in act 3. Ratchet (Cog Rat, Imp, Blade) punishes slow builds and ignoring the part, not Plating alone. Elites and wardens add Pierce (Gearhound Haunch, right Ram, Queen Gauge, Clockmaker drill) and Corrode 50% to 75% on their big hitters (Tinpot Sabre, Pressure Warden Fist, Minute Hand, Orrery Arm, Foreman Wrench, Queen Crown and Cinder Hand, Clockmaker Hour Hand, Minute Hand and Bell).
+- **Plating stacking is punished in the numbers** (3.0): act 1 share 35% (54% with Corrode credit), act 2 64% (Pierce alone 47%), act 3 38%. Regulars with a real bypass: Rust Mite, Spring Imp, Oil Slick (Corrode 50%) in act 1; Wraith (Siphon), Golem, Snake, Gremlin in act 2; Ringer, Moth, Sprite in act 3. Ratchet (Cog Rat, Imp, Blade) punishes slow builds and ignoring the part, not Plating alone. Elites and wardens add Pierce (Gearhound Haunch, right Ram, Queen Gauge, Clockmaker drill) and Corrode 50% to 75% on their big hitters (Tinpot Sabre, Pressure Warden Fist, Minute Hand, Orrery Arm, Foreman Wrench, Queen Crown and Cinder Hand, Clockmaker Hour Hand, Minute Hand and Bell).
 - **Burst is punished** (Bulwark, Governor, Shell, sealed, split, echo): Cog Rat, Beetle, Crab, Moth pair, Knight, Sprite: 6 of 15 regulars; every elite is sealed or governed; every warden's last phase is behind a Bulwark or Governor and Braced to a third of the core per turn.
 - **Pressure**: Pipe Snake, Pressure Warden, the Queen's Scepter and Gauge, the Clockmaker's Tock Weight and Drain Valve. **Statuses**: the Purge Chime; the Minute Warden's Mender outheals slow Scald. **Slow builds**: Rust Mite, Gremlin, Ringer (Jam), Gearhound (Magnetize), Minute Warden (Rust), every Ratchet.
 - **The core race**: cores are about 60% of a regular's HP, so racing one takes most of the fight's turns while the Pierce, Countdown and Ratchet parts keep acting; it is not free, and it wrecks the parts (1 Scrap each, no salvage). Breaking a 3 to 6 HP part first costs a placement or two and usually saves more HP than it spends. The sim measures both lines.

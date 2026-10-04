@@ -44,7 +44,7 @@ Replaces v1's branching node map, part rewards and shop.
 - Cleared rooms stay cleared; you can cross them again, so the choice is how to spend hours: more fights mean more salvage but less time to heal, trade or reach a cache.
 
 ## Salvage, not rewards
-- What you break is what you get. Each enemy part maps to a player part (a Cog Rat's Jaw becomes a Gnasher Gear). Breaking it in a fight drops that part as **salvage**; it joins your bin straight away.
+- What you break is what you get. Each enemy part maps to a player part (a Cog Rat's gnawing jaw becomes a Spur Gear). Breaking it in a fight drops that part as **salvage**; it joins your bin straight away.
 - **Scrap** (replaces Cogs) comes from every fight, wrecked parts and early bells; it pays for upgrades, removals and barter.
 - At a **workbench**: upgrade a part (Scrap), remove a part (Scrap), or **fuse** two parts of the same family and rarity into one part of the next rarity, which can reach Masterwork.
 - **Traders** swap a part from their stock for one of yours plus Scrap; their stock is where Rare parts and trinkets usually show up.
@@ -75,7 +75,7 @@ The branching node map, part reward screens, the shop as a store, Cogs (renamed 
 
 ## A paper walkthrough (act 1, Journeyman)
 1. Dusk, hour 0. The Gearworks section is drawn as a cut-away tower: 18 rooms. The entry room is safe. Two rooms up the stair: a fight (silhouette of a rat) and a trader's lamp. A gearhound's patrol is drawn as a dotted loop through the middle floors.
-2. Hour 1: fight a Cog Rat and a Rust Mite. The rat's Jaw (attack 5 x2) glows this turn; its Plate (Shell 6) acts next turn. Target order: Jaw, then the mite's core. Two Spurs and a Coil break the Jaw (8 HP) and kill the mite. Next turn the rat can only Shell; you finish its core. Salvage: Gnasher Gear (from the Jaw). Scrap 9.
+2. Hour 1: fight a Cog Rat and a Rust Mite. The rat's Jaw (attack 5 x2) glows this turn; its Plate (Shell 6) acts next turn. Target order: Jaw, then the mite's core. Two Spurs and a Coil break the Jaw (8 HP) and kill the mite. Next turn the rat can only Shell; you finish its core. Salvage: a Spur Gear (from the jaw). Scrap 9.
 3. Hour 2: the trader wants a Gear for a Rare Bellows; you trade your starter Spur and 20 Scrap.
 4. Hours 3 to 5: two more fights; you skip a third because the gearhound will pass through it at hour 6.
 5. Hour 7: the workbench: fuse two common Gears into an uncommon Flywheel; remove a starter part.

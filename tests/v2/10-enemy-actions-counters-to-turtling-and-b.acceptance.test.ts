@@ -14,5 +14,5 @@ describe('v2 10. Enemy actions: counters to turtling and burst (rules 2.4, 3)', 
   it.todo('EA8 [U] Given Mend (rebuild) on a broken Jaw; when enemy acts; then the Jaw returns at half HP with its action; its salvage no longer counts as broken');
   it.todo('EA9 [U] Given Jam on a part; when next enemy turn; then that part skips; the turn after it acts normally');
   it.todo('EA10 [U] Given Patch 5 at 30 of 50 HP; Patch 5 at 48 of 50; when run; then 35; 50');
-  it.todo('EA11 [U] Given every regular enemy; when read its def; then at least one part punishes Plating stacking or burst (tagged in content); at least half the regulars punish Plating, at least a third punish burst');
+  it.todo('EA11 [U] Given every regular enemy; when read its def; then at least one part has an action or passive that answers Plating (Pierce, Corrode, Siphon, Ratchet, Countdown) or burst (Bulwark, Governor, Shell); at least half the regulars carry a Plating answer and at least a third a burst answer, checked from the actions, not from tags');
 });

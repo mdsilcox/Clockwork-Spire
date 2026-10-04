@@ -3,7 +3,7 @@
 import { describe, it } from 'vitest';
 
 describe('v2 13. Salvage, Scrap, workbench, traders (rules 2.5, 4.4, 4.5)', () => {
-  it.todo('SV1 [U, E] Given a fight won after breaking a Jaw (salvage gnasher) with a Plate left standing; when the salvage tray shows; then Gnasher offered (keep, or scrap for 3); the wrecked Plate gave 1 Scrap; enemy Scrap added; no pick-1-of-3 screen');
+  it.todo('SV1 [U, E] Given a fight won after breaking the Cog Rat\'s jaw (salvage spur) with its plate left standing; when the salvage tray shows; then a Spur Gear offered (keep, or scrap for 3); the wrecked Plate gave 1 Scrap; enemy Scrap added; no pick-1-of-3 screen');
   it.todo('SV2 [U] Given a broken part whose salvage is locked; when the tray shows; then 6 Scrap instead and a journal note');
   it.todo('SV3 [U] Given two Common Gears and a workbench; when fuse; then both leave the bin; two Uncommon Gear candidates show; the picked one joins the bin');
   it.todo('SV4 [U] Given a trader with a Rare (value 60); the player offers a Common (20) and 40 Scrap; when barter; then the Rare joins the bin, the Common leaves, Scrap -40; buying with Scrap alone costs 75');
