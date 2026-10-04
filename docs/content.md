@@ -95,38 +95,38 @@ Intents are patterns; "Rust", "Jam", "Magnetize" and "Drain" are sabotage (rules
 ### Act 1: the Gearworks
 | id | Name | HP | Behavior |
 |---|---|---|---|
-| rust-mite | Rust Mite | 14 | Attack 5; every 3rd turn Rusts a part. Often in pairs. |
-| cog-rat | Cog Rat | 22 | Attack 4 x2, then Shell 5, repeat. |
-| brass-beetle | Brass Beetle | 30 | Alternates Shell 8 and Attack 9. |
-| oil-slick | Oil Slick | 24 | Corroded 2 on you, then Attack 6, repeat. |
-| spring-imp | Spring Imp | 18 | Attack 3, growing by 2 each turn. |
-| **Elite** gearhound | Gearhound | 60 | Attack 8 x2, then Magnetize a part, then Attack 14. |
-| **Elite** tinpot-general | Tinpot General | 55 | Summons 2 Rust Mites at start; buffs allies +2 attack; Attack 10. |
-| **Boss** foreman | The Foreman | 150 | Attack 10; Jam the Mainspring + Shell 12; Attack 6 x3. At half HP summons a Cog Rat. |
+| rust-mite | Rust Mite | 18 | Attack 7, Attack 7, then Rusts a part. Often in pairs. |
+| cog-rat | Cog Rat | 26 | Attack 5 x2, then Shell 6, repeat. |
+| brass-beetle | Brass Beetle | 34 | Alternates Attack 12 and Shell 10. |
+| oil-slick | Oil Slick | 28 | Attack 9, then Corroded 2 on you, repeat. |
+| spring-imp | Spring Imp | 20 | Attack 4, growing by 3 each turn. |
+| **Elite** gearhound | Gearhound | 70 | Attack 11 x2, then Magnetize a part, then Attack 20. |
+| **Elite** tinpot-general | Tinpot General | 65 | Summons 2 Rust Mites at start; buffs allies +3 attack; Attack 13. |
+| **Boss** foreman | The Foreman | 170 | Attack 16; Jam the Mainspring + Shell 14; Attack 10 x3. At half HP summons a Cog Rat. |
 
 ### Act 2: the Steamworks
 | id | Name | HP | Behavior |
 |---|---|---|---|
-| steam-wraith | Steam Wraith | 38 | Attack 11; Corroded 2. |
-| valve-crab | Valve Crab | 45 | Alternates Shell 15 and Attack 13. |
-| furnace-golem | Furnace Golem | 55 | Charges up (clock icon), then Attack 24. |
+| steam-wraith | Steam Wraith | 42 | Attack 12; Corroded 2. |
+| valve-crab | Valve Crab | 50 | Alternates Attack 14 and Shell 15. |
+| furnace-golem | Furnace Golem | 60 | Charges up (clock icon), then Attack 26. |
 | pipe-snake | Pipe Snake | 35 | Attack 5 x3; Drains 5 Pressure. |
-| gauge-gremlin | Gauge Gremlin | 30 | Rusts 2 parts, then Attack 8. |
-| **Elite** pressure-warden | Pressure Warden | 100 | Gains Shell equal to half your Pressure each turn; Attack 16. |
-| **Elite** twin-pistons | Twin Pistons | 55 + 55 | One attacks (12) while the other shells (10); if one falls, the other enrages (+6 attack). |
-| **Boss** boilermaker | The Boilermaker Queen | 240 | Builds her own heat each turn; at 20 heat unleashes Attack 30; Drains your Pressure into her heat; summons a Steam Wraith at half HP. |
+| gauge-gremlin | Gauge Gremlin | 30 | Rusts 2 parts, then Attack 9. |
+| **Elite** pressure-warden | Pressure Warden | 100 | Gains Shell equal to half your Pressure each turn; Attack 18. |
+| **Elite** twin-pistons | Twin Pistons | 65 + 65 | One attacks (19) while the other shells (10); if one falls, the other enrages (+8 attack). |
+| **Boss** boilermaker | The Boilermaker Queen | 260 | Attack 22, Drain 8 Pressure, Attack 20. Builds 6 heat each turn (Drain feeds it); at 20 heat unleashes Attack 40; summons a Steam Wraith at half HP. |
 
 ### Act 3: the Belfry
 | id | Name | HP | Behavior |
 |---|---|---|---|
-| bell-ringer | Bell Ringer | 60 | Attack 14, then Jam the Mainspring + Attack 6. |
-| chime-moth | Chime Moth | 32 | Attack 4 x2, then Shell 8. Comes in pairs. |
-| hour-knight | Hour Hand Knight | 80 | Attack 12, Shell 12, Attack 20, repeat. |
-| echo-sprite | Echo Sprite | 40 | Copies the damage your strongest part dealt last turn as its attack (min 6). |
-| pendulum-blade | Pendulum Blade | 70 | Attack 6, swinging up by 3 each turn, resets at 18. |
-| **Elite** minute-warden | Minute Warden | 160 | Heals 10 each turn; Rusts your strongest part; Attack 15. |
-| **Elite** orrery | Grand Orrery | 150 + 3 moons of 20 | Moons give it Shell 6 each per turn; Attack 18. |
-| **Boss** clockmaker | The Clockmaker | 110 / 130 / 150 | Three phases with Rewind (rules 4.4). Attacks 12 to 22, rising each phase. |
+| bell-ringer | Bell Ringer | 60 | Attack 18, then Jam the Mainspring + Attack 10. |
+| chime-moth | Chime Moth | 36 | Attack 6 x2, then Shell 8. Comes in pairs. |
+| hour-knight | Hour Hand Knight | 80 | Attack 16, Shell 14, Attack 24, repeat. |
+| echo-sprite | Echo Sprite | 40 | Copies the damage your strongest part dealt last turn as its attack (min 8). |
+| pendulum-blade | Pendulum Blade | 80 | Attack 8, swinging up by 4 each turn, resets after 24. |
+| **Elite** minute-warden | Minute Warden | 170 | Heals 10 each turn; alternates Rusting your strongest part and Attack 28. |
+| **Elite** orrery | Grand Orrery | 150 + 3 moons of 20 | Moons give it Shell 6 each per turn; Attack 24. |
+| **Boss** clockmaker | The Clockmaker | 110 / 130 / 150 | Three phases with Rewind (rules 4.4). Attacks 20/24, 26/30, then 32 and Jam + Attack 36, rising each phase. |
 
 Totals: 15 regular, 6 elites, 3 bosses.
 

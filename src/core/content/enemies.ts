@@ -29,19 +29,19 @@ const list: EnemyDef[] = [
   },
 
   // ---------- Act 1: the Gearworks ----------
-  { id: 'rust-mite', name: 'Rust Mite', act: 1, tier: 'normal', hp: 14, pattern: [attack(5), attack(5), rust()] },
-  { id: 'cog-rat', name: 'Cog Rat', act: 1, tier: 'normal', hp: 22, pattern: [attack(4, 2), shell(5)] },
-  { id: 'brass-beetle', name: 'Brass Beetle', act: 1, tier: 'normal', hp: 30, pattern: [shell(8), attack(9)] },
-  { id: 'oil-slick', name: 'Oil Slick', act: 1, tier: 'normal', hp: 24, pattern: [corroded(2), attack(6)] },
+  { id: 'rust-mite', name: 'Rust Mite', act: 1, tier: 'normal', hp: 18, pattern: [attack(7), attack(7), rust()] },
+  { id: 'cog-rat', name: 'Cog Rat', act: 1, tier: 'normal', hp: 26, pattern: [attack(5, 2), shell(6)] },
+  { id: 'brass-beetle', name: 'Brass Beetle', act: 1, tier: 'normal', hp: 34, pattern: [attack(12), shell(10)] },
+  { id: 'oil-slick', name: 'Oil Slick', act: 1, tier: 'normal', hp: 28, pattern: [attack(9), corroded(2)] },
   {
     id: 'spring-imp',
     name: 'Spring Imp',
     act: 1,
     tier: 'normal',
-    hp: 18,
-    pattern: [attack(3)],
+    hp: 20,
+    pattern: [attack(4)],
     intentFor: (e): Intent => {
-      const amount = 3 + 2 * e.step;
+      const amount = 4 + 3 * e.step;
       return { kind: 'attack', amount, label: attackLabel(amount) };
     },
   },
@@ -50,16 +50,16 @@ const list: EnemyDef[] = [
     name: 'Gearhound',
     act: 1,
     tier: 'elite',
-    hp: 60,
-    pattern: [attack(8, 2), { kind: 'sabotage', sabotage: 'magnetize', label: 'Magnetizes a part' }, attack(14)],
+    hp: 70,
+    pattern: [attack(11, 2), { kind: 'sabotage', sabotage: 'magnetize', label: 'Magnetizes a part' }, attack(20)],
   },
   {
     id: 'tinpot-general',
     name: 'Tinpot General',
     act: 1,
     tier: 'elite',
-    hp: 55,
-    pattern: [{ kind: 'buff', amount: 2, label: 'Buffs allies +2 attack' }, attack(10)],
+    hp: 65,
+    pattern: [{ kind: 'buff', amount: 3, label: 'Buffs allies +3 attack' }, attack(13)],
     onStart: (c) => {
       summonEnemy(c, 'rust-mite', null);
       summonEnemy(c, 'rust-mite', null);
@@ -70,31 +70,31 @@ const list: EnemyDef[] = [
     name: 'The Foreman',
     act: 1,
     tier: 'boss',
-    hp: 150,
-    pattern: [attack(10), jam({ alsoShell: 12, label: 'Jams the Mainspring, Shell 12' }), attack(6, 3)],
+    hp: 170,
+    pattern: [attack(16), jam({ alsoShell: 14, label: 'Jams the Mainspring, Shell 14' }), attack(10, 3)],
     summonAtHalf: 'cog-rat',
   },
 
   // ---------- Act 2: the Steamworks ----------
-  { id: 'steam-wraith', name: 'Steam Wraith', act: 2, tier: 'normal', hp: 38, pattern: [attack(11), corroded(2)] },
-  { id: 'valve-crab', name: 'Valve Crab', act: 2, tier: 'normal', hp: 45, pattern: [shell(15), attack(13)] },
+  { id: 'steam-wraith', name: 'Steam Wraith', act: 2, tier: 'normal', hp: 42, pattern: [attack(12), corroded(2)] },
+  { id: 'valve-crab', name: 'Valve Crab', act: 2, tier: 'normal', hp: 50, pattern: [attack(14), shell(15)] },
   {
     id: 'furnace-golem',
     name: 'Furnace Golem',
     act: 2,
     tier: 'normal',
-    hp: 55,
-    pattern: [{ kind: 'charge', label: 'Charging up' }, attack(24)],
+    hp: 60,
+    pattern: [{ kind: 'charge', label: 'Charging up' }, attack(26)],
   },
   { id: 'pipe-snake', name: 'Pipe Snake', act: 2, tier: 'normal', hp: 35, pattern: [attack(5, 3), drain(5)] },
-  { id: 'gauge-gremlin', name: 'Gauge Gremlin', act: 2, tier: 'normal', hp: 30, pattern: [rust(2), attack(8)] },
+  { id: 'gauge-gremlin', name: 'Gauge Gremlin', act: 2, tier: 'normal', hp: 30, pattern: [rust(2), attack(9)] },
   {
     id: 'pressure-warden',
     name: 'Pressure Warden',
     act: 2,
     tier: 'elite',
     hp: 100,
-    pattern: [attack(16)],
+    pattern: [attack(18)],
     onTurn: (c, idx, events) => gainShell(c, idx, Math.floor(c.pressure / 2), events),
   },
   {
@@ -103,11 +103,11 @@ const list: EnemyDef[] = [
     name: 'Twin Pistons',
     act: 2,
     tier: 'elite',
-    hp: 55,
-    pattern: [attack(12), shell(10)],
+    hp: 65,
+    pattern: [attack(19), shell(10)],
     intentFor: (e): Intent => {
       const k = (e.step + (e.mem.role ?? 0)) % 2;
-      return k === 0 ? { ...attack(12) } : { ...shell(10) };
+      return k === 0 ? { ...attack(19) } : { ...shell(10) };
     },
     onStart: (c, idx) => {
       c.enemies[idx].mem.role = 0;
@@ -118,7 +118,7 @@ const list: EnemyDef[] = [
       if (e.mem.enraged) return;
       if (c.enemies.some((o, j) => j !== idx && o.defId === 'twin-pistons' && o.hp <= 0)) {
         e.mem.enraged = 1;
-        addStrength(c, idx, 6, events);
+        addStrength(c, idx, 8, events);
       }
     },
   },
@@ -127,22 +127,22 @@ const list: EnemyDef[] = [
     name: 'The Boilermaker Queen',
     act: 2,
     tier: 'boss',
-    hp: 240,
-    pattern: [attack(12), drain(6), attack(10)],
+    hp: 260,
+    pattern: [attack(22), drain(8), attack(20)],
     summonAtHalf: 'steam-wraith',
     onStart: (c, idx) => {
       c.enemies[idx].mem.heat = 0;
     },
     // Heat builds each turn and Drain feeds it; at 20 the next intent is the big hit and the heat is spent.
     intentFor: (e): Intent => {
-      if ((e.mem.heat ?? 0) >= 20) return { ...attack(30), label: 'Unleashes Attack 30' };
-      const pat = [attack(12), drain(6), attack(10)];
+      if ((e.mem.heat ?? 0) >= 20) return { ...attack(40), label: 'Unleashes Attack 40' };
+      const pat = [attack(22), drain(8), attack(20)];
       return { ...pat[e.step % pat.length] };
     },
     onTurn: (c, idx, events) => {
       const e = c.enemies[idx];
       if (e.intent.label.startsWith('Unleashes')) e.mem.heat = 0;
-      else e.mem.heat = (e.mem.heat ?? 0) + 5;
+      else e.mem.heat = (e.mem.heat ?? 0) + 6;
       events.push({ kind: 'buff', tick: 0, step: 0, target: idx, note: 'heat', amount: e.mem.heat });
     },
   },
@@ -154,10 +154,10 @@ const list: EnemyDef[] = [
     act: 3,
     tier: 'normal',
     hp: 60,
-    pattern: [attack(14), jam({ alsoAttack: 6, label: 'Jams the Mainspring, Attack 6' })],
+    pattern: [attack(18), jam({ alsoAttack: 10, label: 'Jams the Mainspring, Attack 10' })],
   },
-  { id: 'chime-moth', name: 'Chime Moth', act: 3, tier: 'normal', hp: 32, pattern: [attack(4, 2), shell(8)] },
-  { id: 'hour-knight', name: 'Hour Hand Knight', act: 3, tier: 'normal', hp: 80, pattern: [attack(12), shell(12), attack(20)] },
+  { id: 'chime-moth', name: 'Chime Moth', act: 3, tier: 'normal', hp: 36, pattern: [attack(6, 2), shell(8)] },
+  { id: 'hour-knight', name: 'Hour Hand Knight', act: 3, tier: 'normal', hp: 80, pattern: [attack(16), shell(14), attack(24)] },
   {
     id: 'echo-sprite',
     name: 'Echo Sprite',
@@ -166,7 +166,7 @@ const list: EnemyDef[] = [
     hp: 40,
     pattern: [attack(6)],
     intentFor: (_e, c): Intent => {
-      const amount = Math.max(6, strongestContribution(c));
+      const amount = Math.max(8, strongestContribution(c));
       return { kind: 'attack', amount, label: attackLabel(amount) };
     },
   },
@@ -175,10 +175,10 @@ const list: EnemyDef[] = [
     name: 'Pendulum Blade',
     act: 3,
     tier: 'normal',
-    hp: 70,
-    pattern: [attack(6)],
+    hp: 80,
+    pattern: [attack(8)],
     intentFor: (e): Intent => {
-      const amount = 6 + 3 * (e.step % 5); // 6, 9, 12, 15, 18, then back to 6
+      const amount = 8 + 4 * (e.step % 5); // 8, 12, 16, 20, 24, then back to 8
       return { kind: 'attack', amount, label: attackLabel(amount) };
     },
   },
@@ -187,10 +187,10 @@ const list: EnemyDef[] = [
     name: 'Minute Warden',
     act: 3,
     tier: 'elite',
-    hp: 160,
-    pattern: [attack(15)],
+    hp: 170,
+    pattern: [attack(28)],
     intentFor: (e, c): Intent => {
-      if (e.step % 2 === 1) return { ...attack(15) };
+      if (e.step % 2 === 1) return { ...attack(28) };
       const target = strongestCell(c);
       const step = rust();
       return { ...step, label: 'Rusts your strongest part', target: target >= 0 ? target : undefined };
@@ -203,7 +203,7 @@ const list: EnemyDef[] = [
     act: 3,
     tier: 'elite',
     hp: 150,
-    pattern: [attack(18)],
+    pattern: [attack(24)],
     onStart: (c) => {
       for (let i = 0; i < 3; i++) summonEnemy(c, 'orrery-moon', null);
     },
@@ -227,15 +227,15 @@ const list: EnemyDef[] = [
     act: 3,
     tier: 'boss',
     hp: 110,
-    pattern: [attack(12), attack(14)],
+    pattern: [attack(20), attack(24)],
     // Rewind (rules 4.4) is B3: it will run from a hook at the start of his turn.
     phases: [
-      { hp: 110, line: 'Tick. Every hour has its place.', pattern: [attack(12), attack(14)] },
-      { hp: 130, line: 'Tock. Do not stop the hour.', pattern: [attack(16), attack(18)] },
+      { hp: 110, line: 'Tick. Every hour has its place.', pattern: [attack(20), attack(24)] },
+      { hp: 130, line: 'Tock. Do not stop the hour.', pattern: [attack(26), attack(30)] },
       {
         hp: 150,
         line: 'Midnight. Again, and again.',
-        pattern: [attack(20), jam({ alsoAttack: 22, label: 'Jams the Mainspring, Attack 22' })],
+        pattern: [attack(32), jam({ alsoAttack: 36, label: 'Jams the Mainspring, Attack 36' })],
       },
     ],
   },

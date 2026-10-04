@@ -51,10 +51,11 @@ describe('statuses', () => {
   });
 
   it('Shell: a defend intent emits a shell event and absorbs strikes', () => {
-    const c = combatWith({ board: { B2: 'spur' }, enemies: ['brass-beetle'] }); // Shell 8 first
+    const c = combatWith({ board: { B2: 'spur' }, enemies: ['brass-beetle'] }); // Attack 12, then Shell 10
+    runTurn(c);
     const r = runTurn(c);
-    expect(kinds(r.events, 'shell')[0]).toMatchObject({ target: 0, amount: 8 });
-    expect(c.enemies[0].shell).toBe(8);
+    expect(kinds(r.events, 'shell')[0]).toMatchObject({ target: 0, amount: 10 });
+    expect(c.enemies[0].shell).toBe(10);
   });
 
   it('Strength: a buff raises the attacks of allies, including the intent already shown', () => {
@@ -62,16 +63,17 @@ describe('statuses', () => {
     expect(c.enemies.map((e) => e.defId)).toEqual(['tinpot-general', 'rust-mite', 'rust-mite']);
     const r = runTurn(c);
     expect(kinds(r.events, 'buff').length).toBe(2);
-    expect(c.enemies[1].statuses.strength).toBe(2);
-    expect(c.enemies[1].intent.amount).toBe(7);
-    expect(c.enemies[1].intent.label).toBe('Attack 7');
+    expect(c.enemies[1].statuses.strength).toBe(3);
+    expect(c.enemies[1].intent.amount).toBe(10);
+    expect(c.enemies[1].intent.label).toBe('Attack 10');
     runTurn(c);
-    expect(c.enemies[1].statuses.strength).toBe(2); // strength lasts
+    expect(c.enemies[1].statuses.strength).toBe(3); // strength lasts
   });
 
   it('Corroded: 25% less Plating for its turns (applied by an Oil Slick)', () => {
     const c = combatWith({ board: { B2: 'escapement' }, enemies: ['oil-slick'], hp: 500 });
-    const r = runTurn(c);
+    runTurn(c); // Attack 9
+    const r = runTurn(c); // Corroded 2
     expect(kinds(r.events, 'status')[0]).toMatchObject({ status: 'corroded', amount: 2, note: 'player' });
     expect(c.playerStatuses.corroded).toBe(2);
     const before = c.plating;
@@ -144,15 +146,15 @@ describe('enemy behaviors', () => {
     expect(seq(c, 5)).toEqual(['attack:3', 'attack:3', 'sabotage:', 'attack:4', 'attack:3']);
   });
 
-  it('Spring Imp grows by 2 each turn; Pendulum Blade swings 6 to 18 then resets', () => {
-    expect(seq(combatWith({ enemies: ['spring-imp'], hp: 999 }), 4)).toEqual(['attack:3', 'attack:5', 'attack:7', 'attack:9']);
+  it('Spring Imp grows by 3 each turn; Pendulum Blade swings 8 to 24 then resets', () => {
+    expect(seq(combatWith({ enemies: ['spring-imp'], hp: 999 }), 4)).toEqual(['attack:4', 'attack:7', 'attack:10', 'attack:13']);
     expect(seq(combatWith({ enemies: ['pendulum-blade'], hp: 999 }), 6)).toEqual([
-      'attack:6',
-      'attack:9',
+      'attack:8',
       'attack:12',
-      'attack:15',
-      'attack:18',
-      'attack:6',
+      'attack:16',
+      'attack:20',
+      'attack:24',
+      'attack:8',
     ]);
   });
 
@@ -161,9 +163,9 @@ describe('enemy behaviors', () => {
     expect(c.enemies[0].intent.kind).toBe('charge');
     runTurn(c);
     expect(c.playerHp).toBe(999);
-    expect(c.enemies[0].intent).toMatchObject({ kind: 'attack', amount: 24 });
+    expect(c.enemies[0].intent).toMatchObject({ kind: 'attack', amount: 26 });
     runTurn(c);
-    expect(c.playerHp).toBe(999 - 24);
+    expect(c.playerHp).toBe(999 - 26);
   });
 
   it('Pressure Warden gains Shell equal to half your Pressure each turn', () => {
@@ -174,7 +176,7 @@ describe('enemy behaviors', () => {
 
   it('Echo Sprite copies your strongest part last turn (min 6)', () => {
     const c = combatWith({ enemies: ['echo-sprite'], hp: 999 });
-    expect(c.enemies[0].intent.amount).toBe(6);
+    expect(c.enemies[0].intent.amount).toBe(8);
     const d = combatWith({ board: { B2: 'spur' }, enemies: ['echo-sprite'], hp: 999 });
     runTurn(d);
     expect(d.enemies[0].intent.amount).toBe(9);
@@ -183,7 +185,7 @@ describe('enemy behaviors', () => {
   it('Minute Warden heals 10 each turn and rusts your strongest part', () => {
     const c = combatWith({ board: { B2: 'spur', A1: 'chime' }, enemies: ['minute-warden'], hp: 999 });
     runTurn(c);
-    expect(c.enemies[0].hp).toBe(160 - 12 + 10);
+    expect(c.enemies[0].hp).toBe(170 - 12 + 10);
     runTurn(c); // Attack 15
     expect(c.enemies[0].intent.label).toBe('Rusts your strongest part');
     expect(c.enemies[0].intent.target).toBe(cell('B2'));
@@ -202,13 +204,13 @@ describe('enemy behaviors', () => {
   it('Twin Pistons: one attacks while the other shells; the survivor enrages (+6 attack)', () => {
     const c = combatWith({ board: { B2: 'spur' }, enemies: ['twin-pistons'], hp: 999 });
     expect(c.enemies).toHaveLength(2);
-    expect(c.enemies[0].intent).toMatchObject({ kind: 'attack', amount: 12 });
+    expect(c.enemies[0].intent).toMatchObject({ kind: 'attack', amount: 19 });
     expect(c.enemies[1].intent.kind).toBe('defend');
     c.enemies[0].hp = 1;
     const r = runTurn(c); // the spur kills the first twin
     expect(c.enemies[0].hp).toBe(0);
-    expect(kinds(r.events, 'buff').some((e) => e.note === 'strength' && e.amount === 6)).toBe(true);
-    expect(c.enemies[1].statuses.strength).toBe(6);
+    expect(kinds(r.events, 'buff').some((e) => e.note === 'strength' && e.amount === 8)).toBe(true);
+    expect(c.enemies[1].statuses.strength).toBe(8);
   });
 
   it('Foreman summons a Cog Rat at half HP, once', () => {
@@ -221,7 +223,7 @@ describe('enemy behaviors', () => {
     expect(c.enemies).toHaveLength(2);
   });
 
-  it('Boilermaker Queen: builds heat, unleashes Attack 30 at 20, summons a Steam Wraith at half HP', () => {
+  it('Boilermaker Queen: builds heat, unleashes Attack 40 at 20, summons a Steam Wraith at half HP', () => {
     const c = combatWith({ enemies: ['boilermaker'], hp: 999 });
     let unleashed = 0;
     for (let t = 0; t < 8; t++) {
@@ -229,13 +231,13 @@ describe('enemy behaviors', () => {
         unleashed = c.enemies[0].intent.amount!;
         const before = c.playerHp;
         runTurn(c);
-        expect(before - c.playerHp).toBe(30);
+        expect(before - c.playerHp).toBe(40);
         expect(c.enemies[0].mem.heat).toBe(0);
         break;
       }
       runTurn(c);
     }
-    expect(unleashed).toBe(30);
+    expect(unleashed).toBe(40);
     c.enemies[0].hp = 100;
     runTurn(c);
     expect(c.enemies.some((e) => e.defId === 'steam-wraith')).toBe(true);
@@ -243,10 +245,10 @@ describe('enemy behaviors', () => {
 
   it('the Queen turns Pressure Drain into heat', () => {
     const c = combatWith({ enemies: ['boilermaker'], hp: 999, pressure: 6 });
-    runTurn(c); // Attack 12, heat 5
-    runTurn(c); // heat 10, Drains 6
+    runTurn(c); // Attack 22, heat 6
+    runTurn(c); // heat 12, Drains 6
     expect(c.pressure).toBe(0);
-    expect(c.enemies[0].mem.heat).toBe(16);
+    expect(c.enemies[0].mem.heat).toBe(18);
   });
 
   it('caps enemies at 4', () => {
@@ -287,7 +289,7 @@ describe('the Clockmaker', () => {
       const i = enemyDef('clockmaker').phases![phase].pattern![0];
       return i.amount;
     };
-    expect([0, 1, 2].map(amount)).toEqual([12, 16, 20]);
+    expect([0, 1, 2].map(amount)).toEqual([20, 26, 32]);
     const c = combatWith({ board: { B2: 'spur' }, enemies: ['clockmaker'], hp: 999 });
     c.enemies[0].phase = 2;
     c.enemies[0].hp = 1;

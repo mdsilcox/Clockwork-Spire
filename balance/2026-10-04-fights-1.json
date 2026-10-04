@@ -1,0 +1,576 @@
+{
+ "seed": 1,
+ "fights": 3000,
+ "winRate": 0.9886666666666667,
+ "tiers": {
+  "act1-normal": {
+   "fights": 745,
+   "winRate": 1,
+   "avgHpLost": 7.112751677852349,
+   "p90HpLost": 14,
+   "avgTurns": 2.6093959731543626
+  },
+  "act1-elite": {
+   "fights": 175,
+   "winRate": 1,
+   "avgHpLost": 18.66857142857143,
+   "p90HpLost": 30,
+   "avgTurns": 3.8457142857142856
+  },
+  "act1-boss": {
+   "fights": 80,
+   "winRate": 0.9625,
+   "avgHpLost": 27.55,
+   "p90HpLost": 42,
+   "avgTurns": 6.6875
+  },
+  "act2-normal": {
+   "fights": 683,
+   "winRate": 1,
+   "avgHpLost": 13.250366032210835,
+   "p90HpLost": 25,
+   "avgTurns": 3.3718887262079065
+  },
+  "act2-elite": {
+   "fights": 201,
+   "winRate": 1,
+   "avgHpLost": 21.08955223880597,
+   "p90HpLost": 38,
+   "avgTurns": 4.7711442786069655
+  },
+  "act2-boss": {
+   "fights": 116,
+   "winRate": 0.9224137931034483,
+   "avgHpLost": 31.336206896551722,
+   "p90HpLost": 59,
+   "avgTurns": 6.603448275862069
+  },
+  "act3-normal": {
+   "fights": 690,
+   "winRate": 1,
+   "avgHpLost": 16.701449275362318,
+   "p90HpLost": 30,
+   "avgTurns": 3.8246376811594205
+  },
+  "act3-elite": {
+   "fights": 181,
+   "winRate": 0.9558011049723757,
+   "avgHpLost": 31.18232044198895,
+   "p90HpLost": 56,
+   "avgTurns": 7.425414364640884
+  },
+  "act3-boss": {
+   "fights": 129,
+   "winRate": 0.8914728682170543,
+   "avgHpLost": 37.53488372093023,
+   "p90HpLost": 80,
+   "avgTurns": 8.643410852713178
+  }
+ },
+ "encounters": {
+  "Act 1 boss: foreman": {
+   "fights": 80,
+   "winRate": 0.9625,
+   "avgHpLost": 27.55,
+   "p90HpLost": 42,
+   "avgTurns": 6.6875
+  },
+  "Act 1 elite: gearhound": {
+   "fights": 102,
+   "winRate": 1,
+   "avgHpLost": 17.137254901960784,
+   "p90HpLost": 24,
+   "avgTurns": 3.5980392156862746
+  },
+  "Act 1 elite: tinpot-general": {
+   "fights": 73,
+   "winRate": 1,
+   "avgHpLost": 20.80821917808219,
+   "p90HpLost": 31,
+   "avgTurns": 4.191780821917808
+  },
+  "Act 1 normal: brass-beetle": {
+   "fights": 78,
+   "winRate": 1,
+   "avgHpLost": 6.717948717948718,
+   "p90HpLost": 12,
+   "avgTurns": 2.3846153846153846
+  },
+  "Act 1 normal: brass-beetle + rust-mite": {
+   "fights": 97,
+   "winRate": 1,
+   "avgHpLost": 10.505154639175258,
+   "p90HpLost": 19,
+   "avgTurns": 3.2577319587628866
+  },
+  "Act 1 normal: cog-rat": {
+   "fights": 85,
+   "winRate": 1,
+   "avgHpLost": 4.423529411764706,
+   "p90HpLost": 10,
+   "avgTurns": 2.176470588235294
+  },
+  "Act 1 normal: cog-rat + rust-mite": {
+   "fights": 76,
+   "winRate": 1,
+   "avgHpLost": 9.118421052631579,
+   "p90HpLost": 17,
+   "avgTurns": 2.763157894736842
+  },
+  "Act 1 normal: oil-slick": {
+   "fights": 66,
+   "winRate": 1,
+   "avgHpLost": 3.6515151515151514,
+   "p90HpLost": 9,
+   "avgTurns": 2.1666666666666665
+  },
+  "Act 1 normal: oil-slick + spring-imp": {
+   "fights": 102,
+   "winRate": 1,
+   "avgHpLost": 6.480392156862745,
+   "p90HpLost": 13,
+   "avgTurns": 2.8529411764705883
+  },
+  "Act 1 normal: rust-mite + rust-mite": {
+   "fights": 84,
+   "winRate": 1,
+   "avgHpLost": 6.261904761904762,
+   "p90HpLost": 14,
+   "avgTurns": 2.5595238095238093
+  },
+  "Act 1 normal: rust-mite + rust-mite + rust-mite": {
+   "fights": 76,
+   "winRate": 1,
+   "avgHpLost": 15.236842105263158,
+   "p90HpLost": 26,
+   "avgTurns": 3.0526315789473686
+  },
+  "Act 1 normal: spring-imp": {
+   "fights": 81,
+   "winRate": 1,
+   "avgHpLost": 1.2469135802469136,
+   "p90HpLost": 4,
+   "avgTurns": 2.049382716049383
+  },
+  "Act 2 boss: boilermaker": {
+   "fights": 116,
+   "winRate": 0.9224137931034483,
+   "avgHpLost": 31.336206896551722,
+   "p90HpLost": 59,
+   "avgTurns": 6.603448275862069
+  },
+  "Act 2 elite: pressure-warden": {
+   "fights": 98,
+   "winRate": 1,
+   "avgHpLost": 20.153061224489797,
+   "p90HpLost": 36,
+   "avgTurns": 4.153061224489796
+  },
+  "Act 2 elite: twin-pistons": {
+   "fights": 103,
+   "winRate": 1,
+   "avgHpLost": 21.980582524271846,
+   "p90HpLost": 38,
+   "avgTurns": 5.359223300970874
+  },
+  "Act 2 normal: furnace-golem": {
+   "fights": 110,
+   "winRate": 1,
+   "avgHpLost": 12.50909090909091,
+   "p90HpLost": 26,
+   "avgTurns": 3.1363636363636362
+  },
+  "Act 2 normal: pipe-snake + gauge-gremlin": {
+   "fights": 113,
+   "winRate": 1,
+   "avgHpLost": 9.893805309734514,
+   "p90HpLost": 15,
+   "avgTurns": 3.336283185840708
+  },
+  "Act 2 normal: steam-wraith": {
+   "fights": 116,
+   "winRate": 1,
+   "avgHpLost": 6.094827586206897,
+   "p90HpLost": 12,
+   "avgTurns": 2.7672413793103448
+  },
+  "Act 2 normal: steam-wraith + steam-wraith": {
+   "fights": 115,
+   "winRate": 1,
+   "avgHpLost": 18.965217391304346,
+   "p90HpLost": 24,
+   "avgTurns": 3.791304347826087
+  },
+  "Act 2 normal: valve-crab": {
+   "fights": 116,
+   "winRate": 1,
+   "avgHpLost": 7.948275862068965,
+   "p90HpLost": 14,
+   "avgTurns": 3.2413793103448274
+  },
+  "Act 2 normal: valve-crab + pipe-snake": {
+   "fights": 113,
+   "winRate": 1,
+   "avgHpLost": 24.300884955752213,
+   "p90HpLost": 31,
+   "avgTurns": 3.9646017699115044
+  },
+  "Act 3 boss: clockmaker": {
+   "fights": 129,
+   "winRate": 0.8914728682170543,
+   "avgHpLost": 37.53488372093023,
+   "p90HpLost": 80,
+   "avgTurns": 8.643410852713178
+  },
+  "Act 3 elite: minute-warden": {
+   "fights": 94,
+   "winRate": 1,
+   "avgHpLost": 26.51063829787234,
+   "p90HpLost": 47,
+   "avgTurns": 6.223404255319149
+  },
+  "Act 3 elite: orrery": {
+   "fights": 87,
+   "winRate": 0.9080459770114943,
+   "avgHpLost": 36.229885057471265,
+   "p90HpLost": 68,
+   "avgTurns": 8.724137931034482
+  },
+  "Act 3 normal: bell-ringer": {
+   "fights": 113,
+   "winRate": 1,
+   "avgHpLost": 16.079646017699115,
+   "p90HpLost": 28,
+   "avgTurns": 3.6106194690265485
+  },
+  "Act 3 normal: chime-moth + chime-moth": {
+   "fights": 122,
+   "winRate": 1,
+   "avgHpLost": 17.92622950819672,
+   "p90HpLost": 24,
+   "avgTurns": 3.8114754098360657
+  },
+  "Act 3 normal: echo-sprite + chime-moth": {
+   "fights": 128,
+   "winRate": 1,
+   "avgHpLost": 15.171875,
+   "p90HpLost": 29,
+   "avgTurns": 3.5859375
+  },
+  "Act 3 normal: hour-knight": {
+   "fights": 120,
+   "winRate": 1,
+   "avgHpLost": 15.3,
+   "p90HpLost": 28,
+   "avgTurns": 3.8666666666666667
+  },
+  "Act 3 normal: hour-knight + echo-sprite": {
+   "fights": 96,
+   "winRate": 1,
+   "avgHpLost": 27.979166666666668,
+   "p90HpLost": 48,
+   "avgTurns": 4.614583333333333
+  },
+  "Act 3 normal: pendulum-blade": {
+   "fights": 111,
+   "winRate": 1,
+   "avgHpLost": 9.513513513513514,
+   "p90HpLost": 20,
+   "avgTurns": 3.6036036036036037
+  }
+ },
+ "parts": {
+  "anchor": {
+   "inBins": 648,
+   "winWith": 0.9845679012345679,
+   "winWithout": 0.9860676448146897,
+   "impact": 0.9984790662303867,
+   "hpLostWith": 15.45679012345679,
+   "hpLostWithout": 18.0180161852103,
+   "defenseImpact": 1.165702325081497,
+   "outputShare": 0.10277042189317977
+  },
+  "balance-wheel": {
+   "inBins": 652,
+   "winWith": 0.9984662576687117,
+   "winWithout": 0.9783824338833038,
+   "impact": 1.0205275801055556,
+   "hpLostWith": 15.420245398773005,
+   "hpLostWithout": 19.361272322204556,
+   "defenseImpact": 1.2555748512111966,
+   "outputShare": 0.12402498933063638
+  },
+  "bell-hammer": {
+   "inBins": 686,
+   "winWith": 0.9752186588921283,
+   "winWithout": 0.9898047862832272,
+   "impact": 0.9852636321896658,
+   "hpLostWith": 18.323615160349853,
+   "hpLostWithout": 16.92087219213062,
+   "defenseImpact": 0.923446167366874,
+   "outputShare": 0.1634352438605854
+  },
+  "bevel": {
+   "inBins": 625,
+   "winWith": 0.9872,
+   "winWithout": 0.9831883520767695,
+   "impact": 1.0040802435410843,
+   "hpLostWith": 18.664,
+   "hpLostWithout": 18.00876630500048,
+   "defenseImpact": 0.9648931796506901,
+   "outputShare": 0.04935356444896969
+  },
+  "boiler": {
+   "inBins": 701,
+   "winWith": 0.9814550641940085,
+   "winWithout": 0.988589736844588,
+   "impact": 0.9927829792433895,
+   "hpLostWith": 17.359486447931527,
+   "hpLostWithout": 16.14211870865402,
+   "defenseImpact": 0.9298730556961515,
+   "outputShare": 0
+  },
+  "cam": {
+   "inBins": 660,
+   "winWith": 0.9878787878787879,
+   "winWithout": 0.9859103655711358,
+   "impact": 1.0019965530096764,
+   "hpLostWith": 17.183333333333334,
+   "hpLostWithout": 16.515954421184396,
+   "defenseImpact": 0.9611612660243102,
+   "outputShare": 0.07556446008608064
+  },
+  "cam-follower": {
+   "inBins": 683,
+   "winWith": 0.9926793557833089,
+   "winWithout": 0.9871991148619813,
+   "impact": 1.0055513025070872,
+   "hpLostWith": 15.46705710102489,
+   "hpLostWithout": 16.75579577445456,
+   "defenseImpact": 1.0833215177917894,
+   "outputShare": 0.04607234171444806
+  },
+  "chime": {
+   "inBins": 718,
+   "winWith": 0.9860724233983287,
+   "winWithout": 0.9875458417195859,
+   "impact": 0.998508000075529,
+   "hpLostWith": 16.238161559888578,
+   "hpLostWithout": 17.256546663126514,
+   "defenseImpact": 1.0627155419954402,
+   "outputShare": 0.016730162848765162
+  },
+  "coil": {
+   "inBins": 3000,
+   "winWith": null,
+   "winWithout": null,
+   "impact": null,
+   "hpLostWith": null,
+   "hpLostWithout": null,
+   "defenseImpact": null,
+   "outputShare": 0.13241822416071414
+  },
+  "crown": {
+   "inBins": 642,
+   "winWith": 0.9906542056074766,
+   "winWithout": 0.9846617438096189,
+   "impact": 1.0060858074719885,
+   "hpLostWith": 18.37538940809969,
+   "hpLostWithout": 17.663723232590606,
+   "defenseImpact": 0.9612706887618181,
+   "outputShare": 0.08102890636266492
+  },
+  "escapement": {
+   "inBins": 3000,
+   "winWith": null,
+   "winWithout": null,
+   "impact": null,
+   "hpLostWith": null,
+   "hpLostWithout": null,
+   "defenseImpact": null,
+   "outputShare": 0.23808336018784107
+  },
+  "firebox": {
+   "inBins": 678,
+   "winWith": 0.9882005899705014,
+   "winWithout": 0.9885210539709954,
+   "impact": 0.9996758146938736,
+   "hpLostWith": 17.90117994100295,
+   "hpLostWithout": 16.921760374038065,
+   "defenseImpact": 0.9452874296447069,
+   "outputShare": 0.0480559283428674
+  },
+  "idler": {
+   "inBins": 3000,
+   "winWith": null,
+   "winWithout": null,
+   "impact": null,
+   "hpLostWith": null,
+   "hpLostWithout": null,
+   "defenseImpact": null,
+   "outputShare": 0
+  },
+  "kettle": {
+   "inBins": 650,
+   "winWith": 0.9861538461538462,
+   "winWithout": 0.9807704603089218,
+   "impact": 1.0054889355489243,
+   "hpLostWith": 17.65692307692308,
+   "hpLostWithout": 18.583212147630014,
+   "defenseImpact": 1.052460389993858,
+   "outputShare": 0
+  },
+  "leaf": {
+   "inBins": 723,
+   "winWith": 0.9944674965421854,
+   "winWithout": 0.982796522140399,
+   "impact": 1.0118752703523701,
+   "hpLostWith": 13.665283540802212,
+   "hpLostWithout": 18.01268329016024,
+   "defenseImpact": 1.3181346172860176,
+   "outputShare": 0.1384698874019575
+  },
+  "lever": {
+   "inBins": 613,
+   "winWith": 0.9787928221859706,
+   "winWithout": 0.9877170626525651,
+   "impact": 0.9909647804983465,
+   "hpLostWith": 18.99347471451876,
+   "hpLostWithout": 17.355181606029163,
+   "defenseImpact": 0.9137444236447545,
+   "outputShare": 0
+  },
+  "metronome": {
+   "inBins": 690,
+   "winWith": 0.9840579710144928,
+   "winWithout": 0.9855386882060223,
+   "impact": 0.9984975554899576,
+   "hpLostWith": 18.255072463768116,
+   "hpLostWithout": 16.836388892631977,
+   "defenseImpact": 0.9222855141248066,
+   "outputShare": 0.12131175763901511
+  },
+  "oil-can": {
+   "inBins": 690,
+   "winWith": 0.9782608695652174,
+   "winWithout": 0.9873623690588498,
+   "impact": 0.9907820069116996,
+   "hpLostWith": 17.765217391304347,
+   "hpLostWithout": 16.561020093382737,
+   "defenseImpact": 0.9322160111302079,
+   "outputShare": 0
+  },
+  "pendulum": {
+   "inBins": 649,
+   "winWith": 0.9969183359013868,
+   "winWithout": 0.9785573722955478,
+   "impact": 1.018763298019785,
+   "hpLostWith": 17.046224961479197,
+   "hpLostWithout": 18.571646553474316,
+   "defenseImpact": 1.0894873554374793,
+   "outputShare": 0.04115692484695934
+  },
+  "piston": {
+   "inBins": 694,
+   "winWith": 0.984149855907781,
+   "winWithout": 0.9883194636658748,
+   "impact": 0.9957811133834926,
+   "hpLostWith": 18.321325648414987,
+   "hpLostWithout": 16.37539721520271,
+   "defenseImpact": 0.893788884573392,
+   "outputShare": 0.061159844739743945
+  },
+  "safety-valve": {
+   "inBins": 667,
+   "winWith": 0.9895052473763118,
+   "winWithout": 0.9845450552345789,
+   "impact": 1.0050380550035378,
+   "hpLostWith": 17.412293853073464,
+   "hpLostWithout": 17.18796972066542,
+   "defenseImpact": 0.9871169109422968,
+   "outputShare": 0.0057219414087002
+  },
+  "spur": {
+   "inBins": 3000,
+   "winWith": null,
+   "winWithout": null,
+   "impact": null,
+   "hpLostWith": null,
+   "hpLostWithout": null,
+   "defenseImpact": null,
+   "outputShare": 0.2960166103084186
+  },
+  "tappet": {
+   "inBins": 633,
+   "winWith": 0.976303317535545,
+   "winWithout": 0.9894847175109484,
+   "impact": 0.9866785209087805,
+   "hpLostWith": 18.527646129541864,
+   "hpLostWithout": 17.344904117127367,
+   "defenseImpact": 0.9361633958169869,
+   "outputShare": 0
+  },
+  "toggle": {
+   "inBins": 697,
+   "winWith": 0.9956958393113343,
+   "winWithout": 0.9877877648742565,
+   "impact": 1.0080058436825086,
+   "hpLostWith": 14.919655667144907,
+   "hpLostWithout": 16.01126834493776,
+   "defenseImpact": 1.0731660771633444,
+   "outputShare": 0.1477720433315276
+  },
+  "torsion": {
+   "inBins": 627,
+   "winWith": 0.9808612440191388,
+   "winWithout": 0.9858544881016995,
+   "impact": 0.994935110462219,
+   "hpLostWith": 19.138755980861244,
+   "hpLostWithout": 17.190840581778186,
+   "defenseImpact": 0.8982214203979102,
+   "outputShare": 0.06318743434056576
+  },
+  "trap": {
+   "inBins": 613,
+   "winWith": 0.9836867862969005,
+   "winWithout": 0.9850136756319746,
+   "impact": 0.9986529229310215,
+   "hpLostWith": 19.282218597063622,
+   "hpLostWithout": 18.247894467295506,
+   "defenseImpact": 0.9463586555374065,
+   "outputShare": 0.04216797791237039
+  },
+  "trip-hammer": {
+   "inBins": 654,
+   "winWith": 0.9862385321100917,
+   "winWithout": 0.9890980343287775,
+   "impact": 0.9971089799803047,
+   "hpLostWith": 16.448012232415902,
+   "hpLostWithout": 16.182927328789223,
+   "defenseImpact": 0.9838834687206611,
+   "outputShare": 0.04846589589017719
+  },
+  "triple-cam": {
+   "inBins": 659,
+   "winWith": 0.992412746585736,
+   "winWithout": 0.98419254213108,
+   "impact": 1.0083522320102698,
+   "hpLostWith": 18.20485584218513,
+   "hpLostWithout": 17.027650867784942,
+   "defenseImpact": 0.9353356607377075,
+   "outputShare": 0.11398511774203449
+  },
+  "whistle": {
+   "inBins": 692,
+   "winWith": 0.9869942196531792,
+   "winWithout": 0.9866704942125172,
+   "impact": 1.0003280988359953,
+   "hpLostWith": 17.33092485549133,
+   "hpLostWithout": 16.710611413672353,
+   "defenseImpact": 0.9642077126875068,
+   "outputShare": 0
+  }
+ },
+ "medianDefenseImpact": 0.9612706887618181,
+ "flagged": []
+}

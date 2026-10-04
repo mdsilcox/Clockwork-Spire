@@ -165,8 +165,8 @@ describe('Shell, Plating and enemies', () => {
 
   it('multi-hit attacks hit once per hit and Plating absorbs from the pool', () => {
     const c = combatWith({ board: { B2: 'escapement' }, enemies: ['cog-rat'], ticks: 1 });
-    runTurn(c); // Plate 3, cog rat attacks 4 x2: 3 + 8 - 3 = 5 lost
-    expect(c.playerHp).toBe(50 - 5);
+    runTurn(c); // Plate 3, cog rat attacks 5 x2: 3 + 10 - 3 = 7 lost
+    expect(c.playerHp).toBe(50 - 7);
   });
 
   it('losing: the player at 0 HP loses the combat', () => {
