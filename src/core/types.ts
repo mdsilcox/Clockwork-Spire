@@ -275,3 +275,45 @@ export interface RunRecord {
   biggestTurn: number;
   endedAt: string; // ISO; filled by the app, never by core
 }
+
+// ---------- Meta-progression and saves (B4 contract; docs/data-model.md, docs/rules.md section 5) ----------
+
+export type SprocketMood = 'celebrate' | 'happy' | 'comfort';
+
+export interface Profile {
+  version: number;
+  name: string;
+  createdAt: string; // ISO, from the app
+  brass: number;
+  brassEarnedTotal: number;
+  blueprints: string[]; // part ids unlocked into the run pool
+  upgrades: Record<string, number>; // upgrade id -> level bought
+  chassisUnlocked: string[]; // starts ['tinker']
+  runsStarted: number;
+  runsFinished: number;
+  wins: number;
+  bestFloor: number; // absolute floor across acts (act 2 floor 3 = 16)
+  history: RunRecord[]; // newest first, capped at 100
+  storyFlags: string[]; // milestones reached (unlock Workshop notes)
+  lastSprocketMood: SprocketMood | null;
+  finishedSeeds: number[]; // seeds already settled by finishRun (guards double payout), last 20
+}
+
+export interface SaveSlot {
+  slot: 1 | 2 | 3;
+  version: number;
+  profile: Profile;
+  run: RunState | null;
+  updatedAt: string; // ISO
+}
+
+export interface Settings {
+  version: number;
+  master: number; // 0..1
+  music: number;
+  effects: number;
+  muted: boolean;
+  speed: '1x' | '2x' | 'skip';
+  colorBlindIcons: boolean;
+  reducedEffects: boolean;
+}
