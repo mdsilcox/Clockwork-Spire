@@ -3,8 +3,6 @@
 import { describe, it } from 'vitest';
 
 describe('v2 11. Wardens and phases (rules 4.7 to 4.9)', () => {
-  it.todo('WP1 [U] Given a warden in phase 1 with keystones A and B; when break A, then B on tick 2 of a Run with 30 damage left over and tick 3 still to come; then phase 2 begins at the end of the Run; the 30 and all of tick 3\'s damage to the warden are lost; phase 1\'s remaining intents are cancelled; the warden\'s next turn is its phase action only; then the new phase\'s cadences start at turn 1');
-  it.todo('WP8 [U] Given a keystone of max HP 40 and a last-phase core of 90 (Braced); when a Run that would deal 100 to each; then the keystone takes 20, the core 30; the rest is lost; so any build needs at least 2 turns per phase and 3 for the last');
   it.todo('WP2 [U, E] Given the last keystone of a phase breaks; when the turn resolves; then the phase action (summon, heal or Rewind) happens once and was shown first; the phase line and phase mood play');
   it.todo('WP3 [U] Given each warden; when read its def; then Foreman 2+ phases, Queen 2+, Clockmaker 3; each phase adds a mechanic the previous one lacks');
   it.todo('WP4 [U] Given the Clockmaker with the Tick Spring standing; last turn the Coil (fed by the Idler) dealt the most; then the Tick Spring broken; when his turn starts; then Coil and Idler return to the draw pile, charge 0; he heals half their damage (v1 C6, kept); after the Spring breaks, no Rewind for the rest of the phase');

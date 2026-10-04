@@ -2,7 +2,9 @@
 
 ## Version 2 (started 2026-10-04T22:12Z, owner-approved on the board)
 Plan: V0 setup, D3 design and D4 art direction side by side, D5 roadmap, then build phases. Board phases `cs~V0`, `cs~D3`, `cs~D4`, `cs~D5`.
-- Now: V0 setup (art trial in `art/trial/`, D-026 to D-029). D3 combat-side steps and D4 style started. Waiting on the owner for D3.1b (the out-of-battle loop), rarity tiers and difficulty shape.
+- Done: V0 (6d04086), D3 design (critic R2 PASS 7.67), D4 art direction (owner sign-off, D-034; follow-ups to the owner's clip notes, art-reviewer R4 PASS), D5 roadmap (docs/roadmap-v2.md; art after each wave).
+- Now (autonomous, D-035): B7 Enemy machines (contract written: types, frames.ts, salvage.ts, testkit, 28 real failing tests; lanes next) and A1 Art: act 1 cast (candidates generated). Then continue with B8, A2 and on (owner: proceed as far as you can), critic in place of approvals.
+- Known: v1 curve tests (BS2, BS3) are superseded and get retired in B7 when v2 enemies change the curve.
 
 ## Version 1
 

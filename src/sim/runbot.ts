@@ -24,7 +24,7 @@ import type { RngState } from '../core/rng';
 import type { Family, MapNode, PartInstance, RunState } from '../core/types';
 
 export const EXPLORE = 0.2;
-const RARITY_BASE = { common: 1, uncommon: 2, rare: 3 } as const;
+const RARITY_BASE = { common: 1, uncommon: 2, rare: 3, masterwork: 4, legendary: 5 } as const;
 
 export interface BotMemory {
   rng: RngState;

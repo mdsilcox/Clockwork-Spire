@@ -28,6 +28,12 @@ export function newEnemy(defId: string, mem: Record<string, number> = {}): Enemy
     step: 0,
     phase: 0,
     mem: { ...mem },
+    parts: [],
+    sealed: false,
+    intents: [],
+    turnsActed: 0,
+    phaseActionPending: false,
+    coreTookThisTurn: 0,
   };
 }
 

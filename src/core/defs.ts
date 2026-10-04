@@ -1,5 +1,5 @@
 // Static definition types (parts, enemies). Definitions are code keyed by id; state lives in types.ts.
-import type { CombatState, EnemyState, Family, GameEvent, Intent, PlacedPart, Rarity } from './types';
+import type { ActionDef, Cadence, CombatState, EnemyState, Family, GameEvent, Intent, PlacedPart, Rarity } from './types';
 import type { RngState } from './rng';
 
 /** What a part's hooks may do while the machine ticks (and at turn start / enemy attacks). Built by machine.ts. */
@@ -49,6 +49,17 @@ export interface TickCtx {
   addStatusBonus(n: number): void;
   /** Clear Rust from the part at `cell`. */
   clearRust(cell: number): void;
+  // B7 CONTRACT: the v2 player words (docs/rules.md 2.3). Boost, Grit and Brass Knuckles apply as for strike().
+  /** X to every unbroken part of the enemy the next Strike would hit (not its core). */
+  shatter(amount: number): void;
+  /** A Strike that ignores Shell, Bulwark and Governor (still Braced, still no carry). */
+  drill(amount: number): void;
+  /** The part the next Strike would hit skips its next action (a countdown on it doesn't tick). */
+  jam(): void;
+  /** Strike X at the unbroken part with the least HP left on the enemy the next Strike would hit (ties left to right); no parts: a normal Strike. */
+  pry(amount: number): boolean; // true if it broke a part (Sapper)
+  /** Heal X HP (rules 2.6). */
+  patch(amount: number): void;
 }
 
 export interface ReleaseInfo {
@@ -89,12 +100,59 @@ export interface PhaseDef {
   pattern?: IntentStep[];
 }
 
+// ---------- v2 enemy machines (B7 CONTRACT; docs/content.md section 3 is the data) ----------
+
+export type Passive = { kind: 'bulwark' } | { kind: 'governor'; cap: number } | { kind: 'ratchet'; x: number } | { kind: 'enrage'; x: number };
+
+export interface EnemyPartDef {
+  id: string; // content.md id, e.g. 'rat-jaw'
+  name: string;
+  hp: number;
+  rarity: Rarity;
+  actions: ActionDef[]; // performed in order when it acts; [] for passives
+  /** Different action lists by turn of its cycle (the Midnight Bell): key = turn number within `cadence.of`. */
+  actionsByTurn?: Record<number, ActionDef[]>;
+  passive?: Passive;
+  cadence: Cadence;
+  /** Each time it acts, its first action's amount grows by this (Spring Imp's tail); back to base at escalateResetAt. */
+  escalate?: number;
+  escalateResetAt?: number;
+  salvage: string | 'spire-key' | null; // player part id it drops when broken
+  keystone?: boolean; // the core stays sealed until every keystone of the phase is broken
+  anchor: string; // where it sits on the painting, in words (art rig anchors use the part id)
+}
+
+export interface WardenPhaseDef {
+  keystones: string[];
+  parts: EnemyPartDef[]; // parts that unfold in this phase (parts of earlier phases that still stand stay)
+  beat: string; // the line when this phase begins
+  action: ActionDef | null; // the phase action, taken on the warden's next turn (rules 4.8); null for phase 1
+  mood: string; // rig mood for the beat ('phase')
+  coreExposed?: boolean; // the last phase: the core is not sealed
+}
+
+export interface FrameDef {
+  core: number; // core HP
+  coreAction: ActionDef; // the Bump, used only when every acting part is broken
+  sealed?: boolean; // elites: sealed until every keystone is broken
+  parts: EnemyPartDef[]; // regulars and elites (wardens: phase 1 parts are phases[0].parts)
+  phases?: WardenPhaseDef[]; // wardens
+  braced?: boolean; // wardens only (rules 2.4); never elites
+  scrap: number; // the enemy's own drop
+  punishes: ('plating' | 'burst' | 'pressure' | 'statuses' | 'slow')[];
+  bestiary: string;
+  /** Enemies this one summons when combat starts (Tinpot General's horn is a part action instead). */
+  startSummons?: string[];
+}
+
 export interface EnemyDef {
   id: string;
   name: string;
   act: 1 | 2 | 3;
   tier: 'normal' | 'elite' | 'boss';
-  hp: number;
+  hp: number; // legacy enemies; frame enemies: equals frame.core
+  /** v2: a frame enemy. When present the engine uses it and ignores pattern, phases and the legacy hooks. */
+  frame?: FrameDef;
   pattern: IntentStep[];
   /** Only appears when summoned by another enemy; never in encounter pools. */
   summonOnly?: boolean;

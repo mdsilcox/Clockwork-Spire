@@ -53,7 +53,7 @@ function drawRarity(rng: RngState, act: number): Rarity {
 export function randomBin(rng: RngState, act: number, boss = false): PartInstance[] {
   // The sandbox may use locked parts too (the run pool can't: a run-level concern).
   const ids = Object.keys(PARTS);
-  const byRarity: Record<Rarity, string[]> = { common: [], uncommon: [], rare: [] };
+  const byRarity: Record<Rarity, string[]> = { common: [], uncommon: [], rare: [], masterwork: [], legendary: [] };
   for (const id of ids) byRarity[PARTS[id].rarity].push(id);
   const bin: PartInstance[] = [];
   const add = (defId: string): void => {

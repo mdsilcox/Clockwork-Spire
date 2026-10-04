@@ -2,7 +2,7 @@
 // or a static definition keyed by id. See docs/data-model.md and docs/rules.md.
 
 export type Family = 'gear' | 'spring' | 'cam' | 'tempo' | 'steam' | 'chime';
-export type Rarity = 'common' | 'uncommon' | 'rare';
+export type Rarity = 'common' | 'uncommon' | 'rare' | 'masterwork' | 'legendary'; // v2: five tiers (rules 5.6)
 export type RngStream = 'map' | 'draw' | 'enemy' | 'reward' | 'event' | 'shop';
 
 /** Board geometry: 5 columns x 3 rows, index = row * 5 + col. A2 (index 5) is the Mainspring. */
@@ -54,16 +54,88 @@ export interface Intent {
   label: string; // short text shown in tooltips, e.g. "Attack 8 x2"
 }
 
-export interface EnemyState {
-  defId: string;
+// ---------- v2 enemy machines (B7 CONTRACT; docs/rules.md 2 and 4.8, docs/data-model.md "Version 2") ----------
+
+/** When a part acts, counted in the enemy's own turns (1 = its first turn; restarts at each warden phase). */
+export type Cadence =
+  | 'every'
+  | 'odd'
+  | 'even'
+  | 'once' // its first turn only
+  | 'passive' // never acts; has a passive
+  | { of: number; at: number[] } // { of: 3, at: [1, 2] } = turns 1 and 2 of every 3
+  | { countdown: number } // ticks down 1 per enemy turn; acts at 0 and resets (rules 2.4)
+  | { buildUp: number; to: number; bonus?: 'drained' }; // gauge rises by buildUp (+ Pressure drained); acts at >= to and drops to 0
+
+export type ActionKind =
+  | 'attack' | 'pierce' | 'corrode' | 'siphon' | 'shell' | 'mend' | 'rebuild'
+  | 'rust' | 'jam' | 'magnetize' | 'drain' | 'reset-pressure' | 'status' | 'summon' | 'buff' | 'purge' | 'echo' | 'rewind';
+
+export interface ActionDef {
+  kind: ActionKind;
+  amount?: number; // damage per hit, shell, heal, drain, buff, rewind count
+  pct?: number; // corrode: percent of the player's Plating removed (rounded up)
+  hits?: number;
+  status?: string; // 'status' actions: the player status applied ('corroded', 'dazed'...)
+  summon?: string; // enemy def id
+  count?: number; // summon count, rust part count
+  target?: 'self' | 'allies'; // buff, mend
+  part?: string; // rebuild: which broken part (default: the first broken one)
+}
+
+export interface EnemyPartState {
+  id: string;
   hp: number;
   maxHp: number;
+  broken: boolean;
+  jammed: boolean; // skips its next action (and a countdown doesn't tick)
+  countdown?: number; // countdown parts: turns left
+  gauge?: number; // build-up parts: current gauge
+  acted: number; // times it has acted (escalation)
+  tookThisTurn: number; // damage taken during the current player turn (Braced)
+}
+
+/** What one part (or the core) will do on the enemy's next turn; shown on that part's anchor. */
+export interface PartIntent {
+  partId: string; // a part id, or 'core'
+  actions: ActionDef[];
+  kind: IntentKind; // icon
+  label: string; // e.g. "Pierce 7", "Corrode 50%, Attack 13"
+  target?: number; // sabotage board cell
+  targets?: number[];
+}
+
+/** A target-order entry: enemy index and part id, or 'core'. */
+export type TargetRef = `e${number}.${string}`;
+
+/** A part broken this fight that drops as salvage (rules 2.5). */
+export interface SalvageItem {
+  enemy: number;
+  partId: string;
+  salvage: string; // player part id, or 'spire-key'
+  rarity: Rarity;
+  locked: boolean; // salvage not yet unlocked: pays 6 instead (rules 2.5)
+}
+
+export interface EnemyState {
+  defId: string;
+  hp: number; // the core's HP (v1: the only HP)
+  maxHp: number;
   shell: number;
-  statuses: Record<string, number>; // scald, cracked, dazed, strength...
+  statuses: Record<string, number>; // scald, cracked, dazed, strength... (the whole frame)
+  /** DEPRECATED summary kept in sync by the engine for v1 consumers: the first entry of `intents`, or a quiet intent. */
   intent: Intent;
-  step: number; // position in its pattern
-  phase: number; // bosses: 0-based phase index
+  step: number; // v1 pattern position (legacy enemies)
+  phase: number; // 0-based phase index
   mem: Record<string, number>; // per-enemy scratch (heat, rage...)
+  // v2 (frame enemies; legacy enemies have parts [] and one 'core' intent):
+  parts: EnemyPartState[];
+  sealed: boolean; // the core can't be targeted or damaged
+  intents: PartIntent[];
+  turnsActed: number; // enemy turns taken in this phase (cadence counter)
+  phaseActionPending: boolean; // the next enemy turn is the phase action only (rules 4.8)
+  coreTookThisTurn: number; // damage the core took during the current player turn (Braced, Ratchet)
+  overwound?: boolean;
 }
 
 export interface TurnContribution {
@@ -95,7 +167,11 @@ export interface CombatState {
   playerMaxHp: number;
   playerStatuses: Record<string, number>;
   enemies: EnemyState[];
+  /** DEPRECATED: kept in sync by the engine (the enemy of the first standing order entry, else the leftmost living). */
   targetIdx: number;
+  order: TargetRef[]; // v2 target order (rules 2.3), up to 6
+  broken: SalvageItem[]; // v2: parts broken this fight with a salvage
+  wrecked: number; // v2: parts left standing when their core died (1 Scrap each)
   lastTurnContrib: Record<number, TurnContribution>;
   rng: Record<RngStream, number>; // stream states (only 'draw' and 'enemy' are used in combat)
   outcome: 'ongoing' | 'won' | 'lost';
@@ -147,13 +223,26 @@ export interface GameEvent {
     | 'phase' // boss `target` enters phase `amount` (0-based); `note` = short line
     | 'enemyHeal' // ADDED in B2: enemy `target` heals `amount`
     | 'rewind' // Clockmaker lifts the part at `cell` (uid) back to the draw pile (B3)
-    | 'unmagnetize'; // a magnetized part at `cell` returns to the hand at turn start
+    | 'unmagnetize' // a magnetized part at `cell` returns to the hand at turn start
+    // B7 additions (v2 machines). `part` names the enemy part (`target` is the enemy index):
+    | 'partHit' // part `part` of enemy `target` loses `amount`
+    | 'partBroken' // part `part` of enemy `target` breaks; its intent is cancelled
+    | 'partRebuilt' // Mend rebuilt part `part` at `amount` HP
+    | 'braced' // `amount` damage to `part` (or the core) was lost to Braced
+    | 'lost' // `amount` damage was lost past a target (no carry); `part` the target
+    | 'corrode' // the player lost `amount` Plating to Corrode
+    | 'pierce' // the player took `amount` that ignored Plating
+    | 'siphon' // enemy `target` healed `amount` from Plating removed
+    | 'gauge' // a countdown or build-up on `part` changed to `amount`
+    | 'phaseAction' // a warden's phase action (`note` = action kind)
+    | 'order'; // the target order changed (UI only)
   tick: number; // 0 for events outside the machine's ticks
   step: number; // breadth-first depth within the tick (0 = Mainspring)
   cell?: number;
   from?: number;
   amount?: number;
   target?: number; // enemy index
+  part?: string; // B7: enemy part id ('core' for the core)
   status?: string;
   uid?: number;
   note?: string;
@@ -168,6 +257,10 @@ export interface TurnPreview {
   firing: Record<number, number>; // cell -> times its effect resolves this turn
   statuses: { target: number; status: string; amount: number }[];
   overpressure: boolean;
+  /** B7: per target-order entry and every part or core hit: damage it takes, and whether it breaks or dies. */
+  byTarget: Record<string, { damage: number; breaks: boolean }>;
+  /** B7: intents cancelled because their part breaks this turn. */
+  cancelled: { enemy: number; partId: string }[];
 }
 
 export interface TurnResult {
@@ -201,6 +294,7 @@ export interface ShopItem {
 }
 
 export type Pending =
+  | { kind: 'salvage'; items: SalvageItem[]; cogs: number; trinkets: string[]; blueprint?: string; extraBlueprint?: string; trinketTaken: boolean; done: boolean } // B7: replaces 'reward' after fights (Cogs stand in for Scrap until B8)
   | { kind: 'reward'; cogs: number; parts: string[]; trinkets: string[]; blueprint?: string; extraBlueprint?: string; partTaken: boolean; trinketTaken: boolean }
   | { kind: 'event'; eventId: string; result?: string; needsPart?: 'remove' | 'upgrade' | 'duplicate' | 'transform' | 'sell'; choice?: number; partFilter?: Family } // choice, partFilter ADDED in B3
   | { kind: 'shop'; stock: ShopItem[]; removalsBought: number }

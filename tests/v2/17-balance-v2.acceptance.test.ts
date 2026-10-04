@@ -5,13 +5,9 @@ import { describe, it } from 'vitest';
 describe('v2 17. Balance v2 (rules 7.4)', () => {
   it.todo('BV1 [S] Given expert bot, no meta, Journeyman; when 300 runs; then win rate under 5%; greedy under 2%');
   it.todo('BV2 [S] Given 100 expert careers on the sensible path; when until first win (cap 30); then median first win between run 8 and 12');
-  it.todo('BV3 [S] Given every elite and warden, and each act\'s normal fights, bins from expert runs; when turtle and burst bots play them; then each loses at least 1.5x the expert\'s mean HP on every elite and warden, and at least 10% of max HP on average in each act\'s normal fights');
   it.todo('BV4 [S] Given the expert, and the max-burst bot, against each warden; when 100 fights each; then expert median turns Foreman 6 to 9, Queen 7 to 10, Clockmaker 8 to 12; for both bots every phase at least 2 turns and the last at least 3');
   it.todo('BV5 [S] Given the per-part table; when offer-based impact; then highest at most 2x the median');
-  it.todo('BV6 [S] Given the expert bot; when a career; then under 50 ms per turn on average');
   it.todo('BV7 [S] Given a fixed seed; when run any sim mode twice; then identical reports (v1 BS1, kept)');
-  it.todo('BV8 [S] Given the turtle bot, per act; when count enemy turns; then its Plating fully absorbs at most 40% of them');
-  it.todo('BV9 [U] Given each act\'s regular pool in content; when compute from the defs (rules 7.4 target 7); then at least 30% of expected damage per turn is Pierce or Siphon; Corrode credit reported, not counted');
   it.todo('BV10 [S] Given 100 greedy careers; when until first win; then median first win at most run 20');
   it.todo('BV11 [S] Given rusher, grinder and expert route policies, same combat bot; when 300 runs each; then the expert wins more often than both');
 });

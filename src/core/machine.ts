@@ -96,6 +96,8 @@ export function runMachine(c: CombatState, events: GameEvent[]): TurnPreview {
   }
 
   return {
+    byTarget: {}, // B7: the engine lane fills these
+    cancelled: [],
     damageByEnemy: acc.damage,
     plating: acc.plating,
     pressureAfter: c.pressure,
@@ -340,6 +342,22 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
     },
     drawNextTurn(n) {
       c.extraDraw = (c.extraDraw ?? 0) + n;
+    },
+    // B7 CONTRACT stubs: the enemy-engine lane implements these (docs/rules.md 2.3).
+    shatter() {
+      throw new Error('B7: shatter not implemented');
+    },
+    drill() {
+      throw new Error('B7: drill not implemented');
+    },
+    jam() {
+      throw new Error('B7: jam not implemented');
+    },
+    pry() {
+      throw new Error('B7: pry not implemented');
+    },
+    patch() {
+      throw new Error('B7: patch not implemented');
     },
     addStatusBonus(n) {
       acc.statusBonus += n;
