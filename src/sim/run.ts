@@ -80,6 +80,7 @@ export function playRun(cfg: RunConfig, botSeed: number): RunResult {
         doOil(run, m);
         break;
     }
+    if ((run.phase as string) !== 'event') eventStuck = 0;
     if (m.illegal.length > 0) break; // never loop on an illegal call
   }
   if (run.phase !== 'victory' && run.phase !== 'defeat') abandonRun(run);

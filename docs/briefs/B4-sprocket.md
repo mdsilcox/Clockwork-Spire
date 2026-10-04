@@ -1,0 +1,24 @@
+# Brief: B4 lane `sprocket`
+
+Read `CLAUDE.md`, then SPEC.md section 2.4 (Sprocket the corgi, required) and 2.5 (tone), `docs/rules.md` 5.5, `docs/content.md` "Story beats" and the three Sprocket events, `docs/acceptance.md` rows W4-W6 and W8, and the contracts `src/ui/Sprocket.tsx` and `src/ui/Ending.tsx` (props). Look at `src/render/palette.ts` and `src/render/kit.ts` for the house style.
+
+## Goal
+Sprocket is a real, charming presence, drawn and animated with care, unmistakably a corgi (short legs, big upright ears, fluffy rear, fox-like face, orange and white coat), with synthesized barks and sounds; and the game has a victory ending with Sprocket and credits.
+
+## You own
+`src/render/sprocket.ts` (new), `src/audio/sprocket.ts` (new), `src/ui/Sprocket.tsx`, `src/ui/Ending.tsx`, `src/ui/sprocket.css` (new), `e2e/sprocket.spec.ts` (new), `tests/ui/sprocket.test.ts` (new). Nothing else (the event screen and the Workshop place your component; ask in your report if they need a prop you don't provide).
+
+## Build
+1. **Drawing** (`src/render/sprocket.ts`): Sprocket drawn in code on a canvas, side three-quarter view, in the game's style (warm outlines, top-left light): orange-red and cream coat, white chest ruff and blaze, big upright triangular ears with pink insides, short stubby legs, long low body, a big fluffy cream rear ("corgi butt") with a tiny tail nub or fluffy tail, dark eyes with a shine, black nose, a small brass collar with a gear tag. Poses and animations, each looping smoothly: **idle** (breathing, ear twitches, blink, tail wag), **happy** (wiggle of the whole rear, hop, tongue out), **celebrate** (spins in a circle, jumps, little gear confetti), **comfort** (trots in, leans against the viewer's side of the frame, soft head tilt, slow wag), **sleepy** (curls up on his bed, slow breathing, a floating "z" drawn as shapes), **pet** (eyes close happily, ears back, wiggle), **sniff** (nose down, tail up: used in events), **run** (for the ending). Expose `drawSprocket(ctx, x, y, size, pose, t)` and a small `SprocketView` that runs its own rAF on a canvas and stops when unmounted. Device pixels capped at 2.
+2. **Sounds** (`src/audio/sprocket.ts`): synthesized with Web Audio: a happy "arf" (short pitched bark with a formant sweep), a soft "boof", a sleepy sigh, a whine, panting, little paw taps, a collar tag jingle (tiny metallic pings). Each mood plays its sound when entered; petting plays a happy arf. Use the game's audio master and volume channels (`src/audio/synth.ts` exports).
+3. **Component** (`src/ui/Sprocket.tsx`): `<Sprocket mood={'idle'|'happy'|'celebrate'|'comfort'|'sleepy'|'pet'|'sniff'|'run'} size={number} onPet={() => void} label?={string} />`: a canvas, `aria-label` describing what he is doing ("Sprocket wiggles happily"), tap/click/Enter to pet (calls onPet and plays the pet pose then returns to the mood), sized by `size` in CSS px, crisp on phones. Also export `SprocketEventArt` (a small framed scene for the three Sprocket events: blueprint sniffing, stuck behind the pipes, asleep on a warm boiler) taking `eventId`.
+4. **Ending** (`src/ui/Ending.tsx`): `<Ending stats={...} onDone={() => void} />`: a short sequence (skippable, about 30 to 45 s): the Clockmaker's hands stop; one line of his, the inventor's last note (two or three sentences, warm and a little sad); dawn light through the Spire's clock face; Sprocket runs up the final stair, then the scene closes on him asleep in the sun on the Workshop doorstep; then credits (Clockwork Spire, "Built by Claude for Mikhail", "Sprocket as himself", made with code: art and sound synthesized in the browser, thanks for playing). A soft music cue built from the synth (a simple music box melody). Stats line: runs, total turns, biggest turn.
+5. **Tests:** `tests/ui/sprocket.test.ts` (every pose draws without error on a fake 2D context; drawSprocket is deterministic for a given t). `e2e/sprocket.spec.ts`: render the component in each mood via a test route or the Workshop once merged (skip if the Workshop isn't there yet), take screenshots at 1280x800 and 667x375, check no console errors; Ending plays and reaches credits; skip works.
+
+## Assumptions and decisions
+- W6 is judged by eye (critic): Sprocket must read as a corgi at 64 px tall on a phone. Make the silhouette do the work: ears, low long body, short legs, round fluffy rear.
+- No image, font or audio files (test A1). American English; no em dashes. Text short and warm.
+- Own git worktree (path in the launch message). Don't commit. Never stash, checkout, reset or restore. e2e with `PW_PORT=5392`; dev server on 5393, stopped by PID. If you need a temporary page to view the dog, add it under a dev-only route that is removed before you hand back.
+
+## Done when
+Unit tests green; screenshots of every pose at both sizes looked at closely (would a stranger say "corgi"?); the Ending runs. Report per template, with the pose list.

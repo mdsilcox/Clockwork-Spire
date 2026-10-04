@@ -1,0 +1,306 @@
+{
+ "seed": 1,
+ "runs": 300,
+ "winRate": 0.01,
+ "illegalCalls": 0,
+ "actReached": {
+  "act1": 170,
+  "act2": 105,
+  "act3": 25
+ },
+ "deathFloors": {
+  "Act 1 floor 05": 4,
+  "Act 1 floor 06": 12,
+  "Act 1 floor 08": 33,
+  "Act 1 floor 09": 22,
+  "Act 1 floor 10": 30,
+  "Act 1 floor 11": 18,
+  "Act 1 floor 13": 51,
+  "Act 2 floor 01": 6,
+  "Act 2 floor 02": 14,
+  "Act 2 floor 03": 14,
+  "Act 2 floor 04": 16,
+  "Act 2 floor 05": 12,
+  "Act 2 floor 06": 12,
+  "Act 2 floor 08": 9,
+  "Act 2 floor 09": 7,
+  "Act 2 floor 10": 5,
+  "Act 2 floor 11": 5,
+  "Act 2 floor 13": 5,
+  "Act 3 floor 01": 1,
+  "Act 3 floor 02": 7,
+  "Act 3 floor 03": 1,
+  "Act 3 floor 04": 3,
+  "Act 3 floor 05": 2,
+  "Act 3 floor 06": 1,
+  "Act 3 floor 08": 3,
+  "Act 3 floor 09": 1,
+  "Act 3 floor 10": 1,
+  "Act 3 floor 11": 1,
+  "Act 3 floor 13": 1
+ },
+ "avgHpAtBoss": [
+  34.06629834254144,
+  38.56666666666667,
+  38.75
+ ],
+ "avgTurns": 26.95,
+ "deaths": {
+  "foreman": 51,
+  "valve-crab": 33,
+  "brass-beetle": 29,
+  "steam-wraith": 27,
+  "tinpot-general": 21,
+  "cog-rat": 20,
+  "gearhound": 18,
+  "rust-mite": 18,
+  "oil-slick": 13,
+  "pressure-warden": 12,
+  "furnace-golem": 10,
+  "pipe-snake": 10,
+  "twin-pistons": 8,
+  "chime-moth": 6,
+  "boilermaker": 5,
+  "echo-sprite": 4,
+  "hour-knight": 4,
+  "orrery": 4,
+  "bell-ringer": 2,
+  "clockmaker": 1,
+  "pendulum-blade": 1
+ },
+ "impact": {
+  "alarm-clock": {
+   "tookOffers": 0,
+   "passedOffers": 10,
+   "impact": null
+  },
+  "anchor": {
+   "tookOffers": 173,
+   "passedOffers": 143,
+   "impact": 1.2498703684339965
+  },
+  "balance-wheel": {
+   "tookOffers": 165,
+   "passedOffers": 76,
+   "impact": 1.0190416996969693
+  },
+  "bell-hammer": {
+   "tookOffers": 38,
+   "passedOffers": 256,
+   "impact": 0.5767443349653573
+  },
+  "bevel": {
+   "tookOffers": 168,
+   "passedOffers": 100,
+   "impact": 0.6884696529582632
+  },
+  "boiler": {
+   "tookOffers": 36,
+   "passedOffers": 230,
+   "impact": 0.7499142551631842
+  },
+  "cam": {
+   "tookOffers": 40,
+   "passedOffers": 268,
+   "impact": 0.7727061731754753
+  },
+  "cam-follower": {
+   "tookOffers": 38,
+   "passedOffers": 260,
+   "impact": 1.3202294804094143
+  },
+  "chime": {
+   "tookOffers": 29,
+   "passedOffers": 298,
+   "impact": null
+  },
+  "chronometer": {
+   "tookOffers": 29,
+   "passedOffers": 8,
+   "impact": null
+  },
+  "coil": {
+   "tookOffers": 75,
+   "passedOffers": 208,
+   "impact": 0.9013318438380188
+  },
+  "condenser": {
+   "tookOffers": 2,
+   "passedOffers": 9,
+   "impact": null
+  },
+  "crown": {
+   "tookOffers": 175,
+   "passedOffers": 86,
+   "impact": 0.9119569541648979
+  },
+  "escapement": {
+   "tookOffers": 78,
+   "passedOffers": 226,
+   "impact": 1.2365742582022081
+  },
+  "firebox": {
+   "tookOffers": 63,
+   "passedOffers": 227,
+   "impact": 0.8627734538142761
+  },
+  "flywheel": {
+   "tookOffers": 18,
+   "passedOffers": 7,
+   "impact": null
+  },
+  "gong": {
+   "tookOffers": 8,
+   "passedOffers": 13,
+   "impact": null
+  },
+  "governor": {
+   "tookOffers": 14,
+   "passedOffers": 16,
+   "impact": null
+  },
+  "grandfather": {
+   "tookOffers": 26,
+   "passedOffers": 7,
+   "impact": null
+  },
+  "hairspring": {
+   "tookOffers": 20,
+   "passedOffers": 9,
+   "impact": null
+  },
+  "idler": {
+   "tookOffers": 164,
+   "passedOffers": 108,
+   "impact": 0.8984582668793194
+  },
+  "kettle": {
+   "tookOffers": 68,
+   "passedOffers": 208,
+   "impact": 0.9687973244545082
+  },
+  "lamp": {
+   "tookOffers": 8,
+   "passedOffers": 16,
+   "impact": null
+  },
+  "leaf": {
+   "tookOffers": 84,
+   "passedOffers": 232,
+   "impact": 1.4345058217613804
+  },
+  "lever": {
+   "tookOffers": 79,
+   "passedOffers": 195,
+   "impact": 0.7232431579777585
+  },
+  "metronome": {
+   "tookOffers": 156,
+   "passedOffers": 132,
+   "impact": 1.0937668520097403
+  },
+  "oil-can": {
+   "tookOffers": 22,
+   "passedOffers": 242,
+   "impact": null
+  },
+  "pendulum": {
+   "tookOffers": 202,
+   "passedOffers": 87,
+   "impact": 0.755088160044562
+  },
+  "piston": {
+   "tookOffers": 32,
+   "passedOffers": 237,
+   "impact": 0.9786121071817968
+  },
+  "planetary": {
+   "tookOffers": 14,
+   "passedOffers": 4,
+   "impact": null
+  },
+  "ratchet": {
+   "tookOffers": 3,
+   "passedOffers": 9,
+   "impact": null
+  },
+  "recoil": {
+   "tookOffers": 4,
+   "passedOffers": 8,
+   "impact": null
+  },
+  "safety-valve": {
+   "tookOffers": 30,
+   "passedOffers": 260,
+   "impact": 0.7870397958890897
+  },
+  "sprocket-wheel": {
+   "tookOffers": 14,
+   "passedOffers": 6,
+   "impact": null
+  },
+  "spur": {
+   "tookOffers": 92,
+   "passedOffers": 183,
+   "impact": 1.0004369246530969
+  },
+  "steam-hammer": {
+   "tookOffers": 10,
+   "passedOffers": 21,
+   "impact": null
+  },
+  "tappet": {
+   "tookOffers": 80,
+   "passedOffers": 162,
+   "impact": 0.8721285703408865
+  },
+  "toggle": {
+   "tookOffers": 48,
+   "passedOffers": 278,
+   "impact": 0.8510101894493933
+  },
+  "torsion": {
+   "tookOffers": 102,
+   "passedOffers": 163,
+   "impact": 0.8122693209867402
+  },
+  "trap": {
+   "tookOffers": 113,
+   "passedOffers": 164,
+   "impact": 0.8156858259502249
+  },
+  "trip-hammer": {
+   "tookOffers": 47,
+   "passedOffers": 220,
+   "impact": 0.9000674435362251
+  },
+  "triple-cam": {
+   "tookOffers": 77,
+   "passedOffers": 199,
+   "impact": 0.6699928977272728
+  },
+  "tuning-fork": {
+   "tookOffers": 0,
+   "passedOffers": 10,
+   "impact": null
+  },
+  "verge": {
+   "tookOffers": 6,
+   "passedOffers": 1,
+   "impact": null
+  },
+  "volute": {
+   "tookOffers": 14,
+   "passedOffers": 21,
+   "impact": null
+  },
+  "whistle": {
+   "tookOffers": 40,
+   "passedOffers": 261,
+   "impact": 1.2531622262158704
+  }
+ },
+ "medianImpact": 0.8984582668793194,
+ "maxImpact": 1.4345058217613804,
+ "flagged": []
+}

@@ -21,7 +21,7 @@ import {
 } from '../core/run';
 import { initStreams, next } from '../core/rng';
 import type { RngState } from '../core/rng';
-import type { MapNode, RunState } from '../core/types';
+import type { Family, MapNode, PartInstance, RunState } from '../core/types';
 
 export const EXPLORE = 0.2;
 const RARITY_BASE = { common: 1, uncommon: 2, rare: 3 } as const;
@@ -75,11 +75,11 @@ function starterIds(run: RunState): Set<string> {
 }
 
 /** The weakest starter-type part in the bin (an Escapement or Spur first), or null. */
-function weakestStarter(run: RunState, m: BotMemory): number | null {
+function weakestStarter(run: RunState, m: BotMemory, pool: PartInstance[] = run.bin): number | null {
   const starters = starterIds(run);
   let best: number | null = null;
   let bestV = Infinity;
-  for (const p of run.bin) {
+  for (const p of pool) {
     if (!starters.has(p.defId)) continue;
     const pref = p.defId === 'escapement' || p.defId === 'spur' ? -0.5 : 0;
     const v = keepValue(run, p, m) + pref;
@@ -91,10 +91,10 @@ function weakestStarter(run: RunState, m: BotMemory): number | null {
   return best;
 }
 
-function weakestAny(run: RunState, m: BotMemory): number | null {
+function weakestAny(run: RunState, m: BotMemory, pool: PartInstance[] = run.bin): number | null {
   let best: number | null = null;
   let bestV = Infinity;
-  for (const p of run.bin) {
+  for (const p of pool) {
     const v = keepValue(run, p, m);
     if (v < bestV) {
       bestV = v;
@@ -104,10 +104,10 @@ function weakestAny(run: RunState, m: BotMemory): number | null {
   return best;
 }
 
-function mostFired(run: RunState, m: BotMemory, plusOk: boolean): number | null {
+function mostFired(_run: RunState, m: BotMemory, plusOk: boolean, pool: PartInstance[] = _run.bin): number | null {
   let best: number | null = null;
   let bestF = -1;
-  for (const p of run.bin) {
+  for (const p of pool) {
     if (p.plus && !plusOk) continue;
     const f = m.fired[p.defId] ?? 0;
     if (f > bestF) {
@@ -225,7 +225,11 @@ function eventChoice(run: RunState, eventId: string): number {
     const c = def.choices[i];
     return !!c && (!c.available || c.available(run));
   };
-  const pref = EVENT_PREF[eventId];
+  let pref = EVENT_PREF[eventId];
+  const low = run.hp / run.maxHp < 0.5;
+  if (low && (eventId === 'sprocket-nap' || eventId === 'steam-bath' || eventId === 'teacup')) pref = 0;
+  if (eventId === 'oil-merchant' && run.hp / run.maxHp < 0.6 && run.cogs >= 30) pref = 0;
+  if (eventId === 'automaton' && run.hp / run.maxHp >= 0.6) pref = 0;
   if (pref !== undefined && ok(pref) && !(HP_LOSS.test(def.choices[pref].detail) && run.hp / run.maxHp < 0.5)) return pref;
   for (let i = 0; i < def.choices.length; i++) if (ok(i) && !HP_LOSS.test(def.choices[i].detail)) return i;
   for (let i = 0; i < def.choices.length; i++) if (ok(i)) return i;
@@ -236,11 +240,14 @@ export function doEvent(run: RunState, m: BotMemory): void {
   const p = run.pending;
   if (!p || p.kind !== 'event') return;
   if (p.needsPart) {
+    const filter: Family | undefined = p.partFilter;
+    let pool = run.bin.filter((x) => (!filter || PARTS[x.defId]?.family === filter) && (p.needsPart !== 'upgrade' || !x.plus));
+    if (pool.length === 0) pool = run.bin;
     let uid: number | null = null;
-    if (p.needsPart === 'upgrade') uid = mostFired(run, m, false);
-    else if (p.needsPart === 'duplicate') uid = mostFired(run, m, true);
-    else uid = weakestStarter(run, m) ?? weakestAny(run, m);
-    if (uid === null) uid = run.bin[0]?.uid ?? null;
+    if (p.needsPart === 'upgrade') uid = mostFired(run, m, false, pool);
+    else if (p.needsPart === 'duplicate') uid = mostFired(run, m, true, pool);
+    else uid = weakestStarter(run, m, pool) ?? weakestAny(run, m, pool);
+    if (uid === null) uid = pool[0]?.uid ?? null;
     if (uid !== null) check(m, 'eventPickPart', eventPickPart(run, uid));
     if (run.pending && run.pending.kind === 'event' && run.pending.needsPart) return; // caller guards against loops
   } else if (p.result === undefined) {
