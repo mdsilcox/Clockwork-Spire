@@ -6,15 +6,19 @@ import { cell as cellIndex } from '../core/board';
 import { ENEMIES } from '../core/content/enemies';
 import { PARTS } from '../core/content/parts';
 import { GLOSSARY } from '../core/content/glossary';
-import type { CombatState, GameEvent, PartInstance, TurnPreview, TurnResult } from '../core/types';
+import type { CombatState, GameEvent, PartInstance, RunState, TurnPreview, TurnResult } from '../core/types';
+import * as core from '../core/run';
+import { generateActMap } from '../core/map';
+import { partName } from '../core/content/parts';
+import { enemyDef } from '../core/content/enemies';
 import type { Speed, Stage } from '../render/stage';
 import type { StageView } from '../render/replay';
 import * as audio from '../audio/synth';
 import { intentRows } from './intents';
-import { loadPractice, savePractice } from './save';
+import { clearRun, loadPractice, loadRun, savePractice, saveRun } from './save';
 import { markTutorialDone, tutorialDone } from './prefs';
 
-export type Screen = 'loading' | 'title' | 'combat' | 'practice';
+export type Screen = 'loading' | 'title' | 'combat' | 'practice' | 'run';
 
 /** Tinker starting bin (docs/content.md) plus Cam, Boiler, Piston and Pendulum, so the practice fight has real choices. */
 const PRACTICE_BIN = ['spur', 'spur', 'spur', 'escapement', 'escapement', 'escapement', 'idler', 'coil', 'cam', 'boiler', 'piston', 'pendulum'];
@@ -171,6 +175,11 @@ function onEvent(e: GameEvent, sp: Speed): void {
     else audio.defeat();
     return;
   }
+  if (e.kind === 'phase') showBanner(e.note ?? 'He changes.', 'phase');
+  else if (e.kind === 'rewind') {
+    const inst = e.uid !== undefined ? replaying.value?.parts[e.uid] : undefined;
+    showBanner(inst ? `The Clockmaker rewinds your ${partName(inst.defId, inst.plus)}.` : 'The Clockmaker rewinds a part.', 'rewind');
+  }
   if (sp === 'skip') return;
   if (e.kind === 'pulse') audio.tick(e.step);
   else if (e.kind === 'release') audio.chime();
@@ -182,8 +191,178 @@ function publish(): void {
 }
 
 function persist(): void {
+  if (liveRun && screen.value === 'run') {
+    void saveRun(liveRun);
+    return;
+  }
   if (live && !tutorial.value) void savePractice(live);
 }
+
+// ---------- the run ----------
+
+/** A copy of the run for rendering. */
+export const runView = signal<RunState | null>(null);
+/** Bumps whenever a new node screen opens, so the UI can drop stale tooltips and remount. */
+export const nodeKey = signal(0);
+/** A caption over the stage: a boss phase line or a Rewind. */
+export const banner = signal<{ text: string; kind: 'phase' | 'rewind'; n: number } | null>(null);
+/** The boss intro card, shown before the first turn of a boss fight. */
+export const bossIntro = signal<{ name: string; act: number; line: string } | null>(null);
+
+let liveRun: RunState | null = null;
+let practiceStash: CombatState | null = null;
+let bannerTimer = 0;
+let bannerN = 0;
+
+function showBanner(text: string, kind: 'phase' | 'rewind'): void {
+  window.clearTimeout(bannerTimer);
+  banner.value = { text, kind, n: ++bannerN };
+  bannerTimer = window.setTimeout(() => (banner.value = null), 3200);
+}
+
+export function hasRun(): boolean {
+  return !!liveRun;
+}
+
+export function runFinished(): boolean {
+  return !!liveRun && (liveRun.phase === 'victory' || liveRun.phase === 'defeat');
+}
+
+function clone<T>(x: T): T {
+  return JSON.parse(JSON.stringify(x)) as T;
+}
+
+const BOSS_LINES: Record<string, string> = {
+  foreman: 'He has counted every cog in the Gearworks. He wants yours.',
+  boilermaker: 'Steam rolls off her in waves. Mind the gauge.',
+  clockmaker: 'He remembers your last turn. He will take it back.',
+};
+
+function maybeBossIntro(): void {
+  const c = liveRun?.combat;
+  if (!liveRun || liveRun.phase !== 'combat' || !c || c.turn > 1) return;
+  const boss = c.enemies.find((e) => {
+    try {
+      return enemyDef(e.defId).tier === 'boss';
+    } catch {
+      return false;
+    }
+  });
+  if (!boss) return;
+  const def = enemyDef(boss.defId);
+  bossIntro.value = { name: def.name, act: liveRun.act, line: BOSS_LINES[def.id] ?? 'The way up is blocked.' };
+}
+
+/** After any change to the run: show it, keep the combat in step, and save. */
+function afterRun(newScreen = false): void {
+  if (!liveRun) return;
+  const wasCombat = live !== null && live === liveRun.combat;
+  live = liveRun.phase === 'combat' ? liveRun.combat : null;
+  runView.value = clone(liveRun);
+  publish();
+  if (newScreen || (!wasCombat && live)) {
+    resetView();
+    banner.value = null;
+    nodeKey.value += 1;
+  }
+  if (newScreen && live) maybeBossIntro();
+  screen.value = 'run';
+  void saveRun(liveRun);
+}
+
+function runAction<T>(fn: (r: RunState) => T): T | undefined {
+  if (!liveRun || isBusy()) return undefined;
+  const before = `${liveRun.phase}|${liveRun.nodeId}|${liveRun.act}`;
+  const out = fn(liveRun);
+  afterRun(`${liveRun.phase}|${liveRun.nodeId}|${liveRun.act}` !== before);
+  return out;
+}
+
+export function newRun(seed?: number): void {
+  if (!liveRun) practiceStash = live;
+  if (stage?.isPlaying()) stage.setSpeed('skip');
+  endTutorial(true);
+  liveRun = core.newRun(core.defaultRunConfig(seed ?? clockSeed(), 'tinker'));
+  bossIntro.value = null;
+  afterRun(true);
+}
+
+export function continueRun(): void {
+  if (!liveRun) return;
+  if (!(live && live === liveRun.combat)) practiceStash = practiceStash ?? live;
+  afterRun(true);
+}
+
+/** Leave the run screens for the title; the run stays saved. */
+export function runToTitle(): void {
+  if (stage?.isPlaying()) stage.setSpeed('skip');
+  live = practiceStash;
+  publish();
+  screen.value = 'title';
+}
+
+/** Throw the run away (after the victory or defeat screen, or an abandoned climb). */
+export function dropRun(abandon = false): void {
+  if (liveRun && abandon) core.abandonRun(liveRun);
+  liveRun = null;
+  runView.value = null;
+  bossIntro.value = null;
+  void clearRun();
+  live = practiceStash;
+  practiceStash = null;
+  publish();
+  screen.value = 'title';
+}
+
+export const goNode = (id: string): boolean => runAction((r) => core.enterNode(r, id)) ?? false;
+export const rewardPart = (i: number | null): boolean => runAction((r) => core.takeRewardPart(r, i)) ?? false;
+export const rewardTrinket = (i: number | null): boolean => runAction((r) => core.takeRewardTrinket(r, i)) ?? false;
+export const chooseEvent = (i: number): string | null => runAction((r) => core.chooseEvent(r, i)) ?? null;
+export const pickEventPart = (uid: number): boolean => runAction((r) => core.eventPickPart(r, uid)) ?? false;
+export const buy = (i: number): boolean => runAction((r) => core.shopBuy(r, i)) ?? false;
+export const shopRemove = (uid: number): boolean => runAction((r) => core.shopRemove(r, uid)) ?? false;
+export const forge = (kind: 'upgrade' | 'remove', uid: number): boolean => runAction((r) => (kind === 'upgrade' ? core.forgeUpgrade(r, uid) : core.forgeRemove(r, uid))) ?? false;
+export const oil = (kind: 'repair' | 'polish'): boolean => runAction((r) => (kind === 'repair' ? core.oilRepair(r) : core.oilPolish(r))) ?? false;
+export const leave = (): boolean => runAction((r) => core.leaveNode(r)) ?? false;
+export const availableNow = (): string[] => (liveRun ? core.availableNodes(liveRun) : []);
+export const brassNow = (): number => (liveRun ? core.brassFor(liveRun) : 0);
+
+/** Test cheat: jump to a floor of an act. With `type`, a reachable node of that type is made available there. */
+function cheatGoto(act: 1 | 2 | 3, floor: number, type?: string): void {
+  if (!liveRun) return;
+  const r = liveRun;
+  if (r.act !== act) {
+    r.map = generateActMap(r.rng as never, act);
+    r.act = act;
+  }
+  r.combat = null;
+  r.pending = null;
+  r.phase = 'map';
+  r.floor = floor - 1;
+  const prev = r.map.nodes.filter((n) => n.floor === floor - 1);
+  const here = r.map.nodes.filter((n) => n.floor === floor);
+  for (const n of r.map.nodes) n.visited = n.floor < floor;
+  if (floor === 1) {
+    r.nodeId = null;
+    if (type && here[0]) here[0].type = type as never;
+    return;
+  }
+  const from = prev[0];
+  const target = (type ? here.find((n) => n.type === type) : undefined) ?? here[0];
+  if (type && target && target.type !== type) target.type = type as never;
+  if (from && target) {
+    from.next = [target.id];
+    r.nodeId = from.id;
+  }
+}
+
+export async function cheatWinFight(): Promise<void> {
+  if (!live || !liveRun || liveRun.phase !== 'combat') return;
+  for (const e of live.enemies) e.hp = 0;
+  publish();
+  await run();
+}
+
 
 export function isBusy(): boolean {
   return replaying.value !== null;
@@ -398,6 +577,12 @@ export async function run(): Promise<TurnResult | null> {
   publish();
   persist();
   advanceTutorial(true);
+  if (liveRun && live === liveRun.combat) {
+    // a run fight: let the last beat land, then settle (rewards, or defeat)
+    if (live.outcome !== 'ongoing' && speed.value !== 'skip') await new Promise((r) => setTimeout(r, 650));
+    core.settleCombat(liveRun);
+    afterRun(liveRun.phase !== 'combat');
+  }
   return result;
 }
 
@@ -412,6 +597,10 @@ export function cycleSpeed(): void {
 
 export function goTitle(): void {
   if (stage?.isPlaying()) stage.setSpeed('skip');
+  if (liveRun && screen.value === 'run') {
+    runToTitle();
+    return;
+  }
   if (tutorial.value) {
     endTutorial();
     return;
@@ -428,11 +617,28 @@ export function resume(): void {
 }
 
 export function hasOngoingFight(): boolean {
-  return !!live && live.outcome === 'ongoing';
+  return !!live && live.outcome === 'ongoing' && !(liveRun && live === liveRun.combat);
 }
 
 export async function init(): Promise<void> {
+  const savedRun = await loadRun();
+  if (screen.value !== 'loading') return;
+  if (savedRun) {
+    liveRun = savedRun;
+    practiceStash = null;
+    try {
+      // a reload during the beat after the last blow: settle it now
+      if (liveRun.phase === 'combat' && liveRun.combat && liveRun.combat.outcome !== 'ongoing') core.settleCombat(liveRun);
+      afterRun(true);
+      bossIntro.value = null;
+      return;
+    } catch {
+      liveRun = null;
+    }
+  }
+  if (screen.value !== 'loading') return; // something (a test hook) started a fight while the saves loaded
   const saved = await loadPractice();
+  if (screen.value !== 'loading') return;
   if (saved) {
     live = saved;
     publish();
@@ -456,6 +662,49 @@ export function installDebug(): void {
     setSpeed: (s: Speed): void => setSpeed(s),
     preview: (): TurnPreview | null => preview(),
     busy: (): boolean => isBusy(),
+    /** Debug: replay a made-up list of events on the current state (e.g. a Rewind), then leave the state as it was. */
+    debugPlay: async (events: GameEvent[]): Promise<void> => {
+      if (!live || !stage) return;
+      const before = cloneCombat(live);
+      replaying.value = before;
+      view.value = null;
+      await stage.play(events, before, cloneCombat(live));
+      replaying.value = null;
+      view.value = null;
+      publish();
+    },
+    /** B3 run hooks. `run()` stays the combat Run; the RunState is `runState()`. */
+    newRun: (seed?: number): void => newRun(seed),
+    runState: (): RunState | null => (liveRun ? clone(liveRun) : null),
+    go: (id: string): boolean => goNode(id),
+    nodes: (): string[] => availableNow(),
+    reward: (i: number | null): boolean => rewardPart(i),
+    rewardTrinket: (i: number | null): boolean => rewardTrinket(i),
+    choose: (i: number): string | null => chooseEvent(i),
+    pickPart: (uid: number): boolean => pickEventPart(uid),
+    buy: (i: number): boolean => buy(i),
+    remove: (uid: number): boolean => shopRemove(uid),
+    forge: (kind: 'upgrade' | 'remove', uid: number): boolean => forge(kind, uid),
+    oil: (kind: 'repair' | 'polish'): boolean => oil(kind),
+    leave: (): boolean => leave(),
+    cheat: {
+      winFight: (): Promise<void> => cheatWinFight(),
+      setHp: (n: number): void => {
+        if (!liveRun) return;
+        liveRun.hp = n;
+        if (liveRun.combat) liveRun.combat.playerHp = n;
+        afterRun(false);
+      },
+      gotoFloor: (act: 1 | 2 | 3, floor: number, type?: string): void => {
+        cheatGoto(act, floor, type);
+        afterRun(true);
+      },
+      setCogs: (n: number): void => {
+        if (!liveRun) return;
+        liveRun.cogs = n;
+        afterRun(false);
+      },
+    },
     /** The current tutorial step (1 to 8), or 0 when it is not running. */
     tutorial: (): number => tutorialStep(),
     startTutorial: (): void => startTutorial(),

@@ -96,7 +96,7 @@ export function timeline(events: GameEvent[]): Timed {
       times.push(base[e.tick] + e.step * STEP);
     } else {
       times.push(cursor);
-      cursor += e.kind === 'enemyAction' ? 0.55 : e.kind === 'draw' ? 0.06 : e.kind === 'playerHit' ? 0.3 : 0.12;
+      cursor += e.kind === 'enemyAction' ? 0.55 : e.kind === 'rewind' ? 0.32 : e.kind === 'phase' ? 0.7 : e.kind === 'draw' ? 0.06 : e.kind === 'playerHit' ? 0.3 : 0.12;
     }
   }
   return { events, times, duration: cursor + 0.35 };

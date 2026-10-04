@@ -79,6 +79,11 @@ export class Stage {
   private view: StageView | null = null;
   private vis: Vis[] = Array.from({ length: CELLS }, newVis);
   private liftT: number[] = new Array<number>(CELLS).fill(0);
+  /** Cells whose part the Clockmaker has rewound this replay: hidden, and replaced by a flying ghost. */
+  private gone: boolean[] = new Array<boolean>(CELLS).fill(false);
+  private ghosts: { cell: number; defId: string; plus: boolean; x: number; y: number; t0: number }[] = [];
+  /** Start time of the clock-hand sweep across the board (negative when idle). */
+  private sweepT0 = -10;
   private looks: EnemyLook[] = [];
   private pulses: Pulse[] = Array.from({ length: PULSES }, () => ({ on: false, from: 0, to: 0, t0: 0 }));
   private floats: Float[] = Array.from({ length: FLOATS }, () => ({ on: false, x: 0, y: 0, text: '', color: '', t0: 0, big: false }));
@@ -169,6 +174,7 @@ export class Stage {
   /** Idle sync: show a state as it is. */
   setState(c: CombatState): void {
     this.state = c;
+    this.gone.fill(false);
     this.view = viewFromState(c);
     c.board.forEach((p, i) => {
       const v = this.vis[i];
@@ -613,9 +619,32 @@ export class Stage {
         break;
       }
       case 'rewind': {
-        if (v) {
-          this.ring(cx, cy, cs * 0.7, '169, 221, 210', 0.6);
-          for (let i = 0; i < this.n(6); i++) this.spawn(MOTE, cx + (rnd() - 0.5) * cs * 0.5, cy + cs * 0.3, 0, -70 - rnd() * 40, 0.6, cs * 0.04, '#a9ddd2');
+        // a clock hand sweeps the board backwards, the lifted part spins backwards and flies to the draw pile
+        if (this.now - this.sweepT0 > 1.4) {
+          this.sweepT0 = this.now;
+          this.flash = 0.35;
+          this.flashCol = '169, 221, 210';
+        }
+        if (v && e.cell !== undefined) {
+          const p = this.state?.board[e.cell];
+          if (p && !this.gone[e.cell]) {
+            this.ghosts.push({ cell: e.cell, defId: p.defId, plus: p.plus, x: cx, y: cy, t0: this.now });
+            this.gone[e.cell] = true;
+          }
+          this.ring(cx, cy, cs * 0.7, '169, 221, 210', 0.7);
+          this.ring(cx, cy, cs * 0.45, '255, 255, 255', 0.45);
+          for (let i = 0; i < this.n(8); i++) this.spawn(MOTE, cx + (rnd() - 0.5) * cs * 0.6, cy + cs * 0.3, 0, -70 - rnd() * 40, 0.7, cs * 0.04, '#a9ddd2');
+        }
+        if (snd) audio.rewindTick();
+        break;
+      }
+      case 'enemyHeal': {
+        if (ti >= 0) {
+          const m = this.n(10);
+          for (let i = 0; i < m; i++) this.spawn(MOTE, ex + (rnd() - 0.5) * es * 0.8, ey + es * 0.2, (rnd() - 0.5) * 10, -30 - rnd() * 24, 1 + rnd() * 0.4, cs * 0.045, '#9ad27a');
+          this.spawn(PLUS, ex, ey - es * 0.1, 0, -30, 1.1, cs * 0.12, '#9ad27a');
+          this.addFloat(ex, ey - es * 0.35, `+${e.amount ?? 0}`, COLOR.good, true);
+          if (snd) audio.heal();
         }
         break;
       }
@@ -894,7 +923,7 @@ export class Stage {
     drawMainspring(ctx, this.cx[MAINSPRING], this.cy[MAINSPRING], cs * 0.46, this.vis[MAINSPRING], now);
     for (let i = 0; i < CELLS; i++) {
       const p = s.board[i];
-      if (!p) continue;
+      if (!p || this.gone[i]) continue;
       const v = this.vis[i];
       const lift = v.lift;
       const x = this.cx[i];
@@ -907,6 +936,8 @@ export class Stage {
       ctx.restore();
       if (v.echo > 0.02) drawEcho(ctx, p.defId, p.plus, x, y, cs * 0.46, v, now);
     }
+
+    this.drawRewind(ctx, now);
 
     // sabotage targets: a pulsing red ring
     for (let i = 0; i < s.enemies.length; i++) {
@@ -1030,6 +1061,63 @@ export class Stage {
     }
     ctx.stroke();
     ctx.restore();
+  }
+
+  /** The Rewind: a teal clock hand sweeping the board backwards and the lifted parts flying to the draw pile. */
+  private drawRewind(ctx: CanvasRenderingContext2D, now: number): void {
+    const cs = this.layout.cell;
+    const b = this.layout.board;
+    const k = (now - this.sweepT0) / 1.1;
+    if (k >= 0 && k < 1) {
+      const cx = b.x + b.w / 2;
+      const cy = b.y + b.h / 2;
+      const r = Math.hypot(b.w, b.h) * 0.44;
+      const a = -Math.PI / 2 - k * TAU; // counter-clockwise: time running backwards
+      ctx.save();
+      ctx.globalAlpha = 0.85 * (1 - k * k);
+      ctx.strokeStyle = '#a9ddd2';
+      ctx.lineWidth = Math.max(2, cs * 0.05);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, TAU);
+      ctx.globalAlpha *= 0.4;
+      ctx.stroke();
+      ctx.globalAlpha = 0.85 * (1 - k * k);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      ctx.stroke();
+      // a fading wedge behind the hand
+      ctx.globalAlpha = 0.18 * (1 - k);
+      ctx.fillStyle = '#a9ddd2';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r, a, a + 0.9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    // flying parts
+    const px = b.x + cs * 0.3;
+    const py = this.layout.h + cs * 0.4; // the draw pile is just below the board, in the tray
+    for (let i = this.ghosts.length - 1; i >= 0; i--) {
+      const g = this.ghosts[i];
+      const t = (now - g.t0) / 0.95;
+      if (t >= 1) {
+        this.ghosts.splice(i, 1);
+        continue;
+      }
+      const e = t * t * (3 - 2 * t);
+      const x = g.x + (px - g.x) * e;
+      const y = g.y + (py - g.y) * e - Math.sin(e * Math.PI) * cs * 0.9;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(-e * TAU * 2); // spins backwards
+      ctx.globalAlpha = 1 - t * t * t;
+      const sc = 1 - e * 0.55;
+      drawPart(ctx, g.defId, g.plus, 0, 0, cs * 0.46 * sc, this.vis[g.cell], now);
+      ctx.restore();
+    }
   }
 
   private drawParticles(ctx: CanvasRenderingContext2D, dt: number): void {

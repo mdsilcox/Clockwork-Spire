@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { attachStage, combat, cycleSpeed, goTitle, lastResult, newFight, place, replaying, run, speed, swap, target, tutorial, tutorialAck, view } from '../app/controller';
+import { attachStage, banner, bossIntro, combat, cycleSpeed, goTitle, lastResult, newFight, place, replaying, run, runView, screen, speed, swap, target, tutorial, tutorialAck, view } from '../app/controller';
 import { colorBlind, glossaryOpen, openGlossary, setColorBlind } from '../app/prefs';
 import { intentTargets } from '../app/intents';
 import { glossaryFor } from '../core/content/glossary';
@@ -17,6 +17,7 @@ import { viewFromState } from '../render/replay';
 import { Stage } from '../render/stage';
 import { INTENT_NAME, IntentIcon, STATUS_NAME, StatusIcon } from './icons';
 import { Coach, tutorialTargets } from './Coach';
+import { ACT_TITLE, TrinketBar } from './Map';
 import { Tooltip } from './Tooltip';
 import type { TipInfo } from './Tooltip';
 
@@ -64,6 +65,9 @@ export function CombatScreen() {
   const [hoverEnemy, setHoverEnemy] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const tut = tutorial.value;
+  const runNow = screen.value === 'run' ? runView.value : null;
+  const intro = bossIntro.value;
+  const ban = banner.value;
   const gloss = glossaryOpen.value !== null;
   const cb = colorBlind.value;
   const [toast, setToast] = useState<string>('');
@@ -456,6 +460,14 @@ export function CombatScreen() {
         </div>
       </header>
       <Coach />
+      {runNow && (
+        <div class="runstrip" data-testid="runstrip">
+          <b data-testid="run-where">
+            {ACT_TITLE[runNow.act]} <span class="dot">|</span> Floor {runNow.floor}
+          </b>
+          <TrinketBar run={runNow} />
+        </div>
+      )}
 
       <section class="stage" ref={wrapRef} data-testid="stage">
         <canvas ref={canvasRef} class="canvas" />
@@ -628,6 +640,11 @@ export function CombatScreen() {
             </div>
           </>
         )}
+        {ban && (
+          <div class={`phasebanner ${ban.kind}`} key={ban.n} data-testid="phase-banner" role="status">
+            {ban.text}
+          </div>
+        )}
         {recap && !over && (
           <div class="recap" data-testid="turn-summary">
             {recap}
@@ -638,7 +655,7 @@ export function CombatScreen() {
             {toast}
           </div>
         )}
-        {over && !busy && (
+        {over && !busy && !runNow && (
           <div class="result" data-testid="result" role="dialog" aria-label={c.outcome === 'won' ? 'Victory' : 'Defeat'}>
             <div class="panel">
               <h2>{c.outcome === 'won' ? 'Victory' : 'Defeat'}</h2>
@@ -730,6 +747,18 @@ export function CombatScreen() {
           </div>
         </div>
       </footer>
+      {intro && (
+        <div class="bossintro" role="dialog" aria-label="Boss" data-testid="boss-intro">
+          <div class="introcard">
+            <p class="eyebrow">Act {intro.act} boss</p>
+            <h2>{intro.name}</h2>
+            <p>{intro.line}</p>
+            <button class="primary" data-testid="boss-intro-go" onClick={() => (bossIntro.value = null)}>
+              Face it
+            </button>
+          </div>
+        </div>
+      )}
       {tipInfo && !gloss && <Tooltip tip={tipInfo} onEnter={keepTip} onLeave={hideSoon} />}
       {ghost && c.hand[ghost.idx] !== undefined && (
         <div class="dragghost" style={{ left: `${ghost.x}px`, top: `${ghost.y}px` }}>
