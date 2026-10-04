@@ -54,12 +54,14 @@ describe('B2 machine', () => {
     expect(new Set(all.map((p) => p.family)).size).toBeGreaterThanOrEqual(6);
     for (const p of all) {
       expect(p.name.length, p.id).toBeGreaterThan(0);
-      expect(['common', 'uncommon', 'rare'], p.id).toContain(p.rarity);
+      expect(['common', 'uncommon', 'rare', 'masterwork', 'legendary'], p.id).toContain(p.rarity);
       expect(p.text.length, p.id).toBeGreaterThan(0);
       expect(p.textPlus.length, p.id).toBeGreaterThan(0);
       expect(p.textPlus, p.id).not.toBe(p.text);
     }
-    expect(all.filter((p) => p.locked).length).toBe(17);
+    // v1's 17, plus Sapper, Core Drill and Sunder (v2), plus the Masterwork stubs (all locked until B9)
+    expect(all.filter((p) => p.locked && p.rarity !== 'masterwork').length).toBe(20);
+    expect(all.filter((p) => p.rarity === 'masterwork').every((p) => p.locked)).toBe(true);
   });
 
   it('M12b: every part fires without error, base and upgraded, in a busy machine', () => {
@@ -80,26 +82,23 @@ describe('B2 machine', () => {
 });
 
 describe('B2 enemies', () => {
-  it('C4: 15 regular enemies, 6 elites and 3 bosses, each acting for 10 turns without error, all distinct', () => {
+  it('C4 (v2): 15 regulars and 6 elites are frames, 3 bosses stay v1 until B9, all distinct; fights are covered by EM1 and b7-machines', () => {
     const defs = Object.values(ENEMIES).filter((d) => !['dummy', 'tutorial-automaton'].includes(d.id) && !d.id.startsWith('test-'));
-    const tier = (t: string) => defs.filter((d) => d.tier === t && !(d as { summonOnly?: boolean }).summonOnly).length;
-    expect(tier('normal')).toBeGreaterThanOrEqual(15);
-    expect(tier('elite')).toBeGreaterThanOrEqual(6);
-    expect(tier('boss')).toBeGreaterThanOrEqual(3);
+    const tier = (t: string) => defs.filter((d) => d.tier === t && !(d as { summonOnly?: boolean }).summonOnly);
+    expect(tier('normal')).toHaveLength(15);
+    expect(tier('elite')).toHaveLength(6);
+    expect(tier('boss')).toHaveLength(3);
     const signatures = new Set<string>();
     for (const d of defs) {
-      const c = combatWith({ board: { B2: 'escapement', A1: 'spur', A3: 'escapement' }, enemies: [d.id], hp: 9999 });
-      const seq: string[] = [];
-      for (let t = 0; t < 10 && c.outcome === 'ongoing'; t++) {
-        for (const e of c.enemies) {
-          expect(e.intent.label.length, d.id).toBeGreaterThan(0);
-          expect(['attack', 'defend', 'buff', 'debuff', 'sabotage', 'charge', 'summon', 'special'], d.id).toContain(e.intent.kind);
-        }
-        const e0 = c.enemies[0];
-        seq.push(`${e0.intent.kind}:${e0.intent.amount ?? ''}:${e0.intent.hits ?? ''}:${e0.intent.sabotage ?? ''}`);
-        runTurn(c);
+      if (d.frame) {
+        expect(d.hp, d.id).toBe(d.frame.core);
+        expect(d.frame.bestiary.length, d.id).toBeGreaterThan(0);
+        expect(d.frame.coreAction.kind, d.id).toBe('attack');
+      } else {
+        expect(d.tier, `${d.id} is legacy only as a warden`).toBe('boss');
       }
-      signatures.add(`${d.hp}|${seq.join(',')}`);
+      const parts = d.frame?.parts.map((q) => `${q.id}:${q.hp}`).join(',') ?? 'legacy';
+      signatures.add(`${d.id}|${d.hp}|${parts}`);
     }
     expect(signatures.size).toBe(defs.length);
   });
