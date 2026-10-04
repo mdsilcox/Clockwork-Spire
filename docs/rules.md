@@ -150,8 +150,8 @@ Starting parts are in `docs/content.md`.
 ### 5.5 Sprocket
 Sprocket greets you every time you return. His reaction depends on the run:
 - **Celebration** (victory): spins, jumps, joyful barks, confetti of tiny gears.
-- **Happy wiggle** (a good climb: reached act 2 or beyond, or set a new best floor).
-- **Comforting nudge** (a bad run: died in act 1 without a new best): he trots over, leans on you, a soft "boof".
+- **Happy wiggle** (a good climb: reached act 2 or beyond, or set a new best floor of 8 or higher).
+- **Comforting nudge** (a bad run: died in act 1 without a new best of floor 8 or higher): he trots over, leans on you, a soft "boof".
 - **Sleepy** when you idle in the Workshop for a while.
 Petting him (tap) plays a happy bark and a wiggle. His Spire appearances are in events (see content).
 

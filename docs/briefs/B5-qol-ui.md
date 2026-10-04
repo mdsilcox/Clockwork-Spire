@@ -24,3 +24,7 @@ Settings, run history and statistics, a how-to-play page, music switching by scr
 
 ## Done when
 Unit and e2e green; screenshots of settings, history, how to play and the portrait card at both sizes looked at. Report per template.
+
+## From the B4 critic (must-fix in this lane)
+- Explain Brass income on the defeat and victory screens: a short breakdown (floors climbed, elites, bosses, victory, trinkets) using the run's stats, so a floor-9 loss paying 24 Brass makes sense.
+- (Done by the orchestrator: an early act 1 loss now greets with comfort; a "good climb" needs act 2 or a new best of floor 8+.)

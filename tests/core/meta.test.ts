@@ -71,3 +71,11 @@ describe('meta', () => {
     expect(STORY_NOTES.filter((n) => n.text.includes('Sprocket')).length).toBeGreaterThanOrEqual(2);
   });
 });
+
+import { sprocketMood as moodFor } from '../../src/core/meta';
+describe('Sprocket mood after an early loss (B4 critic)', () => {
+  it('comforts after a first run that dies early, even though it is a new best', () => {
+    const rec = { n: 1, seed: 1, chassis: 'tinker', result: 'loss' as const, act: 1, floor: 5, brassEarned: 16, blueprintsFound: [], partsAtEnd: [], trinkets: [], turns: 9, biggestTurn: 12, endedAt: '2026-10-04T12:00:00Z' };
+    expect(moodFor(rec, 0)).toBe('comfort');
+  });
+});

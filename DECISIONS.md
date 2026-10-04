@@ -47,3 +47,11 @@ Every choice the spec leaves open, with its reason. Newest last. The spec (`SPEC
 **D-016 Combat-level part report measures all 46 parts** by varying the starting set (three chassis or random commons) and including locked parts; the run pool still excludes locked parts until their blueprint is found.
 
 **D-017 Worktrees per lane, merged in dependency order** (core first), with a frozen review worktree per critic round; the Playwright port comes from PW_PORT so lanes run e2e side by side.
+
+## 2026-10-04 · B3 and B4
+
+**D-018 Rare parts all start locked.** Every rare is behind a blueprint, so early reward offers step down to uncommon; blueprints (elites, bosses, Sprocket's events) are what open rares. This makes meta-progression visible in the run pool.
+
+**D-019 The curve met the spec with the designed numbers.** 100 bot careers on the sensible path: no-meta win 1.0%, median first win run 9 (quartiles 7-12), offer-based part impact max 1.17 vs median 0.97 (balance/2026-10-04-careers-1.md). No constants changed in B4.
+
+**D-020 Sprocket's "good climb"** is act 2 or beyond, or a new best of floor 8 or higher; an early act 1 loss always gets the comforting nudge (B4 critic: a floor-5 first loss greeting "happy" felt wrong).

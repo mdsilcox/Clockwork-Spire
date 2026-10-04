@@ -83,7 +83,8 @@ export function runConfigFor(profile: Profile, seed: number, chassis: string): R
 export function sprocketMood(record: RunRecord, bestFloorBefore: number): SprocketMood {
   if (record.result === 'win') return 'celebrate';
   const abs = (record.act - 1) * 13 + record.floor;
-  if (record.act >= 2 || abs > bestFloorBefore) return 'happy';
+  // A good climb: act 2 or beyond, or a new best that got past the act 1 forge (floor 8+).
+  if (record.act >= 2 || (abs > bestFloorBefore && abs >= 8)) return 'happy';
   return 'comfort';
 }
 
