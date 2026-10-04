@@ -72,6 +72,7 @@ export interface CombatState {
   draw: number[];
   discard: number[];
   parts: Record<number, PartInstance>; // every part in this combat by uid
+  handSize: number; // the hand is refilled to this many parts each turn (ADDED in B1)
   placementsLeft: number;
   swapUsed: boolean;
   plating: number;
