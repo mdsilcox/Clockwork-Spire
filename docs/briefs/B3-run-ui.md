@@ -19,7 +19,8 @@ A player climbs the Spire: picks a chassis (only Tinker for now), sees a beautif
 8. **E2E:** `e2e/run.spec.ts` at both sizes: start a run, tap a floor 1 node, win via cheat, take a reward, reach a forge/oil/shop/event node through `cheat.gotoFloor` and use each screen through the real UI, reload mid-combat and see the same hand, board and intents (R8), and a map tap test (R9). `e2e/victory.spec.ts`: cheat through to the Clockmaker, win, see the victory screen. No console errors, no sideways scroll.
 
 ## From the B2 critic
-(Filled in below by the orchestrator after the B2 verdict.)
+- Make the Rewind unmistakable (critic: "a visible rewind effect"): the lifted cells run their last animation backwards, a clock-hand sweep crosses the board, the parts fly back into the draw pile, and the Clockmaker's heal shows as a green number. The player should understand at a glance which combination he took and why.
+- Bosses must feel big: a boss intro card (name, act, one line) before the first turn, and a phase banner on each phase change.
 
 ## Assumptions and decisions
 - Until run-core merges, `src/core/run.ts` is stubs that throw: build against the signatures, and keep e2e specs that need a working run skipping when `run.ts` throws (`test.skip`); the orchestrator reruns everything after the merge.
