@@ -6,9 +6,9 @@ import type { CombatState, PlacedPart } from '../types';
 
 const v = (p: PlacedPart, base: number, plus: number): number => (p.plus ? plus : base);
 
-/** B3 check point: Spare Spring lowers every spring threshold by 1 (minimum 1). No trinket is implemented yet. */
-export function springThreshold(_c: CombatState, base: number): number {
-  return base;
+/** Spare Spring lowers every spring threshold by 1 (minimum 1). */
+export function springThreshold(c: CombatState, base: number): number {
+  return c.trinkets.includes('spare-spring') ? Math.max(1, base - 1) : base;
 }
 
 /** Placed parts next to `ctx.cell` (edges only). */

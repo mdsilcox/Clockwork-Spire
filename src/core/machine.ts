@@ -17,6 +17,11 @@ export const OVERPRESSURE_DAMAGE = 6;
 export const OVERPRESSURE_RESET = 10;
 const MAX_RELEASE_DEPTH = 4;
 
+export const hasTrinket = (c: CombatState, id: string): boolean => c.trinkets.includes(id);
+
+/** Pressure above this at the end of the turn overpressures (Pressure Gauge raises it to 25). */
+export const overpressureAbove = (c: CombatState): number => (hasTrinket(c, 'pressure-gauge') ? 25 : OVERPRESSURE_ABOVE);
+
 export function anyAlive(c: CombatState): boolean {
   return c.enemies.some((e) => e.hp > 0);
 }
@@ -74,9 +79,17 @@ export function runMachine(c: CombatState, events: GameEvent[]): TurnPreview {
   for (let tick = 1; tick <= c.ticksThisTurn && anyAlive(c); tick++) runTick(rt, tick);
 
   let overpressure = false;
-  if (anyAlive(c) && c.pressure > OVERPRESSURE_ABOVE) {
+  if (anyAlive(c) && c.pressure > overpressureAbove(c)) {
     overpressure = true;
     events.push({ kind: 'overpressure', tick: 0, step: 0, amount: OVERPRESSURE_DAMAGE });
+    if (hasTrinket(c, 'steam-locket')) {
+      for (let i = 0; i < c.enemies.length; i++) {
+        const e = c.enemies[i];
+        if (e.hp <= 0) continue;
+        const raw = (e.statuses.cracked ?? 0) > 0 ? 15 : 10;
+        acc.damage[i] = (acc.damage[i] ?? 0) + damageEnemy(c, i, raw, events, { tick: 0, step: 0 });
+      }
+    }
     damagePlayer(c, OVERPRESSURE_DAMAGE, events);
     c.pressure = OVERPRESSURE_RESET;
     events.push({ kind: 'pressure', tick: 0, step: 0, amount: c.pressure, note: 'set' });
@@ -136,6 +149,7 @@ function runTick(rt: Rt, tick: number): void {
     }
   };
   enqueue(MAINSPRING, neighbors(MAINSPRING), 1, 0, false);
+  if (queue.length > 0 && hasTrinket(c, 'copper-wire')) queue[0].boost = 1; // the first part the Mainspring powers
 
   for (let head = 0; head < queue.length; head++) {
     const q = queue[head];
@@ -148,6 +162,7 @@ function runTick(rt: Rt, tick: number): void {
       continue;
     }
 
+    const firstOfTurn = c.momentum === 0;
     p.firedThisTurn += 1;
     c.momentum += 1;
     events.push({ kind: 'power', tick, step: q.step, cell: q.cell, uid: p.uid, amount: c.momentum });
@@ -158,13 +173,14 @@ function runTick(rt: Rt, tick: number): void {
       acc.firing[q.cell] = (acc.firing[q.cell] ?? 0) + 1;
       const chargeBefore = p.charge;
       def.onFire(ctx, p);
+      if (p.defId === 'boiler' && hasTrinket(c, 'ember-coal')) ctx.addPressure(1);
       if (p.charge > chargeBefore) {
         events.push({ kind: 'charge', tick, step: q.step, cell: q.cell, uid: p.uid, amount: p.charge });
       }
       resolveReleases(rt, ctx.pending, q.cell, tick, q.step, 0);
     };
     resolve();
-    if (q.echo && anyAlive(c)) {
+    if ((q.echo || (firstOfTurn && hasTrinket(c, 'echo-chamber'))) && anyAlive(c)) {
       events.push({ kind: 'echo', tick, step: q.step, cell: q.cell, uid: p.uid });
       ctx.isEcho = true;
       resolve();
@@ -209,10 +225,12 @@ function resolveReleases(rt: Rt, pending: ReleaseInfo[], srcCell: number, tick: 
 function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart, boostIn: number, fedBy: number | null): Ctx {
   const { c, events, acc } = rt;
   const base = { tick, step, cell, uid: p.uid };
-  const contribute = (value: number): void => {
+  const contribute = (value: number, dmg = 0): void => {
     const cur = c.lastTurnContrib[p.uid];
-    if (cur) cur.value += value;
-    else c.lastTurnContrib[p.uid] = { value, fedBy };
+    if (cur) {
+      cur.value += value;
+      cur.dmg = (cur.dmg ?? 0) + dmg;
+    } else c.lastTurnContrib[p.uid] = { value, fedBy, dmg };
   };
 
   const hit = (idx: number, raw: number): void => {
@@ -221,8 +239,9 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
     if ((e.statuses.cracked ?? 0) > 0) dmg = Math.floor(dmg * 1.5);
     const lost = damageEnemy(c, idx, dmg, events, base);
     acc.damage[idx] = (acc.damage[idx] ?? 0) + lost;
-    contribute(dmg);
+    contribute(dmg, lost);
   };
+  const knuckles = (): number => (hasTrinket(c, 'brass-knuckles') && ctx.oncePerTurn('brass-knuckles') ? 4 : 0);
   const grit = (): number => c.playerStatuses.grit ?? 0;
 
   const ctx: Ctx = {
@@ -247,11 +266,11 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
     strike(amount) {
       const idx = liveTarget(c);
       if (idx < 0) return;
-      hit(idx, amount + ctx.boostIn + grit());
+      hit(idx, amount + ctx.boostIn + grit() + knuckles());
     },
     strikeAt(idx, amount) {
       if (!c.enemies[idx] || c.enemies[idx].hp <= 0) return;
-      hit(idx, amount + ctx.boostIn + grit());
+      hit(idx, amount + ctx.boostIn + grit() + knuckles());
     },
     sweep(amount) {
       for (let i = 0; i < c.enemies.length; i++) {
@@ -281,6 +300,12 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
       if (c.ticksThisTurn >= MAX_TICKS) return false;
       c.ticksThisTurn += 1;
       events.push({ kind: 'tickAdded', ...base, amount: c.ticksThisTurn });
+      if (hasTrinket(c, 'counterweight')) {
+        c.plating += 3; // Counterweight: Plate 3 whenever a part adds a tick
+        acc.plating += 3;
+        contribute(3);
+        events.push({ kind: 'plate', ...base, amount: 3, note: 'counterweight' });
+      }
       return true;
     },
     release() {
@@ -295,7 +320,9 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
     applyStatus(who, status, amount) {
       const targets =
         who === 'all' ? c.enemies.map((_, i) => i).filter((i) => c.enemies[i].hp > 0) : [who === 'target' ? liveTarget(c) : who];
-      const n = amount + (status === 'scald' || status === 'cracked' ? acc.statusBonus : 0);
+      let n = amount + (status === 'scald' || status === 'cracked' ? acc.statusBonus : 0);
+      if (status === 'scald' && hasTrinket(c, 'soot-mask')) n += 1;
+      if (status === 'cracked' && hasTrinket(c, 'cracked-lens')) n += 1;
       for (const idx of targets) {
         const e = c.enemies[idx];
         if (!e || e.hp <= 0) continue;

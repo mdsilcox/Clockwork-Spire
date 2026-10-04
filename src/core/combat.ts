@@ -4,7 +4,8 @@ import type { CombatState, EnemyState, GameEvent, PartInstance, TurnPreview, Tur
 import { inBoard } from './board';
 import { enemyDef } from './content/enemies';
 import { chooseIntent, enemyTurn, newEnemy } from './enemy';
-import { anyAlive, MAX_TICKS, runEnemyAttackHooks, runMachine, runTurnStartHooks } from './machine';
+import { trinketDef } from './content/trinkets';
+import { anyAlive, hasTrinket, MAX_TICKS, runEnemyAttackHooks, runMachine, runTurnStartHooks } from './machine';
 import { initStreams, shuffle } from './rng';
 
 export { chooseIntent };
@@ -26,6 +27,8 @@ export interface CreateCombatOpts {
   noShuffle?: boolean;
   /** Starting Pressure (Stoker passive, Bellows). */
   pressure?: number;
+  /** Chassis id: Tinker refunds the first replace, Stoker starts with 6 Pressure, Horologist's first turn has +1 tick. */
+  chassis?: string;
 }
 
 export function createCombat(o: CreateCombatOpts): CombatState {
@@ -52,7 +55,7 @@ export function createCombat(o: CreateCombatOpts): CombatState {
     placementsLeft: BASE_PLACEMENTS,
     swapUsed: false,
     plating: 0,
-    pressure: o.pressure ?? 0,
+    pressure: (o.pressure ?? 0) + (o.chassis === 'stoker' ? 6 : 0) + (o.trinkets?.includes('bellows') ? 4 : 0),
     momentum: 0,
     jammed: 0,
     playerHp: o.hp,
@@ -65,12 +68,15 @@ export function createCombat(o: CreateCombatOpts): CombatState {
     outcome: 'ongoing',
     trinkets: (o.trinkets ?? []).slice(),
     log: [],
+    chassis: o.chassis,
+    flags: {},
   };
   for (const id of o.enemies) c.enemies.push(newEnemy(id));
   const initial = c.enemies.length;
   for (let i = 0; i < initial; i++) enemyDef(c.enemies[i].defId).onStart?.(c, i);
   for (let i = 0; i < initial; i++) chooseIntent(c, i); // companions summoned by onStart chose their own
   beginTurn(c, []);
+  for (const id of c.trinkets) trinketDef(id).onCombatStart?.(c);
   return c;
 }
 
@@ -83,7 +89,7 @@ export function cloneCombat(c: CombatState): CombatState {
   }
   const contrib: CombatState['lastTurnContrib'] = {};
   for (const k in c.lastTurnContrib) {
-    contrib[k] = { value: c.lastTurnContrib[k].value, fedBy: c.lastTurnContrib[k].fedBy };
+    contrib[k] = { value: c.lastTurnContrib[k].value, fedBy: c.lastTurnContrib[k].fedBy, dmg: c.lastTurnContrib[k].dmg };
   }
   return {
     kind: c.kind,
@@ -114,6 +120,8 @@ export function cloneCombat(c: CombatState): CombatState {
     outcome: c.outcome,
     trinkets: c.trinkets.slice(),
     log: c.log.slice(),
+    chassis: c.chassis,
+    flags: { ...(c.flags ?? {}) },
   };
 }
 
@@ -127,6 +135,9 @@ export function placePart(c: CombatState, handIndex: number, cellIdx: number): b
   const inst = c.parts[uid];
   const old = c.board[cellIdx];
   if (old) c.discard.push(old.uid);
+  const flags = (c.flags ??= {});
+  const refund = !!old && c.chassis === 'tinker' && !flags.tinkerRefund; // Tinker: the first replace each combat is free
+  if (refund) flags.tinkerRefund = 1;
   c.hand.splice(handIndex, 1);
   c.board[cellIdx] = {
     uid,
@@ -138,7 +149,7 @@ export function placePart(c: CombatState, handIndex: number, cellIdx: number): b
     magnetized: false,
     firedThisTurn: 0,
   };
-  c.placementsLeft -= 1;
+  if (!refund) c.placementsLeft -= 1;
   return true;
 }
 
@@ -208,9 +219,25 @@ function beginTurn(c: CombatState, events: GameEvent[]): void {
       if (e.statuses[s] <= 0) delete e.statuses[s];
     }
   }
-  c.ticksThisTurn = Math.min(MAX_TICKS, Math.max(1, BASE_TICKS - c.jammed));
+  let ticks = BASE_TICKS - c.jammed;
+  if (hasTrinket(c, 'mainspring-key')) ticks += 1;
+  if (c.turn === 1) ticks += (hasTrinket(c, 'pocket-watch') ? 1 : 0) + (c.chassis === 'horologist' ? 1 : 0);
+  c.ticksThisTurn = Math.min(MAX_TICKS, Math.max(1, ticks));
   c.jammed = 0;
   c.placementsLeft = BASE_PLACEMENTS;
+  if (c.turn === 1 && hasTrinket(c, 'extra-pocket')) c.placementsLeft += 1;
+  if (c.turn >= 5 && hasTrinket(c, 'hourglass')) c.placementsLeft += 1;
+  const flags = (c.flags ??= {});
+  if (hasTrinket(c, 'feather-duster') && !flags.duster && c.turn > 1) {
+    flags.duster = 1; // once per combat, at the start of a turn: clear all Rust
+    for (let i = 0; i < c.board.length; i++) {
+      const p = c.board[i];
+      if (p && p.rusted > 0) {
+        p.rusted = 0;
+        events.push({ kind: 'sabotage', tick: 0, step: 0, cell: i, note: 'clear' });
+      }
+    }
+  }
   c.swapUsed = false;
   c.momentum = 0;
   for (const p of c.board) if (p) p.firedThisTurn = 0;
