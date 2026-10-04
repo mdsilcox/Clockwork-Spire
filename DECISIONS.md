@@ -55,3 +55,15 @@ Every choice the spec leaves open, with its reason. Newest last. The spec (`SPEC
 **D-019 The curve met the spec with the designed numbers.** 100 bot careers on the sensible path: no-meta win 1.0%, median first win run 9 (quartiles 7-12), offer-based part impact max 1.17 vs median 0.97 (balance/2026-10-04-careers-1.md). No constants changed in B4.
 
 **D-020 Sprocket's "good climb"** is act 2 or beyond, or a new best of floor 8 or higher; an early act 1 loss always gets the comforting nudge (B4 critic: a floor-5 first loss greeting "happy" felt wrong).
+
+## 2026-10-04 · B5 and B6
+
+**D-021 Service worker in prompt mode.** `autoUpdate` would reload the page mid-fight; prompt mode shows a quiet "A new version is ready" toast only outside fights. Icons are drawn by a pure-JS rasterizer at build time and live only in `dist/`, so no image file is ever committed (A1).
+
+**D-022 Tooltips open on hover, long-press and keyboard focus only, not on tap focus.** A tap focusing a button opened its tooltip over the board on phones.
+
+**D-023 "Winnable from a fresh save" is proven by autoplay through the real UI.** `window.__game.autoplay` drives the same controller actions a player uses (no cheats) with the simulator's bots; the career e2e wins from a fresh save (seed 1, run 18). The spec's "typical first win at runs 8 to 12" is the bot careers' median (run 9), checked by BS3.
+
+**D-024 E2E console checks ignore only the Vite dev server's hot-reload socket messages.** Under load the dev server's HMR socket can log a refused connection; the game opens no sockets, so this is test-environment noise. Everything else still fails the test.
+
+**D-025 Known small issues left at release** (logged in PROGRESS.md): the phone History layout, the hand shrinking late in long fights. Both were judged non-blocking by the final critic (every metric 8).

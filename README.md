@@ -24,7 +24,7 @@ Other commands:
 |---|---|
 | `npm run build` | Type-checks and builds the installable offline app into `dist/` |
 | `npm run preview` | Serves the built app (installable, works offline after the first load) |
-| `npm test` | Runs everything: unit and rules tests, balance targets, browser tests at desktop and phone size, the offline test and the full-career test |
+| `npm test` | Runs everything: unit and rules tests, balance targets, browser tests at desktop and phone size, the offline test, and a career test that autoplays the real game from a fresh save to a victory (the bot is no expert: with seed 1 its first win comes on run 18; over 100 simulated careers the median is run 9) |
 | `npm run sim -- --mode careers --careers 100 --seed 1` | Runs the balance simulator and writes a report to `balance/` |
 
 The browser tests need Playwright's Chromium once: `npx playwright install chromium`.

@@ -3,7 +3,7 @@
 Run started 2026-10-04T16:30Z (autonomous mode). Board: https://claude.ai/artifact/Eqis6DgyZMefwhzFM1KNta (project `clockwork-spire`, prefix `cs~`).
 
 ## Now
-B6 Hardening and release: lanes hardening (autoplay career e2e, console sweep, graceful failure, perf) and polish (critic notes, feel); then README, REPORT.md, final critic (avg 8 needed).
+Done. The final critic passed (8.00) and `npm test` is green at the release commit. See REPORT.md.
 
 ## Done
 - P0 Setup (commit 9bfa84c).
@@ -14,13 +14,17 @@ B6 Hardening and release: lanes hardening (autoplay career e2e, console sweep, g
 - B3 The run: maps, 22 events, shop, forge, oil, 28 trinkets, chassis passives, Rewind, run save/resume, run bot (no-meta win 1%). Critic R1 PASS 7.57 (commit e4a8a6e).
 - B4 Workshop, meta and Sprocket: 3 save slots, Workshop hub, bench, chassis, notes, Sprocket (8 poses, barks, events, ending, credits), careers sim: no-meta 1.0%, median first win run 9, impact max 1.17x. Critic R1 PASS 7.86 (commit 50fab83).
 - B5 Look, sound and QoL: six synthesized music loops, settings, history and stats, how to play, portrait card, keyboard pass, offline PWA with code-drawn icons. Critic R1 PASS 8.00 (commit f427336).
+- B6 Hardening and release: autoplay career e2e from a fresh save to victory, console sweep, graceful save failure, error boundary, perf on phone, critic-note polish, README, REPORT.md. Final critic R1 PASS 8.00 (commit 94a1a4b).
 
 ## Next
-- Final critic; REPORT.md; vault retro.
+- Nothing required. Possible later work: gamepad support, harder runs after the win (spec bonus), a phone-friendly History layout.
 
 ## Known issues
-- Late in a long fight the hand can shrink to one card (placed parts leave the draw pile). Watch in B3 runs; consider a rule tweak if the run sim or critic shows it hurts choice.
-- Phone tooltip can linger when a new sandbox fight starts via practice() (B3 run-ui fixes).
+- Audio quality never judged by ear (critics run under automation); levels and switching are tested.
+- Phone History tab: stat tiles push the run list below the fold at 667x375.
+- Late in long fights the hand can shrink to one card (placed parts leave the draw pile).
+- Autoplay's first win from a fresh save varies by seed (run 18 for seed 1; careers median run 9).
+- No real-device phone or PWA install test; no gamepad (spec bonus).
 
 ## Refused actions / workarounds
 - None.
