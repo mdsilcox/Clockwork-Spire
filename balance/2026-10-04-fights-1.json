@@ -1,576 +1,759 @@
 {
  "seed": 1,
- "fights": 3000,
- "winRate": 0.9886666666666667,
+ "fights": 4000,
+ "winRate": 0.9855,
  "tiers": {
   "act1-normal": {
-   "fights": 745,
+   "fights": 999,
    "winRate": 1,
-   "avgHpLost": 7.112751677852349,
-   "p90HpLost": 14,
-   "avgTurns": 2.6093959731543626
+   "avgHpLost": 7.285285285285285,
+   "p90HpLost": 15,
+   "avgTurns": 2.5895895895895897
   },
   "act1-elite": {
-   "fights": 175,
-   "winRate": 1,
-   "avgHpLost": 18.66857142857143,
-   "p90HpLost": 30,
-   "avgTurns": 3.8457142857142856
+   "fights": 229,
+   "winRate": 0.9956331877729258,
+   "avgHpLost": 18.593886462882097,
+   "p90HpLost": 33,
+   "avgTurns": 3.8078602620087336
   },
   "act1-boss": {
-   "fights": 80,
-   "winRate": 0.9625,
-   "avgHpLost": 27.55,
-   "p90HpLost": 42,
-   "avgTurns": 6.6875
+   "fights": 106,
+   "winRate": 0.8867924528301887,
+   "avgHpLost": 30.943396226415093,
+   "p90HpLost": 50,
+   "avgTurns": 5.783018867924528
   },
   "act2-normal": {
-   "fights": 683,
+   "fights": 898,
    "winRate": 1,
-   "avgHpLost": 13.250366032210835,
-   "p90HpLost": 25,
-   "avgTurns": 3.3718887262079065
+   "avgHpLost": 13.389755011135858,
+   "p90HpLost": 26,
+   "avgTurns": 3.3006681514476615
   },
   "act2-elite": {
-   "fights": 201,
-   "winRate": 1,
-   "avgHpLost": 21.08955223880597,
+   "fights": 274,
+   "winRate": 0.9854014598540146,
+   "avgHpLost": 21.295620437956206,
    "p90HpLost": 38,
-   "avgTurns": 4.7711442786069655
+   "avgTurns": 4.562043795620438
   },
   "act2-boss": {
-   "fights": 116,
-   "winRate": 0.9224137931034483,
-   "avgHpLost": 31.336206896551722,
-   "p90HpLost": 59,
-   "avgTurns": 6.603448275862069
+   "fights": 161,
+   "winRate": 0.9192546583850931,
+   "avgHpLost": 31.571428571428573,
+   "p90HpLost": 58,
+   "avgTurns": 6.055900621118012
   },
   "act3-normal": {
-   "fights": 690,
+   "fights": 901,
    "winRate": 1,
-   "avgHpLost": 16.701449275362318,
-   "p90HpLost": 30,
-   "avgTurns": 3.8246376811594205
+   "avgHpLost": 16.67258601553829,
+   "p90HpLost": 29,
+   "avgTurns": 3.668146503884573
   },
   "act3-elite": {
-   "fights": 181,
-   "winRate": 0.9558011049723757,
-   "avgHpLost": 31.18232044198895,
-   "p90HpLost": 56,
-   "avgTurns": 7.425414364640884
+   "fights": 256,
+   "winRate": 0.97265625,
+   "avgHpLost": 32.1328125,
+   "p90HpLost": 58,
+   "avgTurns": 6.15234375
   },
   "act3-boss": {
-   "fights": 129,
-   "winRate": 0.8914728682170543,
-   "avgHpLost": 37.53488372093023,
+   "fights": 176,
+   "winRate": 0.8806818181818182,
+   "avgHpLost": 42.69318181818182,
    "p90HpLost": 80,
-   "avgTurns": 8.643410852713178
+   "avgTurns": 7.528409090909091
   }
  },
  "encounters": {
   "Act 1 boss: foreman": {
-   "fights": 80,
-   "winRate": 0.9625,
-   "avgHpLost": 27.55,
-   "p90HpLost": 42,
-   "avgTurns": 6.6875
+   "fights": 106,
+   "winRate": 0.8867924528301887,
+   "avgHpLost": 30.943396226415093,
+   "p90HpLost": 50,
+   "avgTurns": 5.783018867924528
   },
   "Act 1 elite: gearhound": {
-   "fights": 102,
+   "fights": 126,
    "winRate": 1,
-   "avgHpLost": 17.137254901960784,
-   "p90HpLost": 24,
-   "avgTurns": 3.5980392156862746
+   "avgHpLost": 17.785714285714285,
+   "p90HpLost": 25,
+   "avgTurns": 3.6666666666666665
   },
   "Act 1 elite: tinpot-general": {
-   "fights": 73,
-   "winRate": 1,
-   "avgHpLost": 20.80821917808219,
-   "p90HpLost": 31,
-   "avgTurns": 4.191780821917808
+   "fights": 103,
+   "winRate": 0.9902912621359223,
+   "avgHpLost": 19.58252427184466,
+   "p90HpLost": 34,
+   "avgTurns": 3.9805825242718447
   },
   "Act 1 normal: brass-beetle": {
-   "fights": 78,
+   "fights": 108,
    "winRate": 1,
-   "avgHpLost": 6.717948717948718,
+   "avgHpLost": 6.305555555555555,
    "p90HpLost": 12,
-   "avgTurns": 2.3846153846153846
+   "avgTurns": 2.4722222222222223
   },
   "Act 1 normal: brass-beetle + rust-mite": {
-   "fights": 97,
+   "fights": 121,
    "winRate": 1,
-   "avgHpLost": 10.505154639175258,
+   "avgHpLost": 10.958677685950413,
    "p90HpLost": 19,
-   "avgTurns": 3.2577319587628866
+   "avgTurns": 3.1983471074380163
   },
   "Act 1 normal: cog-rat": {
-   "fights": 85,
+   "fights": 123,
    "winRate": 1,
-   "avgHpLost": 4.423529411764706,
+   "avgHpLost": 4.536585365853658,
    "p90HpLost": 10,
-   "avgTurns": 2.176470588235294
+   "avgTurns": 2.16260162601626
   },
   "Act 1 normal: cog-rat + rust-mite": {
-   "fights": 76,
+   "fights": 105,
    "winRate": 1,
-   "avgHpLost": 9.118421052631579,
+   "avgHpLost": 9.752380952380953,
    "p90HpLost": 17,
-   "avgTurns": 2.763157894736842
+   "avgTurns": 2.7523809523809524
   },
   "Act 1 normal: oil-slick": {
-   "fights": 66,
-   "winRate": 1,
-   "avgHpLost": 3.6515151515151514,
-   "p90HpLost": 9,
-   "avgTurns": 2.1666666666666665
-  },
-  "Act 1 normal: oil-slick + spring-imp": {
-   "fights": 102,
-   "winRate": 1,
-   "avgHpLost": 6.480392156862745,
-   "p90HpLost": 13,
-   "avgTurns": 2.8529411764705883
-  },
-  "Act 1 normal: rust-mite + rust-mite": {
-   "fights": 84,
-   "winRate": 1,
-   "avgHpLost": 6.261904761904762,
-   "p90HpLost": 14,
-   "avgTurns": 2.5595238095238093
-  },
-  "Act 1 normal: rust-mite + rust-mite + rust-mite": {
-   "fights": 76,
-   "winRate": 1,
-   "avgHpLost": 15.236842105263158,
-   "p90HpLost": 26,
-   "avgTurns": 3.0526315789473686
-  },
-  "Act 1 normal: spring-imp": {
-   "fights": 81,
-   "winRate": 1,
-   "avgHpLost": 1.2469135802469136,
-   "p90HpLost": 4,
-   "avgTurns": 2.049382716049383
-  },
-  "Act 2 boss: boilermaker": {
-   "fights": 116,
-   "winRate": 0.9224137931034483,
-   "avgHpLost": 31.336206896551722,
-   "p90HpLost": 59,
-   "avgTurns": 6.603448275862069
-  },
-  "Act 2 elite: pressure-warden": {
    "fights": 98,
    "winRate": 1,
-   "avgHpLost": 20.153061224489797,
-   "p90HpLost": 36,
-   "avgTurns": 4.153061224489796
+   "avgHpLost": 3.510204081632653,
+   "p90HpLost": 9,
+   "avgTurns": 2.2244897959183674
   },
-  "Act 2 elite: twin-pistons": {
+  "Act 1 normal: oil-slick + spring-imp": {
+   "fights": 129,
+   "winRate": 1,
+   "avgHpLost": 6.658914728682171,
+   "p90HpLost": 13,
+   "avgTurns": 2.8372093023255816
+  },
+  "Act 1 normal: rust-mite + rust-mite": {
+   "fights": 99,
+   "winRate": 1,
+   "avgHpLost": 7.08080808080808,
+   "p90HpLost": 14,
+   "avgTurns": 2.6262626262626263
+  },
+  "Act 1 normal: rust-mite + rust-mite + rust-mite": {
    "fights": 103,
    "winRate": 1,
-   "avgHpLost": 21.980582524271846,
-   "p90HpLost": 38,
-   "avgTurns": 5.359223300970874
+   "avgHpLost": 15.466019417475728,
+   "p90HpLost": 23,
+   "avgTurns": 3.029126213592233
+  },
+  "Act 1 normal: spring-imp": {
+   "fights": 113,
+   "winRate": 1,
+   "avgHpLost": 1.6991150442477876,
+   "p90HpLost": 4,
+   "avgTurns": 1.9646017699115044
+  },
+  "Act 2 boss: boilermaker": {
+   "fights": 161,
+   "winRate": 0.9192546583850931,
+   "avgHpLost": 31.571428571428573,
+   "p90HpLost": 58,
+   "avgTurns": 6.055900621118012
+  },
+  "Act 2 elite: pressure-warden": {
+   "fights": 135,
+   "winRate": 1,
+   "avgHpLost": 19.081481481481482,
+   "p90HpLost": 36,
+   "avgTurns": 4.044444444444444
+  },
+  "Act 2 elite: twin-pistons": {
+   "fights": 139,
+   "winRate": 0.9712230215827338,
+   "avgHpLost": 23.446043165467625,
+   "p90HpLost": 41,
+   "avgTurns": 5.0647482014388485
   },
   "Act 2 normal: furnace-golem": {
-   "fights": 110,
+   "fights": 147,
    "winRate": 1,
-   "avgHpLost": 12.50909090909091,
+   "avgHpLost": 11.700680272108844,
    "p90HpLost": 26,
-   "avgTurns": 3.1363636363636362
+   "avgTurns": 3.0952380952380953
   },
   "Act 2 normal: pipe-snake + gauge-gremlin": {
-   "fights": 113,
+   "fights": 158,
    "winRate": 1,
-   "avgHpLost": 9.893805309734514,
+   "avgHpLost": 10.075949367088608,
    "p90HpLost": 15,
-   "avgTurns": 3.336283185840708
+   "avgTurns": 3.3797468354430378
   },
   "Act 2 normal: steam-wraith": {
-   "fights": 116,
+   "fights": 147,
    "winRate": 1,
-   "avgHpLost": 6.094827586206897,
+   "avgHpLost": 6.374149659863946,
    "p90HpLost": 12,
-   "avgTurns": 2.7672413793103448
+   "avgTurns": 2.7006802721088436
   },
   "Act 2 normal: steam-wraith + steam-wraith": {
-   "fights": 115,
+   "fights": 140,
    "winRate": 1,
-   "avgHpLost": 18.965217391304346,
+   "avgHpLost": 19.535714285714285,
    "p90HpLost": 24,
-   "avgTurns": 3.791304347826087
+   "avgTurns": 3.6214285714285714
   },
   "Act 2 normal: valve-crab": {
-   "fights": 116,
+   "fights": 160,
    "winRate": 1,
-   "avgHpLost": 7.948275862068965,
+   "avgHpLost": 8.725,
    "p90HpLost": 14,
-   "avgTurns": 3.2413793103448274
+   "avgTurns": 3.15625
   },
   "Act 2 normal: valve-crab + pipe-snake": {
-   "fights": 113,
+   "fights": 146,
    "winRate": 1,
-   "avgHpLost": 24.300884955752213,
-   "p90HpLost": 31,
-   "avgTurns": 3.9646017699115044
+   "avgHpLost": 24.958904109589042,
+   "p90HpLost": 34,
+   "avgTurns": 3.8767123287671232
   },
   "Act 3 boss: clockmaker": {
-   "fights": 129,
-   "winRate": 0.8914728682170543,
-   "avgHpLost": 37.53488372093023,
+   "fights": 176,
+   "winRate": 0.8806818181818182,
+   "avgHpLost": 42.69318181818182,
    "p90HpLost": 80,
-   "avgTurns": 8.643410852713178
+   "avgTurns": 7.528409090909091
   },
   "Act 3 elite: minute-warden": {
-   "fights": 94,
-   "winRate": 1,
-   "avgHpLost": 26.51063829787234,
-   "p90HpLost": 47,
-   "avgTurns": 6.223404255319149
-  },
-  "Act 3 elite: orrery": {
-   "fights": 87,
-   "winRate": 0.9080459770114943,
-   "avgHpLost": 36.229885057471265,
-   "p90HpLost": 68,
-   "avgTurns": 8.724137931034482
-  },
-  "Act 3 normal: bell-ringer": {
-   "fights": 113,
-   "winRate": 1,
-   "avgHpLost": 16.079646017699115,
-   "p90HpLost": 28,
-   "avgTurns": 3.6106194690265485
-  },
-  "Act 3 normal: chime-moth + chime-moth": {
-   "fights": 122,
-   "winRate": 1,
-   "avgHpLost": 17.92622950819672,
-   "p90HpLost": 24,
-   "avgTurns": 3.8114754098360657
-  },
-  "Act 3 normal: echo-sprite + chime-moth": {
    "fights": 128,
    "winRate": 1,
-   "avgHpLost": 15.171875,
+   "avgHpLost": 27.9609375,
+   "p90HpLost": 47,
+   "avgTurns": 5.578125
+  },
+  "Act 3 elite: orrery": {
+   "fights": 128,
+   "winRate": 0.9453125,
+   "avgHpLost": 36.3046875,
+   "p90HpLost": 72,
+   "avgTurns": 6.7265625
+  },
+  "Act 3 normal: bell-ringer": {
+   "fights": 149,
+   "winRate": 1,
+   "avgHpLost": 16.369127516778523,
+   "p90HpLost": 28,
+   "avgTurns": 3.3087248322147653
+  },
+  "Act 3 normal: chime-moth + chime-moth": {
+   "fights": 163,
+   "winRate": 1,
+   "avgHpLost": 18.171779141104295,
+   "p90HpLost": 24,
+   "avgTurns": 3.576687116564417
+  },
+  "Act 3 normal: echo-sprite + chime-moth": {
+   "fights": 168,
+   "winRate": 1,
+   "avgHpLost": 17.041666666666668,
    "p90HpLost": 29,
-   "avgTurns": 3.5859375
+   "avgTurns": 3.5238095238095237
   },
   "Act 3 normal: hour-knight": {
-   "fights": 120,
+   "fights": 140,
    "winRate": 1,
-   "avgHpLost": 15.3,
-   "p90HpLost": 28,
-   "avgTurns": 3.8666666666666667
+   "avgHpLost": 13.978571428571428,
+   "p90HpLost": 29,
+   "avgTurns": 3.835714285714286
   },
   "Act 3 normal: hour-knight + echo-sprite": {
-   "fights": 96,
+   "fights": 136,
    "winRate": 1,
-   "avgHpLost": 27.979166666666668,
+   "avgHpLost": 27.558823529411764,
    "p90HpLost": 48,
-   "avgTurns": 4.614583333333333
+   "avgTurns": 4.397058823529412
   },
   "Act 3 normal: pendulum-blade": {
-   "fights": 111,
+   "fights": 145,
    "winRate": 1,
-   "avgHpLost": 9.513513513513514,
+   "avgHpLost": 7.2620689655172415,
    "p90HpLost": 20,
-   "avgTurns": 3.6036036036036037
+   "avgTurns": 3.462068965517241
   }
  },
  "parts": {
+  "alarm-clock": {
+   "inBins": 449,
+   "winWith": 0.9532293986636972,
+   "winWithout": 0.9837107562273084,
+   "impact": 0.9690139023380081,
+   "hpLostWith": 19.610244988864142,
+   "hpLostWithout": 18.50675323695266,
+   "defenseImpact": 0.9437288135595395,
+   "outputShare": 0
+  },
   "anchor": {
-   "inBins": 648,
-   "winWith": 0.9845679012345679,
-   "winWithout": 0.9860676448146897,
-   "impact": 0.9984790662303867,
-   "hpLostWith": 15.45679012345679,
-   "hpLostWithout": 18.0180161852103,
-   "defenseImpact": 1.165702325081497,
-   "outputShare": 0.10277042189317977
+   "inBins": 1926,
+   "winWith": 0.9951554260806281,
+   "winWithout": 0.9757290649624742,
+   "impact": 1.0199095853713254,
+   "hpLostWith": 14.947059603354708,
+   "hpLostWithout": 19.139600667243307,
+   "defenseImpact": 1.280492697235758,
+   "outputShare": 0.1226736947478614
   },
   "balance-wheel": {
-   "inBins": 652,
-   "winWith": 0.9984662576687117,
-   "winWithout": 0.9783824338833038,
-   "impact": 1.0205275801055556,
-   "hpLostWith": 15.420245398773005,
-   "hpLostWithout": 19.361272322204556,
-   "defenseImpact": 1.2555748512111966,
-   "outputShare": 0.12402498933063638
+   "inBins": 510,
+   "winWith": 0.9921568627450981,
+   "winWithout": 0.9789960776574048,
+   "impact": 1.0134431438368834,
+   "hpLostWith": 16.03529411764706,
+   "hpLostWithout": 18.708224331976844,
+   "defenseImpact": 1.1666904388980424,
+   "outputShare": 0.11382806163747043
   },
   "bell-hammer": {
-   "inBins": 686,
-   "winWith": 0.9752186588921283,
-   "winWithout": 0.9898047862832272,
-   "impact": 0.9852636321896658,
-   "hpLostWith": 18.323615160349853,
-   "hpLostWithout": 16.92087219213062,
-   "defenseImpact": 0.923446167366874,
-   "outputShare": 0.1634352438605854
+   "inBins": 1126,
+   "winWith": 0.9866785079928952,
+   "winWithout": 0.9812248900616497,
+   "impact": 1.0055579694181045,
+   "hpLostWith": 17.372113676731793,
+   "hpLostWithout": 17.07147231635182,
+   "defenseImpact": 0.9826940252651781,
+   "outputShare": 0.1796672079195684
   },
   "bevel": {
-   "inBins": 625,
-   "winWith": 0.9872,
-   "winWithout": 0.9831883520767695,
-   "impact": 1.0040802435410843,
-   "hpLostWith": 18.664,
-   "hpLostWithout": 18.00876630500048,
-   "defenseImpact": 0.9648931796506901,
-   "outputShare": 0.04935356444896969
+   "inBins": 480,
+   "winWith": 0.98125,
+   "winWithout": 0.9785259434765511,
+   "impact": 1.0027838367920738,
+   "hpLostWith": 19.539583333333333,
+   "hpLostWithout": 18.662509905133767,
+   "defenseImpact": 0.9551129922661487,
+   "outputShare": 0.04952486292767065
   },
   "boiler": {
-   "inBins": 701,
-   "winWith": 0.9814550641940085,
-   "winWithout": 0.988589736844588,
-   "impact": 0.9927829792433895,
-   "hpLostWith": 17.359486447931527,
-   "hpLostWithout": 16.14211870865402,
-   "defenseImpact": 0.9298730556961515,
+   "inBins": 1903,
+   "winWith": 0.9833232922538078,
+   "winWithout": 0.9885566722346545,
+   "impact": 0.9947060394939052,
+   "hpLostWith": 18.216085187756477,
+   "hpLostWithout": 15.967741972600848,
+   "defenseImpact": 0.8765737428222612,
    "outputShare": 0
   },
   "cam": {
-   "inBins": 660,
-   "winWith": 0.9878787878787879,
-   "winWithout": 0.9859103655711358,
-   "impact": 1.0019965530096764,
-   "hpLostWith": 17.183333333333334,
-   "hpLostWithout": 16.515954421184396,
-   "defenseImpact": 0.9611612660243102,
-   "outputShare": 0.07556446008608064
+   "inBins": 1941,
+   "winWith": 0.9865315249145845,
+   "winWithout": 0.9838087062013372,
+   "impact": 1.002767630227385,
+   "hpLostWith": 16.416308018733808,
+   "hpLostWithout": 17.707897526603283,
+   "defenseImpact": 1.0786772218452256,
+   "outputShare": 0.14027656751927348
   },
   "cam-follower": {
-   "inBins": 683,
-   "winWith": 0.9926793557833089,
-   "winWithout": 0.9871991148619813,
-   "impact": 1.0055513025070872,
-   "hpLostWith": 15.46705710102489,
-   "hpLostWithout": 16.75579577445456,
-   "defenseImpact": 1.0833215177917894,
-   "outputShare": 0.04607234171444806
+   "inBins": 1082,
+   "winWith": 0.987985212569316,
+   "winWithout": 0.9794842472719141,
+   "impact": 1.0086790219659776,
+   "hpLostWith": 16.629390018484287,
+   "hpLostWithout": 17.944896224412673,
+   "defenseImpact": 1.079107303663342,
+   "outputShare": 0.06415295521531678
   },
   "chime": {
-   "inBins": 718,
-   "winWith": 0.9860724233983287,
-   "winWithout": 0.9875458417195859,
-   "impact": 0.998508000075529,
-   "hpLostWith": 16.238161559888578,
-   "hpLostWithout": 17.256546663126514,
-   "defenseImpact": 1.0627155419954402,
-   "outputShare": 0.016730162848765162
+   "inBins": 1084,
+   "winWith": 0.9797047970479705,
+   "winWithout": 0.9835017158580904,
+   "impact": 0.9961393877113807,
+   "hpLostWith": 17.4880073800738,
+   "hpLostWithout": 17.046247384091323,
+   "defenseImpact": 0.9747392606612331,
+   "outputShare": 0.022116734165824214
+  },
+  "chronometer": {
+   "inBins": 268,
+   "winWith": 0.9738805970149254,
+   "winWithout": 0.9797807781223362,
+   "impact": 0.9939780599505963,
+   "hpLostWith": 20.421641791044777,
+   "hpLostWithout": 20.244038795555646,
+   "defenseImpact": 0.9913031970051001,
+   "outputShare": 0.0858848364438727
   },
   "coil": {
-   "inBins": 3000,
-   "winWith": null,
-   "winWithout": null,
-   "impact": null,
-   "hpLostWith": null,
-   "hpLostWithout": null,
-   "defenseImpact": null,
-   "outputShare": 0.13241822416071414
+   "inBins": 1900,
+   "winWith": 0.982849235782938,
+   "winWithout": 0.9881443834724137,
+   "impact": 0.9946413218776105,
+   "hpLostWith": 17.821047263672934,
+   "hpLostWithout": 16.37376211441915,
+   "defenseImpact": 0.9187878732467097,
+   "outputShare": 0.1268582935848001
+  },
+  "condenser": {
+   "inBins": 503,
+   "winWith": 0.9860834990059643,
+   "winWithout": 0.9789320764254311,
+   "impact": 1.0073053307300406,
+   "hpLostWith": 19.40954274353877,
+   "hpLostWithout": 18.955541997273784,
+   "defenseImpact": 0.9766094053701436,
+   "outputShare": 0.014521885771171783
   },
   "crown": {
-   "inBins": 642,
-   "winWith": 0.9906542056074766,
-   "winWithout": 0.9846617438096189,
-   "impact": 1.0060858074719885,
-   "hpLostWith": 18.37538940809969,
-   "hpLostWithout": 17.663723232590606,
-   "defenseImpact": 0.9612706887618181,
-   "outputShare": 0.08102890636266492
+   "inBins": 517,
+   "winWith": 0.9806576402321083,
+   "winWithout": 0.9829947091898503,
+   "impact": 0.9976225009800225,
+   "hpLostWith": 19.077369439071568,
+   "hpLostWithout": 18.02079489345589,
+   "defenseImpact": 0.9446163398475813,
+   "outputShare": 0.07683480274066018
   },
   "escapement": {
-   "inBins": 3000,
-   "winWith": null,
-   "winWithout": null,
-   "impact": null,
-   "hpLostWith": null,
-   "hpLostWithout": null,
-   "defenseImpact": null,
-   "outputShare": 0.23808336018784107
+   "inBins": 3475,
+   "winWith": 0.9834687086154753,
+   "winWithout": 0.9809523809523809,
+   "impact": 1.0025651883944167,
+   "hpLostWith": 17.97279424600445,
+   "hpLostWithout": 20.354285714285716,
+   "defenseImpact": 1.13250535424177,
+   "outputShare": 0.17748769231864406
   },
   "firebox": {
-   "inBins": 678,
-   "winWith": 0.9882005899705014,
-   "winWithout": 0.9885210539709954,
-   "impact": 0.9996758146938736,
-   "hpLostWith": 17.90117994100295,
-   "hpLostWithout": 16.921760374038065,
-   "defenseImpact": 0.9452874296447069,
-   "outputShare": 0.0480559283428674
+   "inBins": 476,
+   "winWith": 0.9810924369747899,
+   "winWithout": 0.9825991496649451,
+   "impact": 0.9984666049317578,
+   "hpLostWith": 20.186974789915965,
+   "hpLostWithout": 18.263152358733226,
+   "defenseImpact": 0.9046998150439188,
+   "outputShare": 0.04819240330515681
+  },
+  "flywheel": {
+   "inBins": 289,
+   "winWith": 0.9792387543252595,
+   "winWithout": 0.9772058650358754,
+   "impact": 1.0020803081132854,
+   "hpLostWith": 22.86159169550173,
+   "hpLostWithout": 20.931643351309024,
+   "defenseImpact": 0.9155811909381426,
+   "outputShare": 0.1198500251949672
+  },
+  "gong": {
+   "inBins": 305,
+   "winWith": 0.9770491803278688,
+   "winWithout": 0.9778860607159854,
+   "impact": 0.9991441943783268,
+   "hpLostWith": 21.16393442622951,
+   "hpLostWithout": 21.061731652978416,
+   "defenseImpact": 0.995170899172489,
+   "outputShare": 0.12491943729501988
+  },
+  "governor": {
+   "inBins": 338,
+   "winWith": 0.9822485207100592,
+   "winWithout": 0.9788350236930055,
+   "impact": 1.0034873057608575,
+   "hpLostWith": 20.12130177514793,
+   "hpLostWithout": 20.2163079563858,
+   "defenseImpact": 1.004721671703926,
+   "outputShare": 0.0037289891415367682
+  },
+  "grandfather": {
+   "inBins": 295,
+   "winWith": 0.9932203389830508,
+   "winWithout": 0.9775657304228491,
+   "impact": 1.0160138679917003,
+   "hpLostWith": 18.51864406779661,
+   "hpLostWithout": 20.142361424942592,
+   "defenseImpact": 1.0876801428442366,
+   "outputShare": 0.10035765665994315
+  },
+  "hairspring": {
+   "inBins": 291,
+   "winWith": 0.9828178694158075,
+   "winWithout": 0.9746577416083991,
+   "impact": 1.0083723008180723,
+   "hpLostWith": 21.164948453608247,
+   "hpLostWithout": 20.966249804983804,
+   "defenseImpact": 0.9906119001867653,
+   "outputShare": 0
   },
   "idler": {
-   "inBins": 3000,
-   "winWith": null,
-   "winWithout": null,
-   "impact": null,
-   "hpLostWith": null,
-   "hpLostWithout": null,
-   "defenseImpact": null,
+   "inBins": 1903,
+   "winWith": 0.9793230515772161,
+   "winWithout": 0.99158244706922,
+   "impact": 0.9876365343817465,
+   "hpLostWith": 17.976451955044308,
+   "hpLostWithout": 16.035641782609602,
+   "defenseImpact": 0.892035971431498,
    "outputShare": 0
   },
   "kettle": {
-   "inBins": 650,
-   "winWith": 0.9861538461538462,
-   "winWithout": 0.9807704603089218,
-   "impact": 1.0054889355489243,
-   "hpLostWith": 17.65692307692308,
-   "hpLostWithout": 18.583212147630014,
-   "defenseImpact": 1.052460389993858,
+   "inBins": 462,
+   "winWith": 0.987012987012987,
+   "winWithout": 0.98316469147173,
+   "impact": 1.0039141921741477,
+   "hpLostWith": 17.32034632034632,
+   "hpLostWithout": 18.02132712473798,
+   "defenseImpact": 1.040471523572725,
+   "outputShare": 0
+  },
+  "lamp": {
+   "inBins": 288,
+   "winWith": 0.96875,
+   "winWithout": 0.9751048453084843,
+   "impact": 0.9934829107464092,
+   "hpLostWith": 22.125,
+   "hpLostWithout": 21.33833760071787,
+   "defenseImpact": 0.9644446373205817,
    "outputShare": 0
   },
   "leaf": {
-   "inBins": 723,
-   "winWith": 0.9944674965421854,
-   "winWithout": 0.982796522140399,
-   "impact": 1.0118752703523701,
-   "hpLostWith": 13.665283540802212,
-   "hpLostWithout": 18.01268329016024,
-   "defenseImpact": 1.3181346172860176,
-   "outputShare": 0.1384698874019575
+   "inBins": 1065,
+   "winWith": 0.9943661971830986,
+   "winWithout": 0.980058101615124,
+   "impact": 1.0145992319683854,
+   "hpLostWith": 14.44131455399061,
+   "hpLostWithout": 17.777012440168072,
+   "defenseImpact": 1.2309829810649542,
+   "outputShare": 0.15094148597027124
   },
   "lever": {
-   "inBins": 613,
-   "winWith": 0.9787928221859706,
-   "winWithout": 0.9877170626525651,
-   "impact": 0.9909647804983465,
-   "hpLostWith": 18.99347471451876,
-   "hpLostWithout": 17.355181606029163,
-   "defenseImpact": 0.9137444236447545,
+   "inBins": 513,
+   "winWith": 0.9746588693957114,
+   "winWithout": 0.9825184804126642,
+   "impact": 0.9920005463778638,
+   "hpLostWith": 20.003898635477583,
+   "hpLostWithout": 18.654984302557573,
+   "defenseImpact": 0.9325674281048563,
    "outputShare": 0
   },
   "metronome": {
-   "inBins": 690,
-   "winWith": 0.9840579710144928,
-   "winWithout": 0.9855386882060223,
-   "impact": 0.9984975554899576,
-   "hpLostWith": 18.255072463768116,
-   "hpLostWithout": 16.836388892631977,
-   "defenseImpact": 0.9222855141248066,
-   "outputShare": 0.12131175763901511
+   "inBins": 1885,
+   "winWith": 0.9874724669603524,
+   "winWithout": 0.9824777924153011,
+   "impact": 1.0050837531225745,
+   "hpLostWith": 16.18733987439349,
+   "hpLostWithout": 17.98325690730673,
+   "defenseImpact": 1.1109457790377388,
+   "outputShare": 0.1464944312348827
   },
   "oil-can": {
-   "inBins": 690,
-   "winWith": 0.9782608695652174,
-   "winWithout": 0.9873623690588498,
-   "impact": 0.9907820069116996,
-   "hpLostWith": 17.765217391304347,
-   "hpLostWithout": 16.561020093382737,
-   "defenseImpact": 0.9322160111302079,
+   "inBins": 1151,
+   "winWith": 0.9834926151172894,
+   "winWithout": 0.983685225032525,
+   "impact": 0.9998041955797097,
+   "hpLostWith": 17.422241529105126,
+   "hpLostWithout": 16.905405441271654,
+   "defenseImpact": 0.970334696200253,
    "outputShare": 0
   },
   "pendulum": {
-   "inBins": 649,
-   "winWith": 0.9969183359013868,
-   "winWithout": 0.9785573722955478,
-   "impact": 1.018763298019785,
-   "hpLostWith": 17.046224961479197,
-   "hpLostWithout": 18.571646553474316,
-   "defenseImpact": 1.0894873554374793,
-   "outputShare": 0.04115692484695934
+   "inBins": 1422,
+   "winWith": 0.9950773558368495,
+   "winWithout": 0.9781026238884446,
+   "impact": 1.0173547555581866,
+   "hpLostWith": 15.240506329113924,
+   "hpLostWithout": 18.67781902363014,
+   "defenseImpact": 1.2255379591916786,
+   "outputShare": 0.03801920446752697
   },
   "piston": {
-   "inBins": 694,
-   "winWith": 0.984149855907781,
-   "winWithout": 0.9883194636658748,
-   "impact": 0.9957811133834926,
-   "hpLostWith": 18.321325648414987,
-   "hpLostWithout": 16.37539721520271,
-   "defenseImpact": 0.893788884573392,
-   "outputShare": 0.061159844739743945
+   "inBins": 1898,
+   "winWith": 0.9823012470579472,
+   "winWithout": 0.9879801707121394,
+   "impact": 0.994251986201202,
+   "hpLostWith": 18.370635239585734,
+   "hpLostWithout": 16.210172352623015,
+   "defenseImpact": 0.8823958530128957,
+   "outputShare": 0.18480080714305805
+  },
+  "planetary": {
+   "inBins": 289,
+   "winWith": 0.986159169550173,
+   "winWithout": 0.9824842693140624,
+   "impact": 1.0037404163617565,
+   "hpLostWith": 19.114186851211073,
+   "hpLostWithout": 18.9230262821781,
+   "defenseImpact": 0.9899990216418303,
+   "outputShare": 0.02121379700530524
+  },
+  "ratchet": {
+   "inBins": 510,
+   "winWith": 0.9784313725490196,
+   "winWithout": 0.9805742133165875,
+   "impact": 0.9978147082204822,
+   "hpLostWith": 19.67450980392157,
+   "hpLostWithout": 19.372427766692716,
+   "defenseImpact": 0.984646019634571,
+   "outputShare": 0.20105259206677722
+  },
+  "recoil": {
+   "inBins": 496,
+   "winWith": 0.9879032258064516,
+   "winWithout": 0.9793562064825262,
+   "impact": 1.0087271814558905,
+   "hpLostWith": 18.360887096774192,
+   "hpLostWithout": 19.06798184132572,
+   "defenseImpact": 1.038510924925613,
+   "outputShare": 0.06920432788567239
   },
   "safety-valve": {
-   "inBins": 667,
-   "winWith": 0.9895052473763118,
-   "winWithout": 0.9845450552345789,
-   "impact": 1.0050380550035378,
-   "hpLostWith": 17.412293853073464,
-   "hpLostWithout": 17.18796972066542,
-   "defenseImpact": 0.9871169109422968,
-   "outputShare": 0.0057219414087002
+   "inBins": 1940,
+   "winWith": 0.9845316752297473,
+   "winWithout": 0.9871762063180642,
+   "impact": 0.997321115448902,
+   "hpLostWith": 18.16293877340373,
+   "hpLostWithout": 16.156700774762047,
+   "defenseImpact": 0.8895422143040284,
+   "outputShare": 0.01761153806662299
+  },
+  "sprocket-wheel": {
+   "inBins": 527,
+   "winWith": 0.9810246679316889,
+   "winWithout": 0.9812800488673069,
+   "impact": 0.9997397471436286,
+   "hpLostWith": 18.519924098671726,
+   "hpLostWithout": 18.49121612860198,
+   "defenseImpact": 0.9984498872718488,
+   "outputShare": 0.04401998875769028
   },
   "spur": {
-   "inBins": 3000,
-   "winWith": null,
-   "winWithout": null,
-   "impact": null,
-   "hpLostWith": null,
-   "hpLostWithout": null,
-   "defenseImpact": null,
-   "outputShare": 0.2960166103084186
+   "inBins": 3539,
+   "winWith": 0.9842864688528602,
+   "winWithout": 0.9848156182212582,
+   "impact": 0.9994626919408999,
+   "hpLostWith": 17.73185230416437,
+   "hpLostWithout": 18.22125813449024,
+   "defenseImpact": 1.0276003782307013,
+   "outputShare": 0.15757751657997765
+  },
+  "steam-hammer": {
+   "inBins": 319,
+   "winWith": 0.9655172413793104,
+   "winWithout": 0.9820772950714887,
+   "impact": 0.983137728796619,
+   "hpLostWith": 20.520376175548588,
+   "hpLostWithout": 19.13941751064987,
+   "defenseImpact": 0.9327030531465489,
+   "outputShare": 0.01149739429939316
   },
   "tappet": {
-   "inBins": 633,
-   "winWith": 0.976303317535545,
-   "winWithout": 0.9894847175109484,
-   "impact": 0.9866785209087805,
-   "hpLostWith": 18.527646129541864,
-   "hpLostWithout": 17.344904117127367,
-   "defenseImpact": 0.9361633958169869,
+   "inBins": 482,
+   "winWith": 0.975103734439834,
+   "winWithout": 0.9818711065897836,
+   "impact": 0.9931076776732397,
+   "hpLostWith": 20.04979253112033,
+   "hpLostWithout": 18.745861829416352,
+   "defenseImpact": 0.9349653768396815,
    "outputShare": 0
   },
   "toggle": {
-   "inBins": 697,
-   "winWith": 0.9956958393113343,
-   "winWithout": 0.9877877648742565,
-   "impact": 1.0080058436825086,
-   "hpLostWith": 14.919655667144907,
-   "hpLostWithout": 16.01126834493776,
-   "defenseImpact": 1.0731660771633444,
-   "outputShare": 0.1477720433315276
+   "inBins": 1131,
+   "winWith": 0.9893899204244032,
+   "winWithout": 0.9808508363070553,
+   "impact": 1.008705792768142,
+   "hpLostWith": 16.84526967285588,
+   "hpLostWithout": 16.9474268121172,
+   "defenseImpact": 1.0060644407151245,
+   "outputShare": 0.1566034767042395
   },
   "torsion": {
-   "inBins": 627,
-   "winWith": 0.9808612440191388,
-   "winWithout": 0.9858544881016995,
-   "impact": 0.994935110462219,
-   "hpLostWith": 19.138755980861244,
-   "hpLostWithout": 17.190840581778186,
-   "defenseImpact": 0.8982214203979102,
-   "outputShare": 0.06318743434056576
+   "inBins": 494,
+   "winWith": 0.9736842105263158,
+   "winWithout": 0.9825866192902204,
+   "impact": 0.9909398229233619,
+   "hpLostWith": 20.147773279352226,
+   "hpLostWithout": 18.749245528595917,
+   "defenseImpact": 0.9305864855949345,
+   "outputShare": 0.06472279751219757
   },
   "trap": {
-   "inBins": 613,
-   "winWith": 0.9836867862969005,
-   "winWithout": 0.9850136756319746,
-   "impact": 0.9986529229310215,
-   "hpLostWith": 19.282218597063622,
-   "hpLostWithout": 18.247894467295506,
-   "defenseImpact": 0.9463586555374065,
-   "outputShare": 0.04216797791237039
+   "inBins": 528,
+   "winWith": 0.9734848484848485,
+   "winWithout": 0.9809652240779322,
+   "impact": 0.9923744742326468,
+   "hpLostWith": 19.08712121212121,
+   "hpLostWithout": 18.391870064843857,
+   "defenseImpact": 0.9635748555504621,
+   "outputShare": 0.03971864095921891
   },
   "trip-hammer": {
-   "inBins": 654,
-   "winWith": 0.9862385321100917,
-   "winWithout": 0.9890980343287775,
-   "impact": 0.9971089799803047,
-   "hpLostWith": 16.448012232415902,
-   "hpLostWithout": 16.182927328789223,
-   "defenseImpact": 0.9838834687206611,
-   "outputShare": 0.04846589589017719
+   "inBins": 1075,
+   "winWith": 0.9823255813953489,
+   "winWithout": 0.9843449486709768,
+   "impact": 0.9979485166471831,
+   "hpLostWith": 18.04279069767442,
+   "hpLostWithout": 17.205114689318755,
+   "defenseImpact": 0.9535728135191617,
+   "outputShare": 0.06408633704588601
   },
   "triple-cam": {
-   "inBins": 659,
-   "winWith": 0.992412746585736,
-   "winWithout": 0.98419254213108,
-   "impact": 1.0083522320102698,
-   "hpLostWith": 18.20485584218513,
-   "hpLostWithout": 17.027650867784942,
-   "defenseImpact": 0.9353356607377075,
-   "outputShare": 0.11398511774203449
+   "inBins": 495,
+   "winWith": 0.9797979797979798,
+   "winWithout": 0.9834854285647937,
+   "impact": 0.9962506320279751,
+   "hpLostWith": 19.123232323232322,
+   "hpLostWithout": 18.270952039205408,
+   "defenseImpact": 0.9554322057264607,
+   "outputShare": 0.1091091254624037
+  },
+  "tuning-fork": {
+   "inBins": 492,
+   "winWith": 0.983739837398374,
+   "winWithout": 0.984880437034844,
+   "impact": 0.9988418902502482,
+   "hpLostWith": 18.07520325203252,
+   "hpLostWithout": 17.394187086226374,
+   "defenseImpact": 0.9623231807515322,
+   "outputShare": 0.09716269066067246
+  },
+  "verge": {
+   "inBins": 500,
+   "winWith": 0.988,
+   "winWithout": 0.979937518037518,
+   "impact": 1.0082275469752688,
+   "hpLostWith": 19.488,
+   "hpLostWithout": 18.716029396880717,
+   "defenseImpact": 0.9603873869499547,
+   "outputShare": 0
+  },
+  "volute": {
+   "inBins": 319,
+   "winWith": 0.9937304075235109,
+   "winWithout": 0.9765448861431854,
+   "impact": 1.0175982913066075,
+   "hpLostWith": 18.836990595611287,
+   "hpLostWithout": 20.61522174385969,
+   "defenseImpact": 1.0944010211834316,
+   "outputShare": 0.1735942773438512
   },
   "whistle": {
-   "inBins": 692,
-   "winWith": 0.9869942196531792,
-   "winWithout": 0.9866704942125172,
-   "impact": 1.0003280988359953,
-   "hpLostWith": 17.33092485549133,
-   "hpLostWithout": 16.710611413672353,
-   "defenseImpact": 0.9642077126875068,
+   "inBins": 1101,
+   "winWith": 0.9881925522252498,
+   "winWithout": 0.9821418006468012,
+   "impact": 1.0061607718706849,
+   "hpLostWith": 17.659400544959126,
+   "hpLostWithout": 16.36356584289468,
+   "defenseImpact": 0.9266206857494751,
    "outputShare": 0
   }
  },
- "medianDefenseImpact": 0.9612706887618181,
- "flagged": []
+ "medianDefenseImpact": 0.9766094053701436,
+ "flagged": [],
+ "clockmaker": {
+  "fights": 176,
+  "winRate": 0.8806818181818182,
+  "avgHpLost": 42.69318181818182,
+  "p90HpLost": 80,
+  "avgTopShare": 0.2956781001248363,
+  "p90TopShare": 0.42735042735042733,
+  "topParts": [
+   "escapement",
+   "ratchet",
+   "piston"
+  ]
+ }
 }
