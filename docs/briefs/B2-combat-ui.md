@@ -24,7 +24,7 @@ A new player understands a turn within two minutes: tooltips on every part, stat
 - The core lane (`machine-content`) adds parts, enemies, `ENCOUNTERS` (`src/core/content/encounters.ts`), `noShuffle`, `tutorial-automaton` and new event kinds in parallel. Until its work merges, your worktree has only B1 content: code against the documented names and keep tests that need new content tolerant by skipping when the def is missing (`test.skip(!ENEMIES['gauge-gremlin'])`); the orchestrator reruns everything after the merge. Never edit `src/core/` files other than `glossary.ts`.
 - Part family colors: read from `src/render/palette.ts` (the stage-art lane may add family accents there; don't edit it).
 - DOM text at least 12 px at 667x375; tap targets at least 40 px; no sideways scroll.
-- Own git worktree (path in your launch message). Don't commit. Never stash, checkout, reset or restore. Playwright `webServer` port: set `PW_PORT` env support in `playwright.config.ts` is NOT yours; run e2e with the config as is (port 5320) and nothing else on that port.
+- Own git worktree (path in your launch message). Don't commit. Never stash, checkout, reset or restore. Run e2e with `PW_PORT=5352 npx playwright test` (the config reads PW_PORT; it is not your file).
 - American English; no em dashes; short warm text.
 
 ## Done when

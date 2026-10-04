@@ -1,14 +1,16 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const PORT = Number(process.env.PW_PORT ?? 5320);
+
 export default defineConfig({
   testDir: 'e2e',
   workers: 2,
   timeout: 60_000,
   reporter: 'list',
-  use: { baseURL: 'http://localhost:5320' },
+  use: { baseURL: `http://localhost:${PORT}` },
   webServer: {
-    command: 'npx vite --port 5320 --strictPort',
-    port: 5320,
+    command: `npx vite --port ${PORT} --strictPort`,
+    port: PORT,
     reuseExistingServer: false,
     timeout: 60_000,
   },

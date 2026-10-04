@@ -20,7 +20,7 @@ Every part and enemy is drawn in code with a distinct, readable silhouette in on
 - Text inside the canvas: numbers and short labels only, large enough at 667x375 (at least 12 CSS px). Names and tooltips are DOM (UI lane).
 - Palette: keep `src/render/palette.ts` as the single source; add family accent colors there (gear brass, spring copper, cam bronze, tempo silver, steam iron and ember, chime gold and verdigris) and expose them for the UI lane to read.
 - Other lanes in parallel: `machine-content` (src/core: adds the parts, enemies and events you draw; use ids from docs/content.md), `combat-ui` (src/ui, src/app), `fight-sim`. Don't touch their files.
-- Own git worktree (path in your launch message). Don't commit. Never stash, checkout, reset or restore. Run any dev server on port 5341 and stop it by PID.
+- Own git worktree (path in your launch message). Don't commit. Never stash, checkout, reset or restore. Run any dev server on port 5341 and stop it by PID; run e2e with `PW_PORT=5342 npx playwright test`.
 - No image, font or audio files (test A1). American English; no em dashes.
 
 ## Done when
