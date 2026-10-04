@@ -102,6 +102,13 @@ function out(ch: Channel): AudioNode | null {
   return ch === 'master' ? master : (bus[ch] ?? null);
 }
 
+/** For other synth modules (Sprocket's voice, the ending's music box): the shared context, a channel bus and the noise buffer. Null while muted or locked. */
+export function graph(ch: Channel = 'effects'): { ctx: AudioContext; dest: AudioNode; noise: AudioBuffer | null } | null {
+  const c = ready();
+  const d = c ? out(ch) : null;
+  return c && d ? { ctx: c, dest: d, noise: noiseBuf } : null;
+}
+
 function done(node: AudioScheduledSourceNode): void {
   voices++;
   node.onended = () => {
