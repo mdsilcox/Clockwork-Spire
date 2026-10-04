@@ -1,6 +1,6 @@
 // Test support: build a ready-to-run CombatState without drawing. Not used by the game.
 import { cell } from './board';
-import { createCombat } from './combat';
+import { chooseIntent, createCombat } from './combat';
 import { registerEnemy } from './content/enemies';
 import type { CombatState, PartInstance, PlacedPart } from './types';
 
@@ -59,6 +59,8 @@ export function combatWith(o: CombatWithOpts = {}): CombatState {
     };
     c.board[at] = p;
   }
+  // Intents chosen at creation saw an empty board; pick again so sabotage targets name the parts placed here.
+  if (placed.length > 0) for (let i = 0; i < c.enemies.length; i++) chooseIntent(c, i);
   if (o.pressure !== undefined) c.pressure = o.pressure;
   if (o.ticks !== undefined) c.ticksThisTurn = o.ticks;
   return c;

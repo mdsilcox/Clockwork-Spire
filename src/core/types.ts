@@ -47,6 +47,10 @@ export interface Intent {
   hits?: number; // multi-hit attacks
   target?: number; // board cell for sabotage
   sabotage?: 'rust' | 'jam' | 'magnetize' | 'drain';
+  targets?: number[]; // ADDED in B2: every board cell a multi-target sabotage names (`target` is the first)
+  status?: string; // ADDED in B2: for kind 'debuff', the player status applied (e.g. 'corroded')
+  alsoAttack?: number; // ADDED in B2: a combined intent also attacks for this much (Jam + Attack 6)
+  alsoShell?: number; // ADDED in B2: a combined intent also gains this much Shell (Jam + Shell 12)
   label: string; // short text shown in tooltips, e.g. "Attack 8 x2"
 }
 
@@ -77,6 +81,7 @@ export interface CombatState {
   discard: number[];
   parts: Record<number, PartInstance>; // every part in this combat by uid
   handSize: number; // the hand is refilled to this many parts each turn (ADDED in B1)
+  extraDraw: number; // ADDED in B2: extra parts drawn at the next turn start (Sprocket Wheel); saves from B1 may lack it
   placementsLeft: number;
   swapUsed: boolean;
   plating: number;
@@ -137,6 +142,7 @@ export interface GameEvent {
     | 'buff' // enemy `target` buffs (note: what), `amount`
     | 'summon' // enemy `target` (new index) appears; `note` = def id
     | 'phase' // boss `target` enters phase `amount` (0-based); `note` = short line
+    | 'enemyHeal' // ADDED in B2: enemy `target` heals `amount`
     | 'rewind' // Clockmaker lifts the part at `cell` (uid) back to the draw pile (B3)
     | 'unmagnetize'; // a magnetized part at `cell` returns to the hand at turn start
   tick: number; // 0 for events outside the machine's ticks

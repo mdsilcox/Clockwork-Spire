@@ -1,10 +1,13 @@
 // Combat flow: create, place, swap, preview, run a whole turn. Functions mutate the CombatState in place.
 import { CELLS, MAINSPRING } from './types';
-import type { CombatState, EnemyState, GameEvent, Intent, PartInstance, TurnPreview, TurnResult } from './types';
+import type { CombatState, EnemyState, GameEvent, PartInstance, TurnPreview, TurnResult } from './types';
 import { inBoard } from './board';
 import { enemyDef } from './content/enemies';
-import { anyAlive, damagePlayer, MAX_TICKS, runMachine } from './machine';
-import { initStreams, int, shuffle } from './rng';
+import { chooseIntent, enemyTurn, newEnemy } from './enemy';
+import { anyAlive, MAX_TICKS, runEnemyAttackHooks, runMachine, runTurnStartHooks } from './machine';
+import { initStreams, shuffle } from './rng';
+
+export { chooseIntent };
 
 export const BASE_TICKS = 3;
 export const BASE_PLACEMENTS = 2;
@@ -19,6 +22,10 @@ export interface CreateCombatOpts {
   kind?: CombatState['kind'];
   trinkets?: string[];
   handSize?: number;
+  /** Draw pile in bin order, the first bin entry drawn first (the guided first fight). */
+  noShuffle?: boolean;
+  /** Starting Pressure (Stoker passive, Bellows). */
+  pressure?: number;
 }
 
 export function createCombat(o: CreateCombatOpts): CombatState {
@@ -31,18 +38,21 @@ export function createCombat(o: CreateCombatOpts): CombatState {
     ticksThisTurn: BASE_TICKS,
     board: new Array(CELLS).fill(null),
     hand: [],
-    draw: shuffle(
-      rng,
-      'draw',
-      o.bin.map((p) => p.uid),
-    ),
+    draw: o.noShuffle
+      ? o.bin.map((p) => p.uid).reverse() // draws pop from the end, so the first bin entry comes out first
+      : shuffle(
+          rng,
+          'draw',
+          o.bin.map((p) => p.uid),
+        ),
     discard: [],
     parts,
     handSize: o.handSize ?? DEFAULT_HAND_SIZE,
+    extraDraw: 0,
     placementsLeft: BASE_PLACEMENTS,
     swapUsed: false,
     plating: 0,
-    pressure: 0,
+    pressure: o.pressure ?? 0,
     momentum: 0,
     jammed: 0,
     playerHp: o.hp,
@@ -56,21 +66,10 @@ export function createCombat(o: CreateCombatOpts): CombatState {
     trinkets: (o.trinkets ?? []).slice(),
     log: [],
   };
-  for (const id of o.enemies) {
-    const def = enemyDef(id);
-    c.enemies.push({
-      defId: id,
-      hp: def.hp,
-      maxHp: def.hp,
-      shell: 0,
-      statuses: {},
-      intent: { kind: 'special', label: '' },
-      step: 0,
-      phase: 0,
-      mem: {},
-    });
-  }
-  for (let i = 0; i < c.enemies.length; i++) chooseIntent(c, i);
+  for (const id of o.enemies) c.enemies.push(newEnemy(id));
+  const initial = c.enemies.length;
+  for (let i = 0; i < initial; i++) enemyDef(c.enemies[i].defId).onStart?.(c, i);
+  for (let i = 0; i < initial; i++) chooseIntent(c, i); // companions summoned by onStart chose their own
   beginTurn(c, []);
   return c;
 }
@@ -96,6 +95,7 @@ export function cloneCombat(c: CombatState): CombatState {
     discard: c.discard.slice(),
     parts,
     handSize: c.handSize,
+    extraDraw: c.extraDraw ?? 0,
     placementsLeft: c.placementsLeft,
     swapUsed: c.swapUsed,
     plating: c.plating,
@@ -169,6 +169,7 @@ export function runTurn(c: CombatState): TurnResult {
 
   const preview = runMachine(c, events);
   for (const p of c.board) if (p && p.rusted > 0) p.rusted -= 1;
+  tickPlayerStatuses(c);
   c.discard.push(...c.hand);
   c.hand = [];
   const dealt = preview.damageByEnemy.reduce((a, b) => a + b, 0);
@@ -177,11 +178,15 @@ export function runTurn(c: CombatState): TurnResult {
   if (!anyAlive(c)) return finish(c, events, preview, 'won');
   if (c.playerHp <= 0) return finish(c, events, preview, 'lost');
 
-  enemyTurn(c, events);
+  for (let i = 0; i < c.enemies.length; i++) {
+    if (c.enemies[i].hp > 0) enemyDef(c.enemies[i].defId).afterMachine?.(c, i, events);
+  }
+  enemyTurn(c, events, (i) => runEnemyAttackHooks(c, i, events));
   if (c.playerHp <= 0) return finish(c, events, preview, 'lost');
   if (!anyAlive(c)) return finish(c, events, preview, 'won');
 
   beginTurn(c, events);
+  if (!anyAlive(c)) return finish(c, events, preview, 'won'); // a Torsion Spring released at turn start
   return { events, preview };
 }
 
@@ -196,13 +201,9 @@ function finish(c: CombatState, events: GameEvent[], preview: TurnPreview, outco
 function beginTurn(c: CombatState, events: GameEvent[]): void {
   c.turn += 1;
   c.plating = 0;
-  for (const s of Object.keys(c.playerStatuses)) {
-    c.playerStatuses[s] -= 1;
-    if (c.playerStatuses[s] <= 0) delete c.playerStatuses[s];
-  }
   for (const e of c.enemies) {
     for (const s of Object.keys(e.statuses)) {
-      if (s === 'scald') continue; // scald ticks at the end of the enemy turn
+      if (s === 'scald' || s === 'strength') continue; // scald ticks at the end of the enemy turn; strength lasts
       e.statuses[s] -= 1;
       if (e.statuses[s] <= 0) delete e.statuses[s];
     }
@@ -218,7 +219,20 @@ function beginTurn(c: CombatState, events: GameEvent[]): void {
     c.targetIdx = i < 0 ? 0 : i;
   }
   events.push({ kind: 'turnStart', tick: 0, step: 0, amount: c.turn });
-  while (c.hand.length < c.handSize) {
+  // Magnetized parts return to the hand with their charge lost.
+  for (let i = 0; i < c.board.length; i++) {
+    const p = c.board[i];
+    if (p && p.magnetized) {
+      c.board[i] = null;
+      c.hand.push(p.uid);
+      events.push({ kind: 'unmagnetize', tick: 0, step: 0, cell: i, uid: p.uid });
+    }
+  }
+  runTurnStartHooks(c, events);
+  if (!anyAlive(c)) return;
+  const want = c.handSize + (c.extraDraw ?? 0);
+  c.extraDraw = 0;
+  while (c.hand.length < want) {
     if (c.draw.length === 0) {
       if (c.discard.length === 0) break;
       c.draw = shuffle(c.rng, 'draw', c.discard);
@@ -230,79 +244,11 @@ function beginTurn(c: CombatState, events: GameEvent[]): void {
   }
 }
 
-// ---------- Enemies ----------
-
-/** Pick the next intent of enemy `idx` from its pattern. A rust sabotage names its target cell now (enemy stream). */
-export function chooseIntent(c: CombatState, idx: number): void {
-  const e = c.enemies[idx];
-  const def = enemyDef(e.defId);
-  let intent: Intent;
-  if (def.intentFor) intent = def.intentFor(e, c, c.rng);
-  else {
-    const step = def.pattern[e.step % def.pattern.length];
-    intent = { ...step };
-  }
-  if (intent.kind === 'sabotage' && intent.sabotage === 'rust') {
-    const occupied: number[] = [];
-    const any: number[] = [];
-    for (let i = 0; i < CELLS; i++) {
-      if (i === MAINSPRING) continue;
-      any.push(i);
-      if (c.board[i]) occupied.push(i);
-    }
-    const pool = occupied.length > 0 ? occupied : any;
-    intent.target = pool[int(c.rng, 'enemy', pool.length)];
-  }
-  e.intent = intent;
-}
-
-function enemyTurn(c: CombatState, events: GameEvent[]): void {
-  for (let i = 0; i < c.enemies.length; i++) {
-    const e = c.enemies[i];
-    if (e.hp <= 0) continue;
-    e.shell = 0;
-    const it = e.intent;
-    if (it.kind !== 'special') {
-      events.push({ kind: 'enemyAction', tick: 0, step: 0, target: i, note: it.kind, amount: it.amount });
-    }
-    if (it.kind === 'attack') {
-      let amt = it.amount ?? 0;
-      if ((e.statuses.dazed ?? 0) > 0) amt = Math.floor(amt * 0.75);
-      for (let h = 0; h < (it.hits ?? 1); h++) {
-        damagePlayer(c, amt, events);
-        if (c.playerHp <= 0) return;
-      }
-    } else if (it.kind === 'defend') {
-      e.shell += it.amount ?? 0;
-    } else if (it.kind === 'sabotage' && it.sabotage === 'rust') {
-      const t = it.target ?? -1;
-      const part = t >= 0 ? c.board[t] : null;
-      if (part) {
-        part.rusted = 1;
-        events.push({ kind: 'sabotage', tick: 0, step: 0, cell: t, target: i, note: 'rust' });
-      } else {
-        events.push({ kind: 'sabotage', tick: 0, step: 0, cell: t, target: i, note: 'fizzle' });
-      }
-    }
-    const scald = e.statuses.scald ?? 0;
-    if (scald > 0) {
-      e.hp = Math.max(0, e.hp - scald);
-      e.statuses.scald = scald - 1;
-      if (e.statuses.scald <= 0) delete e.statuses.scald;
-      if (e.hp <= 0) events.push({ kind: 'enemyDied', tick: 0, step: 0, target: i });
-    }
-    e.step += 1;
-    if (e.hp > 0) {
-      chooseIntent(c, i);
-      events.push({
-        kind: 'intent',
-        tick: 0,
-        step: 0,
-        target: i,
-        note: e.intent.kind,
-        amount: e.intent.amount,
-        cell: e.intent.target,
-      });
-    }
+/** Player statuses tick down after the machine ran (Grit lasts the whole combat). */
+function tickPlayerStatuses(c: CombatState): void {
+  for (const s of Object.keys(c.playerStatuses)) {
+    if (s === 'grit') continue;
+    c.playerStatuses[s] -= 1;
+    if (c.playerStatuses[s] <= 0) delete c.playerStatuses[s];
   }
 }

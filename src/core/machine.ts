@@ -3,15 +3,19 @@
 // previewTurn (combat.ts) runs this on a copy.
 import { diagonals, neighbors } from './board';
 import { partDef } from './content/parts';
-import type { TickCtx } from './defs';
+import type { ReleaseInfo, TickCtx } from './defs';
+import { damageEnemy, damagePlayer } from './enemy';
 import { MAINSPRING } from './types';
 import type { CombatState, GameEvent, PlacedPart, TurnPreview } from './types';
+
+export { damagePlayer };
 
 export const MAX_TICKS = 8;
 export const PRESSURE_CAP = 30;
 export const OVERPRESSURE_ABOVE = 20;
 export const OVERPRESSURE_DAMAGE = 6;
 export const OVERPRESSURE_RESET = 10;
+const MAX_RELEASE_DEPTH = 4;
 
 export function anyAlive(c: CombatState): boolean {
   return c.enemies.some((e) => e.hp > 0);
@@ -23,21 +27,20 @@ export function liveTarget(c: CombatState): number {
   return c.enemies.findIndex((e) => e.hp > 0);
 }
 
-/** Damage to the player: Plating absorbs first. Returns hp lost. */
-export function damagePlayer(c: CombatState, amount: number, events: GameEvent[]): number {
-  const absorbed = Math.min(c.plating, amount);
-  c.plating -= absorbed;
-  const lost = Math.min(c.playerHp, amount - absorbed);
-  c.playerHp -= lost;
-  events.push({ kind: 'playerHit', tick: 0, step: 0, amount: lost, note: absorbed > 0 ? `absorbed:${absorbed}` : undefined });
-  return lost;
-}
-
 interface Acc {
   damage: number[];
   plating: number;
   firing: Record<number, number>;
   statuses: { target: number; status: string; amount: number }[];
+  statusBonus: number; // Inventor's Lamp
+  once: Set<string>; // oncePerTurn keys
+}
+
+interface Rt {
+  c: CombatState;
+  events: GameEvent[];
+  acc: Acc;
+  firedIds: Set<string>; // part def ids that fired earlier this tick
 }
 
 interface QItem {
@@ -45,15 +48,30 @@ interface QItem {
   from: number;
   step: number;
   boost: number;
+  echo: boolean;
 }
+
+interface Ctx extends TickCtx {
+  pending: ReleaseInfo[];
+}
+
+const newAcc = (c: CombatState): Acc => ({
+  damage: c.enemies.map(() => 0),
+  plating: 0,
+  firing: {},
+  statuses: [],
+  statusBonus: 0,
+  once: new Set(),
+});
 
 export function runMachine(c: CombatState, events: GameEvent[]): TurnPreview {
   c.momentum = 0;
   c.lastTurnContrib = {};
   for (const p of c.board) if (p) p.firedThisTurn = 0;
-  const acc: Acc = { damage: c.enemies.map(() => 0), plating: 0, firing: {}, statuses: [] };
+  const acc = newAcc(c);
+  const rt: Rt = { c, events, acc, firedIds: new Set() };
 
-  for (let tick = 1; tick <= c.ticksThisTurn && anyAlive(c); tick++) runTick(c, tick, events, acc);
+  for (let tick = 1; tick <= c.ticksThisTurn && anyAlive(c); tick++) runTick(rt, tick);
 
   let overpressure = false;
   if (anyAlive(c) && c.pressure > OVERPRESSURE_ABOVE) {
@@ -76,18 +94,48 @@ export function runMachine(c: CombatState, events: GameEvent[]): TurnPreview {
   };
 }
 
-function runTick(c: CombatState, tick: number, events: GameEvent[], acc: Acc): void {
+/** Start of the player's turn: parts that release now (Torsion Spring). */
+export function runTurnStartHooks(c: CombatState, events: GameEvent[]): void {
+  const rt: Rt = { c, events, acc: newAcc(c), firedIds: new Set() };
+  for (let cell = 0; cell < c.board.length; cell++) {
+    const p = c.board[cell];
+    if (!p) continue;
+    const def = partDef(p.defId);
+    if (!def.onTurnStart) continue;
+    const ctx = makeCtx(rt, 0, 0, cell, p, 0, null);
+    def.onTurnStart(ctx, p);
+    resolveReleases(rt, ctx.pending, cell, 0, 0, 0);
+  }
+}
+
+/** After enemy `enemyIdx` attacked the player: Spring Trap releases at it. */
+export function runEnemyAttackHooks(c: CombatState, enemyIdx: number, events: GameEvent[]): void {
+  const rt: Rt = { c, events, acc: newAcc(c), firedIds: new Set() };
+  for (let cell = 0; cell < c.board.length; cell++) {
+    const p = c.board[cell];
+    if (!p || c.enemies[enemyIdx].hp <= 0) continue;
+    const def = partDef(p.defId);
+    if (!def.onEnemyAttack) continue;
+    const ctx = makeCtx(rt, 0, 0, cell, p, 0, null);
+    def.onEnemyAttack(ctx, p, enemyIdx);
+    resolveReleases(rt, ctx.pending, cell, 0, 0, 0);
+  }
+}
+
+function runTick(rt: Rt, tick: number): void {
+  const { c, events, acc } = rt;
   events.push({ kind: 'tick', tick, step: 0 });
+  rt.firedIds = new Set();
   const visited = new Set<number>([MAINSPRING]);
   const queue: QItem[] = [];
-  const enqueue = (from: number, cells: number[], step: number, boost: number): void => {
+  const enqueue = (from: number, cells: number[], step: number, boost: number, echo: boolean): void => {
     for (const n of cells) {
       if (visited.has(n) || !c.board[n]) continue;
       visited.add(n);
-      queue.push({ cell: n, from, step, boost });
+      queue.push({ cell: n, from, step, boost, echo });
     }
   };
-  enqueue(MAINSPRING, neighbors(MAINSPRING), 1, 0);
+  enqueue(MAINSPRING, neighbors(MAINSPRING), 1, 0, false);
 
   for (let head = 0; head < queue.length; head++) {
     const q = queue[head];
@@ -102,35 +150,65 @@ function runTick(c: CombatState, tick: number, events: GameEvent[], acc: Acc): v
 
     p.firedThisTurn += 1;
     c.momentum += 1;
-    acc.firing[q.cell] = (acc.firing[q.cell] ?? 0) + 1;
     events.push({ kind: 'power', tick, step: q.step, cell: q.cell, uid: p.uid, amount: c.momentum });
 
     const fedBy = q.from === MAINSPRING ? null : (c.board[q.from]?.uid ?? null);
-    const ctx = makeCtx(c, tick, q, p, fedBy, events, acc);
-    const chargeBefore = p.charge;
-    def.onFire(ctx, p);
-    if (p.charge > chargeBefore) {
-      events.push({ kind: 'charge', tick, step: q.step, cell: q.cell, uid: p.uid, amount: p.charge });
+    const ctx = makeCtx(rt, tick, q.step, q.cell, p, q.boost, fedBy);
+    const resolve = (): void => {
+      acc.firing[q.cell] = (acc.firing[q.cell] ?? 0) + 1;
+      const chargeBefore = p.charge;
+      def.onFire(ctx, p);
+      if (p.charge > chargeBefore) {
+        events.push({ kind: 'charge', tick, step: q.step, cell: q.cell, uid: p.uid, amount: p.charge });
+      }
+      resolveReleases(rt, ctx.pending, q.cell, tick, q.step, 0);
+    };
+    resolve();
+    if (q.echo && anyAlive(c)) {
+      events.push({ kind: 'echo', tick, step: q.step, cell: q.cell, uid: p.uid });
+      ctx.isEcho = true;
+      resolve();
     }
+    rt.firedIds.add(p.defId);
 
     if (def.holds && def.holds(ctx, p)) {
       events.push({ kind: 'hold', tick, step: q.step, cell: q.cell, uid: p.uid });
       continue;
     }
-    enqueue(q.cell, def.diagonal ? [...neighbors(q.cell), ...diagonals(q.cell)] : neighbors(q.cell), q.step + 1, ctx.boostOut);
+    enqueue(
+      q.cell,
+      def.diagonal ? [...neighbors(q.cell), ...diagonals(q.cell)] : neighbors(q.cell),
+      q.step + 1,
+      ctx.boostOut,
+      ctx.echoOut,
+    );
   }
 }
 
-function makeCtx(
-  c: CombatState,
-  tick: number,
-  q: QItem,
-  p: PlacedPart,
-  fedBy: number | null,
-  events: GameEvent[],
-  acc: Acc,
-): TickCtx {
-  const base = { tick, step: q.step, cell: q.cell, uid: p.uid };
+/** Adjacent parts that listen for releases react, right after the release (same tick, step + 1). */
+function resolveReleases(rt: Rt, pending: ReleaseInfo[], srcCell: number, tick: number, step: number, depth: number): void {
+  const { c, events } = rt;
+  const list = pending.splice(0, pending.length);
+  for (const info of list) {
+    for (const n of neighbors(srcCell)) {
+      const part = c.board[n];
+      if (!part || part.rusted > 0) continue;
+      const def = partDef(part.defId);
+      if (!def.onNeighborRelease) continue;
+      const ctx = makeCtx(rt, tick, step + 1, n, part, 0, null);
+      const chargeBefore = part.charge;
+      def.onNeighborRelease(ctx, part, info);
+      if (part.charge > chargeBefore) {
+        events.push({ kind: 'charge', tick, step: step + 1, cell: n, uid: part.uid, amount: part.charge });
+      }
+      if (depth < MAX_RELEASE_DEPTH) resolveReleases(rt, ctx.pending, n, tick, step + 1, depth + 1);
+    }
+  }
+}
+
+function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart, boostIn: number, fedBy: number | null): Ctx {
+  const { c, events, acc } = rt;
+  const base = { tick, step, cell, uid: p.uid };
   const contribute = (value: number): void => {
     const cur = c.lastTurnContrib[p.uid];
     if (cur) cur.value += value;
@@ -141,35 +219,39 @@ function makeCtx(
     const e = c.enemies[idx];
     let dmg = raw;
     if ((e.statuses.cracked ?? 0) > 0) dmg = Math.floor(dmg * 1.5);
-    const absorbed = Math.min(e.shell, dmg);
-    e.shell -= absorbed;
-    const lost = Math.min(e.hp, dmg - absorbed);
-    e.hp -= lost;
-    acc.damage[idx] += lost;
+    const lost = damageEnemy(c, idx, dmg, events, base);
+    acc.damage[idx] = (acc.damage[idx] ?? 0) + lost;
     contribute(dmg);
-    events.push({
-      kind: 'strike',
-      ...base,
-      target: idx,
-      amount: lost,
-      note: absorbed > 0 ? `absorbed:${absorbed}` : undefined,
-    });
-    if (e.hp <= 0 && lost > 0) events.push({ kind: 'enemyDied', ...base, target: idx });
   };
+  const grit = (): number => c.playerStatuses.grit ?? 0;
 
-  const ctx: TickCtx = {
+  const ctx: Ctx = {
     c,
     tick,
-    step: q.step,
-    cell: q.cell,
-    boostIn: q.boost,
+    step,
+    cell,
+    boostIn,
     boostOut: 0,
+    echoOut: false,
     released: false,
+    isEcho: false,
+    pending: [],
     isLastTick: () => tick >= c.ticksThisTurn,
+    isFirstFire: () => p.firedThisTurn === 1 && !ctx.isEcho,
+    oncePerTurn(key) {
+      if (acc.once.has(key)) return false;
+      acc.once.add(key);
+      return true;
+    },
+    firedEarlier: (defId) => rt.firedIds.has(defId),
     strike(amount) {
       const idx = liveTarget(c);
       if (idx < 0) return;
-      hit(idx, amount + ctx.boostIn);
+      hit(idx, amount + ctx.boostIn + grit());
+    },
+    strikeAt(idx, amount) {
+      if (!c.enemies[idx] || c.enemies[idx].hp <= 0) return;
+      hit(idx, amount + ctx.boostIn + grit());
     },
     sweep(amount) {
       for (let i = 0; i < c.enemies.length; i++) {
@@ -203,7 +285,44 @@ function makeCtx(
     },
     release() {
       ctx.released = true;
+      ctx.pending.push({ cam: false, from: cell });
       events.push({ kind: 'release', ...base });
+    },
+    camPayoff() {
+      ctx.pending.push({ cam: true, from: cell });
+      events.push({ kind: 'release', ...base, note: 'cam' });
+    },
+    applyStatus(who, status, amount) {
+      const targets =
+        who === 'all' ? c.enemies.map((_, i) => i).filter((i) => c.enemies[i].hp > 0) : [who === 'target' ? liveTarget(c) : who];
+      const n = amount + (status === 'scald' || status === 'cracked' ? acc.statusBonus : 0);
+      for (const idx of targets) {
+        const e = c.enemies[idx];
+        if (!e || e.hp <= 0) continue;
+        const cur = e.statuses[status] ?? 0;
+        e.statuses[status] = status === 'scald' ? cur + n : Math.max(cur, n);
+        acc.statuses.push({ target: idx, status, amount: n });
+        events.push({ kind: 'status', ...base, target: idx, status, amount: n });
+      }
+    },
+    heal(amount) {
+      const gain = Math.min(amount, c.playerMaxHp - c.playerHp);
+      if (gain <= 0) return;
+      c.playerHp += gain;
+      events.push({ kind: 'heal', ...base, amount: gain });
+    },
+    drawNextTurn(n) {
+      c.extraDraw = (c.extraDraw ?? 0) + n;
+    },
+    addStatusBonus(n) {
+      acc.statusBonus += n;
+    },
+    clearRust(at) {
+      const part = c.board[at];
+      if (part && part.rusted > 0) {
+        part.rusted = 0;
+        events.push({ kind: 'sabotage', ...base, cell: at, note: 'clear' });
+      }
     },
   };
   return ctx;
