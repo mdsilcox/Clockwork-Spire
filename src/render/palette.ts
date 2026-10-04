@@ -32,6 +32,16 @@ export const FAMILY_COLOR: Record<Family, string> = {
   chime: '#c2a4dc',
 };
 
+/** Painted family accents (main and secondary) used by the stage art. The UI may read these too. */
+export const FAMILY_ACCENT: Record<Family, { main: string; alt: string }> = {
+  gear: { main: '#d1a64a', alt: '#8a6a2a' }, // brass
+  spring: { main: '#c4703f', alt: '#7d4524' }, // copper
+  cam: { main: '#c8985a', alt: '#7a5428' }, // bronze
+  tempo: { main: '#cfd8dc', alt: '#5b666c' }, // silver
+  steam: { main: '#8d979d', alt: '#ff8c3c' }, // iron and ember
+  chime: { main: '#f3cf72', alt: '#6fb0a6' }, // gold and verdigris
+};
+
 export const FAMILY_LABEL: Record<Family, string> = {
   gear: 'Gear',
   spring: 'Spring',
