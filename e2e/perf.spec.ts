@@ -1,9 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { skipFirstLaunch } from './helpers';
 
 // Q7: the stage holds 60 fps with a full board while turns replay back to back at 1x.
 test('full board holds the frame rate over 5 seconds of turns', async ({ page }, info) => {
   test.skip(info.project.name !== 'desktop', 'perf runs in the desktop project only');
   test.slow();
+  await skipFirstLaunch(page);
   await page.goto('/');
   await page.getByRole('button', { name: 'Practice fight' }).click();
   await expect(page.getByTestId('combat')).toBeVisible();

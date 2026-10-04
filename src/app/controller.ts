@@ -198,10 +198,9 @@ export function startTutorial(): void {
   c.hand = [1, 2, 3];
   c.draw = [10, 9, 8, 7, 6, 5, 4];
   c.discard = [];
-  if (enemy === 'rust-mite') {
-    c.enemies[0].hp = 36;
-    c.enemies[0].maxHp = 36;
-  }
+  // Tougher than its fight stat, so the guided fight lasts until the Rust intent has been shown (turn 3).
+  c.enemies[0].hp = 36;
+  c.enemies[0].maxHp = 36;
   live = c;
   tutorial.value = { step: 1, turn: 1 };
   screen.value = 'combat';
