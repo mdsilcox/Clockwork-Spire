@@ -1,0 +1,34 @@
+[
+ {
+  "image": "sprocket_seed1.png",
+  "seconds": 17.1
+ },
+ {
+  "image": "sprocket_seed2.png",
+  "seconds": 12.1
+ },
+ {
+  "image": "sprocket_seed3.png",
+  "seconds": 12.1
+ },
+ {
+  "image": "sprocket_seed4.png",
+  "seconds": 12.1
+ },
+ {
+  "image": "foreman_seed1.png",
+  "seconds": 12.1
+ },
+ {
+  "image": "foreman_seed2.png",
+  "seconds": 11.2
+ },
+ {
+  "image": "foreman_seed3.png",
+  "seconds": 12.1
+ },
+ {
+  "image": "foreman_seed4.png",
+  "seconds": 11.2
+ }
+]

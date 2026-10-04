@@ -28,9 +28,14 @@ Vite 8 + TypeScript 7 (strict, `tsc --noEmit`) + Preact 11 (`@preact/signals`, `
 ## Rules decisions worth knowing
 Boost goes to every part the booster passes motion to (not cumulative); overpressure damage is absorbed by Plating; enemy rust lasts through the player's next machine run; Shell falls when its owner starts its turn; the machine stops ticking once every enemy is dead; all rare parts start locked (blueprints unlock them). More in DECISIONS.md.
 
+## Version 2 (in progress)
+v2 is owner-approved on the board (D-027): phases `cs~V0` (setup), `cs~D3` (design), `cs~D4` (art direction), `cs~D5` (roadmap), then build phases. The owner's choices are D-029. Until D3 closes, `docs/rules.md` and `docs/content.md` still describe v1.
+- Art (D-026): characters, enemies and illustrations are generated paintings (SDXL via `~/.claude/tools/art/`), rigged with `rig.js`; effects, UI and motion stay code. `art/trial/` holds the approved v1 trial (Sprocket, the Foreman), reference only. v2 assets go in `art/<asset>/` per `docs/art-direction.md` and `art/style.json` (written in D4).
+- One ComfyUI server on the GPU at a time; stop it by PID.
+
 ## Conventions
 - American English, no em dashes anywhere (UI text, docs, comments). Short text; warm, curious, a little melancholy.
-- All art drawn in code; all sound synthesized; no image, font or audio files (test A1 scans `src/` and `public/`).
+- Sound synthesized; no audio or font files. Until the D4 spike rescopes test A1, no image files in `src/` or `public/` either (art lives in `art/`).
 - Rules change only in `src/core/` with a unit test; numbers come from `docs/content.md`; balance changes are logged in `balance/` and DECISIONS.md.
 - UI: DOM over the canvas; `data-testid` on interactive elements; tap targets 40 px+, text 12 px+ at 667x375, no sideways scroll.
 - Files to copy: a part `content/parts.ts` (spur, coil), an enemy `content/enemies.ts`, a screen `src/ui/Nodes.tsx`, an e2e `e2e/run.spec.ts`.

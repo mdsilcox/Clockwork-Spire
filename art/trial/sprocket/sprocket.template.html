@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sprocket Rig Trial</title>
+<style>
+  :root { --bg: #1d2a30; --panel: #26363d; --brass: #d9a441; --text: #f2e6cf; --muted: #b9a98c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: radial-gradient(ellipse at 50% 35%, #34474f 0%, var(--bg) 70%); color: var(--text);
+         font: 15px/1.4 system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 16px; }
+  h1 { font: 600 22px Georgia, serif; color: var(--brass); margin: 4px 0 2px; }
+  p.note { color: var(--muted); margin: 0 0 10px; text-align: center; max-width: 640px; }
+  .stage { position: relative; width: min(100%, 760px); aspect-ratio: 1216 / 832; cursor: pointer; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+  button { background: var(--panel); color: var(--text); border: 1px solid #5a4a2a; padding: 8px 16px; font: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--brass); color: #1d2a30; border-color: var(--brass); }
+  label { color: var(--muted); display: flex; align-items: center; gap: 6px; padding: 8px; }
+</style>
+</head>
+<body>
+<h1>Sprocket rig trial</h1>
+<p class="note">One generated painting, animated with a bone-weighted mesh. Click Sprocket to pet.</p>
+<div class="stage" id="stage">
+  <canvas id="under"></canvas>
+  <canvas id="gl"></canvas>
+  <canvas id="over"></canvas>
+</div>
+<div class="bar">
+  <button data-mood="idle" aria-pressed="true">Idle</button>
+  <button data-mood="happy">Happy</button>
+  <button data-mood="sleepy">Sleepy</button>
+  <label><input type="checkbox" id="mesh"> Show mesh</label>
+  <label>Tail fluff <input type="range" id="slim" min="0" max="40" value="0"> <span id="slimv">100%</span></label>
+</div>
+<script>
+const IMG_SRC = "__IMG__";
+const W = 1216, H = 832, GX = 76, GY = 52;
+const EYE = { x: 254, y: 251, rx: 17, ry: 12, rot: -0.12 };
+
+const smooth = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+const band = (x, x0, x1, soft) => smooth(x0 - soft, x0 + soft, x) * smooth(x1 + soft, x1 - soft, x);
+const rad = d => d * Math.PI / 180;
+
+// Bones: pivots and soft weight functions over rest-pose image coordinates.
+const LEGS = [
+  { key: "frontNear", x0: 405, x1: 503, px: 455, py: 562 },
+  { key: "frontFar", x0: 503, x1: 582, px: 540, py: 556 },
+  { key: "backFar", x0: 755, x1: 880, px: 820, py: 560 },
+  { key: "backNear", x0: 880, x1: 995, px: 930, py: 566 },
+];
+function weights(x, y) {
+  const w = {
+    ears: smooth(228, 150, y) * band(x, 248, 382, 18),
+    head: smooth(482, 378, x) * smooth(478, 398, y),
+    tail: smooth(842, 932, x) * smooth(425, 345, y),
+    plume: smooth(840, 900, x) * smooth(360, 270, y),
+    rear: smooth(600, 820, x),
+    feet: smooth(640, 730, y),
+    low: smooth(548, 600, y),
+    chest: smooth(565, 430, y),
+  };
+  w.legs = LEGS.map(l => band(x, l.x0, l.x1, 10) * w.low);
+  return w;
+}
+function rot(x, y, px, py, a, w) {
+  if (!w || !a) return [x, y];
+  const c = Math.cos(a), s = Math.sin(a), dx = x - px, dy = y - py;
+  return [x + w * (px + dx * c - dy * s - x), y + w * (py + dx * s + dy * c - y)];
+}
+// Apply the pose: children first (ears, tail, legs), then head and rear, then crouch, breath and hop.
+const TAIL_BASE = [905, 340], TAIL_DIR = (() => { const dx = 140, dy = -270, l = Math.hypot(dx, dy); return [dx / l, dy / l]; })();
+let slim = 0;
+function deform(x0, y0, w, P) {
+  let x = x0, y = y0;
+  if (slim && w.plume) {  // Squeeze the plume toward its axis: thinner tail, same painting.
+    const rx = x - TAIL_BASE[0], ry = y - TAIL_BASE[1], along = rx * TAIL_DIR[0] + ry * TAIL_DIR[1];
+    const k = slim * w.plume * smooth(-20, 60, along), px = rx - along * TAIL_DIR[0], py = ry - along * TAIL_DIR[1];
+    x -= px * k; y -= py * k;
+  }
+  [x, y] = rot(x, y, 316, 218, rad(P.ear), w.ears);
+  if (w.tail) {
+    const d = Math.hypot(x - 905, y - 375), a = rad(P.tail) * Math.min(1, d / 260);
+    [x, y] = rot(x, y, 905, 375, a, w.tail);
+  }
+  LEGS.forEach((l, i) => { [x, y] = rot(x, y, l.px, l.py, rad(P.legs[i]), w.legs[i]); });
+  [x, y] = rot(x, y, 425, 335, rad(P.head), w.head);
+  x += P.wiggle * w.rear * (1 - w.feet);
+  const ground = 742, k = 1 - 0.36 * P.crouch;
+  const yc = ground - (ground - y) * k, drop = (ground - 560) * (1 - k);
+  y = y + (yc - y) * w.low + drop * (1 - w.low);
+  y = 560 + drop - (560 + drop - y) * (1 + P.breath * w.chest * (1 - w.low));
+  y -= P.hop;
+  return [x, y];
+}
+
+// Moods set targets; the live pose eases toward them.
+const MOODS = {
+  idle:   { tailAmp: 7,  tailHz: 1.2, tailBase: 0,  head: 0,   ear: 0,  crouch: 0,    breath: 0.014, breathHz: 0.33, hop: 0,  wiggle: 0,  tap: 0, eyes: 0 },
+  happy:  { tailAmp: 24, tailHz: 5.5, tailBase: -6, head: 6,   ear: 8,  crouch: 0,    breath: 0.02,  breathHz: 0.9,  hop: 12, wiggle: 9,  tap: 5, eyes: 0 },
+  sleepy: { tailAmp: 2,  tailHz: 0.4, tailBase: 38, head: -13, ear: 14, crouch: 0.55, breath: 0.03,  breathHz: 0.2,  hop: 0,  wiggle: 0,  tap: 0, eyes: 1 },
+};
+let mood = "idle", petUntil = 0;
+const live = { ...MOODS.idle };
+let phase = { tail: 0, breath: 0, hop: 0, wiggle: 0, tap: 0 };
+let nextBlink = 2, blinkT = -1, nextFlick = 4, flickT = -1, zzz = [];
+
+const glc = document.getElementById("gl"), under = document.getElementById("under"), over = document.getElementById("over");
+const gl = glc.getContext("webgl", { premultipliedAlpha: true, alpha: true, antialias: true });
+const uctx = under.getContext("2d"), octx = over.getContext("2d");
+let verts, rest, wts, idx, posBuf, lidColor = "#d8954a";
+
+function size() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1), r = glc.getBoundingClientRect();
+  for (const c of [glc, under, over]) { c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr); }
+  gl.viewport(0, 0, glc.width, glc.height);
+}
+
+function shader(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; }
+function setup(img) {
+  const p = gl.createProgram();
+  gl.attachShader(p, shader(gl.VERTEX_SHADER, `attribute vec2 a_pos; attribute vec2 a_uv; varying vec2 v_uv;
+    void main(){ v_uv=a_uv; vec2 c=a_pos/vec2(${W}.0,${H}.0)*2.0-1.0; gl_Position=vec4(c.x,-c.y,0.0,1.0); }`));
+  gl.attachShader(p, shader(gl.FRAGMENT_SHADER, `precision mediump float; varying vec2 v_uv; uniform sampler2D t;
+    uniform float u_mesh; void main(){ vec4 c=texture2D(t,v_uv); gl_FragColor = u_mesh>0.5 ? vec4(0.95,0.8,0.3,1.0) : c; }`));
+  gl.linkProgram(p); gl.useProgram(p);
+  const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+  for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+  const n = (GX + 1) * (GY + 1); rest = new Float32Array(n * 2); verts = new Float32Array(n * 2); const uv = new Float32Array(n * 2); wts = [];
+  for (let j = 0; j <= GY; j++) for (let i = 0; i <= GX; i++) {
+    const k = j * (GX + 1) + i, x = i / GX * W, y = j / GY * H;
+    rest[2 * k] = x; rest[2 * k + 1] = y; uv[2 * k] = i / GX; uv[2 * k + 1] = j / GY; wts.push(weights(x, y));
+  }
+  const tri = [], lines = [];
+  for (let j = 0; j < GY; j++) for (let i = 0; i < GX; i++) {
+    const a = j * (GX + 1) + i, b = a + 1, c = a + GX + 1, d = c + 1;
+    tri.push(a, b, c, b, d, c); lines.push(a, b, a, c);
+  }
+  idx = { tri: new Uint16Array(tri), lines: new Uint16Array(lines) };
+  idx.triBuf = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idx.triBuf); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx.tri, gl.STATIC_DRAW);
+  idx.lineBuf = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idx.lineBuf); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx.lines, gl.STATIC_DRAW);
+  const uvBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, uvBuf); gl.bufferData(gl.ARRAY_BUFFER, uv, gl.STATIC_DRAW);
+  const aUv = gl.getAttribLocation(p, "a_uv"); gl.enableVertexAttribArray(aUv); gl.vertexAttribPointer(aUv, 2, gl.FLOAT, false, 0, 0);
+  posBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, posBuf); gl.bufferData(gl.ARRAY_BUFFER, verts, gl.DYNAMIC_DRAW);
+  const aPos = gl.getAttribLocation(p, "a_pos"); gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+  idx.uMesh = gl.getUniformLocation(p, "u_mesh");
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  // Lid color: the fur just above the eye.
+  const c = document.createElement("canvas"); c.width = W; c.height = H; const cx = c.getContext("2d"); cx.drawImage(img, 0, 0);
+  const d = cx.getImageData(266, 233, 1, 1).data; lidColor = `rgb(${d[0]},${d[1]},${d[2]})`;
+}
+
+function step(dt, t) {
+  const target = performance.now() < petUntil ? MOODS.happy : MOODS[mood];
+  const ease = 1 - Math.exp(-dt * 3);
+  for (const k in target) live[k] += (target[k] - live[k]) * ease;
+  phase.tail += dt * live.tailHz * 2 * Math.PI; phase.breath += dt * live.breathHz * 2 * Math.PI;
+  phase.hop += dt * 2.6 * 2 * Math.PI; phase.wiggle += dt * 5.5 * 2 * Math.PI; phase.tap += dt * 2.6 * 2 * Math.PI;
+  // Idle extras: blinks and ear flicks.
+  if (t > nextBlink && blinkT < 0) { blinkT = 0; nextBlink = t + 2.5 + Math.random() * 3; }
+  if (blinkT >= 0) { blinkT += dt; if (blinkT > 0.18) blinkT = -1; }
+  if (t > nextFlick && flickT < 0) { flickT = 0; nextFlick = t + 4 + Math.random() * 5; }
+  if (flickT >= 0) { flickT += dt; if (flickT > 0.35) flickT = -1; }
+  const blink = blinkT >= 0 ? Math.sin(Math.PI * blinkT / 0.18) : 0;
+  const flick = flickT >= 0 ? Math.sin(Math.PI * flickT / 0.35) * 12 : 0;
+  return {
+    tail: live.tailBase + live.tailAmp * Math.sin(phase.tail),
+    head: live.head + 1.5 * Math.sin(phase.breath * 0.5) + (mood === "happy" || performance.now() < petUntil ? 3 * Math.sin(phase.hop) : 0),
+    ear: live.ear + flick * (1 - live.eyes),
+    legs: [live.tap * Math.max(0, Math.sin(phase.tap)), -live.tap * Math.max(0, -Math.sin(phase.tap)), 0, 0],
+    crouch: live.crouch,
+    breath: live.breath * Math.sin(phase.breath),
+    hop: live.hop * Math.abs(Math.sin(phase.hop)),
+    wiggle: live.wiggle * Math.sin(phase.wiggle),
+    eyes: Math.max(live.eyes, blink),
+  };
+}
+
+function draw(P, t) {
+  for (let k = 0; k < wts.length; k++) {
+    const [x, y] = deform(rest[2 * k], rest[2 * k + 1], wts[k], P); verts[2 * k] = x; verts[2 * k + 1] = y;
+  }
+  gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.bindBuffer(gl.ARRAY_BUFFER, posBuf); gl.bufferSubData(gl.ARRAY_BUFFER, 0, verts);
+  gl.uniform1f(idx.uMesh, 0); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idx.triBuf); gl.drawElements(gl.TRIANGLES, idx.tri.length, gl.UNSIGNED_SHORT, 0);
+  if (document.getElementById("mesh").checked) { gl.uniform1f(idx.uMesh, 1); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, idx.lineBuf); gl.drawElements(gl.LINES, idx.lines.length, gl.UNSIGNED_SHORT, 0); }
+
+  const sx = under.width / W, sy = under.height / H;
+  // Shadow shrinks while hopping.
+  uctx.setTransform(1, 0, 0, 1, 0, 0); uctx.clearRect(0, 0, under.width, under.height); uctx.setTransform(sx, 0, 0, sy, 0, 0);
+  const s = 1 - P.hop / 60; uctx.fillStyle = `rgba(0,0,0,${0.32 * s})`;
+  uctx.beginPath(); uctx.ellipse(700, 748, 330 * s, 22 * s, 0, 0, 2 * Math.PI); uctx.fill();
+
+  octx.setTransform(1, 0, 0, 1, 0, 0); octx.clearRect(0, 0, over.width, over.height); octx.setTransform(sx, 0, 0, sy, 0, 0);
+  // Eyelid: fur color sweeping down over the eye, then a closed-eye curve.
+  if (P.eyes > 0.02) {
+    const w0 = weights(EYE.x, EYE.y), [ex, ey] = deform(EYE.x, EYE.y, w0, P);
+    octx.save(); octx.translate(ex, ey); octx.rotate(EYE.rot + rad(P.head));
+    octx.beginPath(); octx.ellipse(0, 0, EYE.rx, EYE.ry, 0, 0, 2 * Math.PI); octx.clip();
+    const h = 2 * EYE.ry * P.eyes; octx.fillStyle = lidColor; octx.fillRect(-EYE.rx - 2, -EYE.ry - 2, 2 * EYE.rx + 4, h + 2);
+    octx.restore();
+    octx.save(); octx.translate(ex, ey); octx.rotate(EYE.rot + rad(P.head));
+    const ly = -EYE.ry + h; octx.strokeStyle = "rgba(25,15,10,0.95)"; octx.lineWidth = 3.2; octx.lineCap = "round";
+    octx.beginPath(); octx.moveTo(-EYE.rx + 1, ly - 2); octx.quadraticCurveTo(0, ly + 5 * P.eyes, EYE.rx - 1, ly - 2); octx.stroke();
+    octx.restore();
+  }
+  // Floating Zs while asleep.
+  if (live.eyes > 0.7 && (zzz.length === 0 || t - zzz[zzz.length - 1].t0 > 1.4)) zzz.push({ t0: t });
+  zzz = zzz.filter(z => t - z.t0 < 3.2);
+  for (const z of zzz) {
+    const a = (t - z.t0) / 3.2; octx.globalAlpha = Math.sin(Math.PI * a) * live.eyes;
+    octx.fillStyle = "#f2e6cf"; octx.font = `600 ${26 + 22 * a}px Georgia`;
+    octx.fillText("z", 300 + 40 * a + 10 * Math.sin(a * 9), 150 - 120 * a);
+  }
+  octx.globalAlpha = 1;
+}
+
+let last = performance.now(), t0 = last;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; const t = (now - t0) / 1000;
+  draw(step(dt, t), t);
+}
+// Deterministic hook for recording: renderAt(seconds, mood) steps from a fresh state.
+window.renderAt = (secs, m) => {
+  mood = m; Object.assign(live, MOODS[m]); phase = { tail: 0, breath: 0, hop: 0, wiggle: 0, tap: 0 };
+  nextBlink = 1.2; blinkT = -1; nextFlick = 2.2; flickT = -1; zzz = []; petUntil = 0;
+  let P; for (let t = 0; t <= secs; t += 1 / 60) P = step(1 / 60, t); draw(P, secs);
+};
+window.renderSeq = (m, seconds, fps) => {
+  mood = m; Object.assign(live, MOODS[m]); phase = { tail: 0, breath: 0, hop: 0, wiggle: 0, tap: 0 };
+  nextBlink = 1.2; blinkT = -1; nextFlick = 2.2; flickT = -1; zzz = []; petUntil = 0; recording = true;
+  return { next(dt) { const t = (this.t = (this.t || 0) + dt); draw(step(dt, t), t); } };
+};
+let recording = false;
+
+document.querySelectorAll("button[data-mood]").forEach(b => b.addEventListener("click", () => {
+  recording = false; mood = b.dataset.mood; petUntil = 0; document.querySelectorAll("button[data-mood]").forEach(o => o.setAttribute("aria-pressed", o === b));
+}));
+document.getElementById("stage").addEventListener("click", () => { petUntil = performance.now() + 2500; });
+window.addEventListener("resize", size);
+document.getElementById("slim").addEventListener("input", e => { recording = false; slim = e.target.value / 100; document.getElementById("slimv").textContent = (100 - e.target.value) + "%"; });
+
+const img = new Image();
+img.onload = () => { size(); setup(img); window.ready = true; requestAnimationFrame(function loop(now) { if (!recording) frame(now); requestAnimationFrame(loop); }); };
+img.src = IMG_SRC;
+</script>
+</body>
+</html>

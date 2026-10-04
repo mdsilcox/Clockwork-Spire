@@ -1,5 +1,11 @@
 # Progress
 
+## Version 2 (started 2026-10-04T22:12Z, owner-approved on the board)
+Plan: V0 setup, D3 design and D4 art direction side by side, D5 roadmap, then build phases. Board phases `cs~V0`, `cs~D3`, `cs~D4`, `cs~D5`.
+- Now: V0 setup (art trial in `art/trial/`, D-026 to D-029). D3 combat-side steps and D4 style started. Waiting on the owner for D3.1b (the out-of-battle loop), rarity tiers and difficulty shape.
+
+## Version 1
+
 Run started 2026-10-04T16:30Z (autonomous mode). Board: https://claude.ai/artifact/Eqis6DgyZMefwhzFM1KNta (project `clockwork-spire`, prefix `cs~`).
 
 ## Now
