@@ -7,7 +7,7 @@ import * as audio from '../audio/synth';
 import { drawEcho, drawEnemy, drawMainspring, drawPart, drawShell, drawStatuses, newLook, newVis, partFamily } from './draw';
 import type { EnemyLook, Vis } from './draw';
 import { TAU, gearPath } from './kit';
-import { cellRect, computeLayout, enemyBody, enemySlots } from './layout';
+import { cellRect, computeLayout, enemyBar, enemyBody, enemySlots } from './layout';
 import type { Layout, Rect } from './layout';
 import { COLOR, FONT } from './palette';
 import { applyEvent, timeline, viewFromState } from './replay';
@@ -919,17 +919,15 @@ export class Stage {
         drawStatuses(ctx, e.statuses, x, y, body.w, now);
         if (shell > 0) drawShell(ctx, x, y, body.w, shell, now);
       }
-      const bw = Math.min(slot.w * 0.8, 120);
-      const bx = slot.x + (slot.w - bw) / 2;
-      const by = slot.y + slot.h * 0.22 + slot.h * 0.5 + 1;
+      const bar = enemyBar(slot);
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(bx, by, bw, 7);
+      ctx.fillRect(bar.x, bar.y, bar.w, bar.h);
       ctx.fillStyle = hp / e.maxHp > 0.4 ? COLOR.good : COLOR.hurt;
-      ctx.fillRect(bx, by, bw * Math.max(0, hp / e.maxHp), 7);
+      ctx.fillRect(bar.x, bar.y, bar.w * Math.max(0, hp / e.maxHp), bar.h);
       if (shell > 0) {
         ctx.strokeStyle = COLOR.plating;
         ctx.lineWidth = 2;
-        ctx.strokeRect(bx - 1, by - 1, bw + 2, 9);
+        ctx.strokeRect(bar.x - 1, bar.y - 1, bar.w + 2, bar.h + 2);
       }
     }
 

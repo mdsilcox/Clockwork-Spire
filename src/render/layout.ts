@@ -53,9 +53,25 @@ export function enemySlots(L: Layout, n: number): Rect[] {
   return out;
 }
 
-/** The part of an enemy slot where the automaton is drawn (the rest holds DOM text). */
+/** The DOM slot is a grid of intent (22%, at least 26px), body (the rest) and name/HP text (28%). */
+function bodyBand(slot: Rect): { top: number; bottom: number } {
+  const top = slot.y + Math.max(slot.h * 0.22, 26);
+  const bottom = slot.y + slot.h * 0.72 - 20; // above the HP bar, which sits just over the name text
+  return { top, bottom: Math.max(top + 16, bottom) };
+}
+
+/**
+ * Where the automaton is drawn: inside the body row, below the intent pill and above the HP bar,
+ * so the sprite, the bar and the DOM rows never overlap.
+ */
 export function enemyBody(slot: Rect): Rect {
-  const h = slot.h * 0.5;
-  const size = Math.min(slot.w * 0.9, h);
-  return { x: slot.x + (slot.w - size) / 2, y: slot.y + slot.h * 0.22 + (h - size) / 2, w: size, h: size };
+  const { top, bottom } = bodyBand(slot);
+  const size = Math.min(slot.w * 0.9, bottom - top);
+  return { x: slot.x + (slot.w - size) / 2, y: top + (bottom - top - size) / 2, w: size, h: size };
+}
+
+/** The HP bar rectangle: just above the name text. */
+export function enemyBar(slot: Rect): Rect {
+  const w = Math.min(slot.w * 0.8, 120);
+  return { x: slot.x + (slot.w - w) / 2, y: slot.y + slot.h * 0.72 - 15, w, h: 5 };
 }
