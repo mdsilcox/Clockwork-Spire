@@ -69,3 +69,13 @@ for c in range(3):
 out[:, :, 3] = ta * 255
 Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).save(cut)
 print("cleaned", cut)
+
+# Happy muzzle: the same painting with the open-mouth repaint. Outside the muzzle box the two key masks are identical,
+# so cut-happy.png is cut.png with that box taken from cut-happy.orig.png (key mask of happy/seed5.png, tol 30).
+hap_orig = os.path.join(here, "cut-happy.orig.png")
+if os.path.exists(hap_orig):
+    base = np.array(Image.open(cut).convert("RGBA"))
+    hap = np.array(Image.open(hap_orig).convert("RGBA"))
+    base[200:420, 70:320] = hap[200:420, 70:320]
+    Image.fromarray(base).save(os.path.join(here, "cut-happy.png"))
+    print("cut-happy.png written")

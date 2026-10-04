@@ -24,3 +24,13 @@ Painting 1216x832, profile facing left, pad [190, 100] for the pounce and steam.
 - Attack windup: crouch 0.42 (body lowered over the feet; leg angles and shear cut to near zero).
 - Death: a soft dark belly shadow fades in under the body; the steam and cogs start at 1.1 s so the pose is still by 3 s.
 - A 3.5 px ink line at 55 percent alpha is drawn along each leg's path on the overlay for the 100 px read.
+
+## Round 4: natural motion
+- Overlapping action: the head leads (hx extends the head, no lag), the body, crouch and legs follow about 0.03 to 0.05 s later, the ear 0.06 s, and the tail trails through a velocity-driven spring (tail 8 per s, tip 5 per s). The whole rat never moves as one block.
+- Shear is gone (dxb is 0 in every mood). Pitch is a small rotation of the body about (520, 640), weighted so the feet stay planted. Crouch is at most 0.24 in the attack.
+- Idle is still apart from a 1 Hz breath: two sniffs (4 and 3 frames, head plus jaw), an ear twitch, a weight shift (small pitch plus one leg lifting) and a tail flick, once per 3 s.
+- Travel is stepped: the legs scamper at 7 Hz with an amplitude that follows body speed (gait()), plus a low hop of 12 px or less.
+- Attack: crouch in, hold about 5 frames, a 7 frame dart of 120 px with the head leading and a low hop, jaw snap at 0.7 s, sparks, a quick skitter back.
+- Hurt: 45 px flinch in 2 frames, an 18 px hop, a freeze, then it skitters back while the head turns toward the player.
+- Death: the head and jaw drop last (2.4 to 2.5 s) and the tail twitches once at 2.5 to 2.8 s after the body settles.
+- Round 5: hit flash is 0.2 fading over 3 frames; attack has a gather beat (0.38 to 0.5 s: deeper crouch, 10 px back, feet push off) before the dart; the stray cog in hurt is dropped (the spring stays).

@@ -1,9 +1,48 @@
 {
-  "size": [1216, 832],
+  "size": [
+    1216,
+    832
+  ],
   "view": "profile",
   "facing": "left",
   "feet": 752,
-  "moods": ["idle", "happy", "sleepy", "walk"],
-  "durations": { "idle": 4, "happy": 3, "sleepy": 5, "walk": 2 },
-  "anchors": { "nose": [103, 288, 14], "eye": [193, 240, 16], "collar": [608, 380, 24], "tail": [1068, 75, 30] }
+  "moods": [
+    "idle",
+    "happy",
+    "sleepy",
+    "walk"
+  ],
+  "durations": {
+    "idle": 4,
+    "happy": 3,
+    "sleepy": 5,
+    "walk": 2
+  },
+  "anchors": {
+    "nose": [
+      103,
+      288,
+      14
+    ],
+    "eye": [
+      193,
+      240,
+      16
+    ],
+    "collar": [
+      608,
+      380,
+      24
+    ],
+    "tail": [
+      1068,
+      75,
+      30
+    ]
+  },
+  "textures": {
+    "neutral": "cut.png",
+    "happy": "cut-happy.png"
+  },
+  "note": "happy uses a second rig on cut-happy.png (open mouth), stacked over the neutral one with the same pose; crossfade opacity over 0.2 s"
 }

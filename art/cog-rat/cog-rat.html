@@ -194,6 +194,7 @@ const rig0 = {
     [x, y] = rot(x, y, ...EARP, rad(P.ear), w.ear);
     [x, y] = rot(x, y, ...HINGE, rad(P.jaw), w.jaw);
     [x, y] = rot(x, y, ...NECK, rad(P.head), w.head);
+    x += P.hx * w.head;
     LEGS.forEach((l, i) => { [x, y] = rot(x, y, ...l.hip, rad(P.legs[i]), w.legs[i]); });
     const b = P.breath * w.torso;
     x = 600 + (x - 600) * (1 + 0.4 * b); y = 480 + (y - 480) * (1 + b);
@@ -201,7 +202,7 @@ const rig0 = {
     y = y + (yc - y) * w.low + drop * (1 - w.low);
     // dxb: body shears over planted feet (windup, jolt). dx: whole body incl. feet (pounce).
     x += P.dxb * w.body + P.dx; y -= P.hop;
-    [x, y] = rot(x, y, 700, GROUND, rad(P.lean), 1);
+    [x, y] = rot(x, y, 520, 640, rad(P.lean), w.body);
     return [x, y];
   },
   moods: { idle: { s: 1 }, attack: { s: 1 }, hurt: { s: 1 }, death: { s: 1 } },
@@ -209,73 +210,83 @@ const rig0 = {
   onMood(m, api) { api.state = { start: undefined, rng: mulberry(7), puffs: [], sparks: [], cogs: [], cyc: -1 }; },
   pose(L, t, dt, S, api) {
     if (!S.rng) S.rng = mulberry(7);
-    if (S.start === undefined) { S.start = t - dt; S.puffs = S.puffs || []; S.sparks = S.sparks || []; S.cogs = S.cogs || []; S.cyc = -1; }
+    if (S.start === undefined) { S.start = t - dt; S.puffs = S.puffs || []; S.sparks = S.sparks || []; S.cogs = S.cogs || []; S.cyc = -1; S.tv = 0; S.tv2 = 0; }
     const u = t - S.start, T = 2 * Math.PI, now = t, R = S.rng;
-    const P = { jaw: 0, head: 0, ear: 0, tail: 0, tail2: 0, legs: [0, 0, 0], breath: 0, crouch: 0, dx: 0, dxb: 0, hop: 0, lean: 0, flash: 0, glow: 1, dim: 0, shake: null, t };
+    const P = { jaw: 0, head: 0, hx: 0, ear: 0, tail: 0, tail2: 0, legs: [0, 0, 0], breath: 0, crouch: 0, dx: 0, dxb: 0, hop: 0, lean: 0, flash: 0, glow: 1, dim: 0, shake: null, t };
     const sparkBurst = (at, n, v) => { for (let i = 0; i < n; i++) { const a = Math.PI + (R() - 0.5) * 2.6, s = v * (0.4 + R()); S.sparks.push({ x: at[0], y: at[1], vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, born: now, life: 0.35 + R() * 0.35 }); } };
     const puffs = (at, n, sp) => { for (let i = 0; i < n; i++) S.puffs.push({ x: at[0] + (R() - 0.5) * 16, y: at[1], vx: (R() - 0.5) * 70 * sp, vy: -50 - R() * 90 * sp, r: 18 + R() * 16 * sp, born: now, life: 1.2 + R() * 0.7, lumps: [0, 1, 2, 3].map(k => ({ a: k * 1.57 + R(), d: 0.45 + R() * 0.3, s: 0.55 + R() * 0.25 })) }); };
     const cog = (at, vx, vy, bounce) => S.cogs.push({ x: at[0], y: at[1], vx, vy, a: R() * 6, va: (R() - 0.5) * 14, r: 18 + R() * 12, born: now, bounce, rest: false });
     const kf = K;
+    const bump = (x, a, b) => x > a && x < b ? Math.sin(Math.PI * (x - a) / (b - a)) : 0;
+    const cyc = (x, a, b, n) => bump(x, a, b) * Math.sin(T * n * (x - a) / (b - a));
+    // Scamper: the legs swing in step with how fast the body travels, so feet step instead of gliding.
+    const gait = fn => { const v = Math.abs(fn(u) - fn(u - 0.03)) / 0.03, amp = Math.min(1, v / 450), ph = T * 7 * u; return [15 * amp * Math.sin(ph), 15 * amp * Math.sin(ph + Math.PI), 15 * amp * Math.sin(ph + 1.7)]; };
+    // The tail trails the body: it follows the body's velocity through a slow spring.
+    const trail = fn => { const v = (fn(u) - fn(u - 0.03)) / 0.03, tg = Math.max(-22, Math.min(22, v * 0.02)); S.tv += (tg - S.tv) * (1 - Math.exp(-dt * 8)); S.tv2 += (1.5 * tg - S.tv2) * (1 - Math.exp(-dt * 5)); P.tail += S.tv; P.tail2 += S.tv2; return Math.abs(v); };
 
     if (api.mood === "idle") {
-      const u3 = u % 3, w = T * u / 3;
-      const env = kf(u3, [[0, 0], [0.3, 0], [0.5, 1], [1.3, 1], [1.5, 0], [3, 0]]);
-      P.breath = 0.016 * Math.sin(T * u * 4 / 3);
-      P.head = 1.5 * Math.sin(w) - 3 * env * Math.max(0, Math.sin(T * 5 * u));
-      P.jaw = 2.5 * env * Math.sin(T * 5 * u + 1);
-      P.ear = 3 * Math.sin(T * 2 * u / 3 + 0.5) + 14 * kf(u3, [[0, 0], [2.1, 0], [2.2, 1], [2.35, 0], [3, 0]]);
-      P.dxb = 5 * Math.sin(w); P.crouch = 0.02 + 0.015 * Math.sin(T * u * 4 / 3 + 1);
-      P.legs = [2 * Math.sin(w), -2 * Math.sin(w + 1.2), 1.6 * Math.sin(w + 2.4)];
-      P.tail = 4 * Math.sin(T * 2 * u / 3); P.tail2 = 7 * Math.sin(T * 2 * u / 3 - 1);
-      P.glow = 0.75 + 0.2 * Math.sin(T * 7 * u / 3) + 0.08 * Math.sin(T * 13 * u / 3 + 1) - 0.4 * kf(u3, [[0, 0], [1.88, 0], [1.95, 1], [2.03, 0], [3, 0]]);
-      const c = Math.floor(u); if (S.cyc !== c) { S.cyc = c; puffs(VENTS[c % 2], 2, 0.5); }
+      // Mostly still. Quick sniffs, an ear twitch, a weight shift and a tail flick, then stillness again.
+      const x = u % 3;
+      P.breath = 0.009 * Math.sin(T * u);
+      P.head = 4 * cyc(x, 0.5, 0.65, 2) + 2.5 * cyc(x, 0.72, 0.84, 2) - 1.5 * bump(x, 2.0, 2.5);
+      P.jaw = 3 * cyc(x, 0.5, 0.65, 2.5) + 2 * cyc(x, 0.72, 0.84, 2.5);
+      P.ear = 16 * bump(x, 1.5, 1.64);
+      P.lean = 2.5 * bump(x, 2.0, 2.5); P.crouch = 0.025 * bump(x, 2.0, 2.5);
+      P.legs = [0, 9 * bump(x, 2.05, 2.3), 0];
+      P.tail2 = 14 * cyc(x, 2.6, 2.85, 1);
+      P.glow = 0.78 + 0.07 * Math.sin(T * 7 * u / 3) - 0.4 * kf(x, [[0, 0], [1.88, 0], [1.95, 1], [2.03, 0], [3, 0]]) + 0.2 * bump(x, 0.5, 0.65);
+      const c = Math.floor(u / 1.5); if (S.cyc !== c) { S.cyc = c; puffs(VENTS[c % 2], 2, 0.5); }
     } else if (api.mood === "attack") {
+      // Tense crouch (hold about 5 frames), a fast low dart with the head leading, jaw snap at the end, quick skitter back.
       const c = Math.floor(u / 2), u2 = u % 2;
-      // anticipation 0-0.55, pounce 0.55-0.68, snap 0.72, hold, recover
-      P.crouch = kf(u2, [[0, 0], [0.5, 0.42], [0.58, 0.4], [0.68, 0.02], [0.8, 0.08], [1.3, 0], [2, 0]]);
-      P.dxb = kf(u2, [[0, 0], [0.5, 14], [0.58, 14], [0.68, 0], [2, 0]]);
-      P.dx = kf(u2, [[0, 0], [0.56, 0], [0.68, -170], [0.9, -150], [1.4, -50], [1.9, 0], [2, 0]]);
-      P.lean = kf(u2, [[0, 0], [0.5, 9], [0.58, 9], [0.68, -9], [0.9, -6], [1.4, -1], [2, 0]]);
-      P.hop = kf(u2, [[0, 0], [0.58, 0], [0.64, 55], [0.72, 40], [0.8, 0], [2, 0]]);
-      P.jaw = kf(u2, [[0, 0], [0.5, -3], [0.6, -18], [0.7, -20], [0.75, 4], [0.9, 0], [2, 0]]);
-      P.head = kf(u2, [[0, 0], [0.5, 8], [0.68, -9], [0.8, -4], [1.3, 0], [2, 0]]);
-      P.ear = kf(u2, [[0, 0], [0.5, 12], [0.68, -22], [0.9, -8], [1.5, 0], [2, 0]]);
-      P.legs = [kf(u2, [[0, 0], [0.5, 0], [0.66, 9], [0.8, 2], [1.3, 0], [2, 0]]), kf(u2, [[0, 0], [0.5, 0], [0.66, -9], [0.8, -2], [2, 0]]), kf(u2, [[0, 0], [0.5, 0], [0.66, -8], [0.8, -2], [2, 0]])];
-      P.tail = kf(u2, [[0, 0], [0.5, -10], [0.68, 12], [1.1, -4], [2, 0]]); P.tail2 = kf(u2, [[0, 0], [0.5, -14], [0.72, 18], [1.2, -6], [2, 0]]);
-      P.breath = 0.01 * Math.sin(T * 2 * u);
-      P.glow = 1 + 0.7 * kf(u2, [[0, 0], [0.5, 0.5], [0.74, 1], [1.4, 0.2], [2, 0]]);
-      const sh = u2 > 0.72 ? 9 * Math.exp(-(u2 - 0.72) * 9) : 0;
+      const dxF = uu => kf(uu % 2 - 0.04, [[0, 0], [0.38, 0], [0.47, 10], [0.7, -120], [0.85, -120], [1.25, 0], [2, 0]]);
+      P.dx = dxF(u);
+      P.hx = kf(u2, [[0, 0], [0.47, 0], [0.66, -26], [0.78, -10], [0.9, 0], [2, 0]]);
+      P.crouch = kf(u2 - 0.03, [[0, 0], [0.3, 0.24], [0.36, 0.24], [0.47, 0.32], [0.62, 0.03], [0.85, 0.03], [1.2, 0], [2, 0]]);
+      P.lean = kf(u2 - 0.04, [[0, 0], [0.3, -3], [0.47, -3], [0.68, -7], [0.9, -3], [1.3, 0], [2, 0]]);
+      P.head = kf(u2, [[0, 0], [0.3, -7], [0.47, -7], [0.62, -3], [0.7, -10], [0.78, 2], [1.0, 5], [1.4, 0], [2, 0]]);
+      P.jaw = kf(u2, [[0, 0], [0.4, -2], [0.55, -4], [0.62, -20], [0.68, -22], [0.72, 5], [0.85, 0], [2, 0]]);
+      P.ear = kf(u2 - 0.06, [[0, 0], [0.3, 12], [0.47, 12], [0.66, -14], [0.9, 6], [1.3, 0], [2, 0]]);
+      P.legs = gait(dxF).map((a, i) => a + [-8, 8, 6][i] * bump(u2, 0.38, 0.52));  // gather: feet push off
+      const spd = trail(dxF);
+      P.tail += kf(u2 - 0.12, [[0, 0], [0.3, 8], [0.47, 8], [0.7, -6], [1.2, 0], [2, 0]]);
+      P.hop = 12 * bump(u2, 0.49, 0.7) + 4 * Math.min(1, spd / 450) * Math.abs(Math.sin(T * 3.5 * u));
+      P.breath = 0.009 * Math.sin(T * u);
+      P.glow = 1 + 0.6 * kf(u2, [[0, 0], [0.47, 0.4], [0.7, 1], [1.2, 0.2], [2, 0]]);
+      const sh = u2 > 0.7 ? 6 * Math.exp(-(u2 - 0.7) * 10) : 0;
       if (sh > 0.1) P.shake = [(R() - 0.5) * sh, (R() - 0.5) * sh * 0.6];
-      if (u2 >= 0.72 && S.cyc !== c) { S.cyc = c; sparkBurst([JAW[0] + P.dx - 6, JAW[1] + 8], 14, 420); }
+      if (u2 >= 0.7 && S.cyc !== c) { S.cyc = c; sparkBurst([JAW[0] + P.dx + P.hx - 6, JAW[1] + 8], 14, 420); }
     } else if (api.mood === "hurt") {
-      // Hit flash: weak and only about 3 frames. Real recoil: 55 px jolt back (right), head snaps up, ear flaps, hop, settles by 0.65 s.
-      P.flash = u < 0.1 ? 0.25 : 0;
-      P.dx = kf(u, [[0, 0], [0.07, 55], [0.25, 48], [0.5, 10], [0.65, 0], [1.5, 0]]);
-      P.dxb = kf(u, [[0, 0], [0.07, 25], [0.3, 15], [0.6, 0], [1.5, 0]]);
-      P.hop = kf(u, [[0, 0], [0.1, 38], [0.25, 0], [0.31, 10], [0.4, 0], [1.5, 0]]);
-      P.lean = kf(u, [[0, 0], [0.07, 9], [0.3, 6], [0.65, 0], [1.5, 0]]);
-      P.head = kf(u, [[0, 0], [0.07, 18], [0.3, 13], [0.7, 0], [1.5, 0]]);
+      // Sharp flinch away, small hop, freeze, then it skitters back and turns its head toward the player.
+      P.flash = u < 0.1 ? 0.2 * (1 - u / 0.1) : 0;
+      const dxF = uu => kf(uu - 0.02, [[0, 0], [0.07, 45], [0.4, 45], [0.8, 0], [1.5, 0]]);
+      P.dx = dxF(u);
+      P.hx = kf(u, [[0, 0], [0.05, 14], [0.4, 14], [0.8, 0], [1.5, 0]]);
+      P.head = kf(u, [[0, 0], [0.05, 20], [0.25, 14], [0.5, -6], [0.8, -3], [1.1, 0], [1.5, 0]]);
       P.jaw = -14 * Math.exp(-u * 6);
-      P.crouch = kf(u, [[0, 0], [0.08, 0.04], [0.28, 0.14], [0.45, 0.04], [0.65, 0], [1.5, 0]]);
-      const e = Math.exp(-u * 4);
-      P.ear = 30 * e * Math.cos(u * 20);
-      P.legs = [8 * e * Math.sin(u * 14), -8 * e * Math.sin(u * 14), 6 * e];
-      P.tail = 14 * e * Math.sin(u * 20); P.tail2 = 22 * e * Math.sin(u * 20 - 1);
+      P.crouch = kf(u - 0.03, [[0, 0], [0.1, 0.1], [0.3, 0.12], [0.6, 0.04], [0.9, 0], [1.5, 0]]);
+      P.lean = kf(u - 0.04, [[0, 0], [0.08, 6], [0.35, 4], [0.8, 0], [1.5, 0]]);
+      P.hop = 18 * bump(u, 0.02, 0.2) + 5 * bump(u, 0.5, 0.65);
+      P.ear = 30 * Math.exp(-4 * u) * Math.cos(20 * u);
+      P.legs = gait(dxF);
+      trail(dxF);
       P.glow = u < 0.4 ? (Math.sin(u * 70) > 0 ? 1 : 0.25) : 0.9;
-      P.breath = 0.014 * Math.sin(T * 4 / 3 * u);
-      const d = Math.exp(-u * 8); P.shake = [(R() - 0.5) * 10 * d, (R() - 0.5) * 6 * d];
-      if (S.cyc !== 0 && u > 0.02) { S.cyc = 0; S.hit = { born: now }; cog([700, 300], 190, -560, 0); S.spring = { x: 740, y: 330, vx: 110, vy: -430, born: now }; }
+      P.breath = 0.012 * Math.sin(T * u);
+      const d = Math.exp(-u * 10); P.shake = [(R() - 0.5) * 8 * d, (R() - 0.5) * 5 * d];
+      if (S.cyc !== 0 && u > 0.02) { S.cyc = 0; S.hit = { born: now }; S.spring = { x: 740, y: 330, vx: 110, vy: -430, born: now }; }
     } else if (api.mood === "death") {
+      // Shudder, fold and dim; the head drops last and the tail twitches once after the body settles.
       const uu = Math.min(u, 3);
-      const sh = 7 * smooth(0, 0.3, uu) * (1 - smooth(0.9, 1.2, uu));
-      P.dxb = sh * Math.sin(u * 95) + kf(uu, [[0, 0], [1.3, 0], [1.9, 30], [3, 30]]);
-      P.hop = sh * 0.6 * Math.abs(Math.sin(u * 60));
-      P.crouch = kf(uu, [[0, 0], [0.5, 0.04], [1.0, 0.28], [1.5, 0.4], [1.9, 0.44], [3, 0.44]]);
+      const sh = 5 * smooth(0, 0.3, uu) * (1 - smooth(0.9, 1.2, uu));
+      P.dx = sh * Math.sin(u * 95);
+      P.hop = sh * 0.5 * Math.abs(Math.sin(u * 60));
+      P.crouch = kf(uu - 0.03, [[0, 0], [0.5, 0.04], [1.0, 0.28], [1.5, 0.4], [1.9, 0.44], [3, 0.44]]);
       P.legs = [kf(uu, [[0, 0], [0.8, 6], [1.4, 10], [1.9, 12], [3, 12]]), kf(uu, [[0, 0], [0.8, -6], [1.4, -8], [1.9, -10], [3, -10]]), kf(uu, [[0, 0], [0.8, 5], [1.4, -8], [1.9, -12], [3, -12]])];
-      P.lean = kf(uu, [[0, 0], [1.2, 0], [1.9, -9], [3, -9]]);
-      P.head = kf(uu, [[0, 0], [1.0, 0], [1.9, -10], [3, -10]]); P.jaw = kf(uu, [[0, 0], [1.3, 0], [1.9, -9], [3, -9]]);
-      P.ear = kf(uu, [[0, 0], [0.8, 4], [1.6, 28], [3, 28]]);
-      P.tail = kf(uu, [[0, 0], [0.8, 6], [1.6, 22], [3, 22]]); P.tail2 = kf(uu, [[0, 0], [0.8, 8], [1.6, 30], [2.3, 36], [3, 36]]);
+      P.lean = kf(uu - 0.05, [[0, 0], [1.2, 0], [1.9, -8], [3, -8]]);
+      P.head = kf(uu, [[0, 0], [1.6, 0], [2.4, -10], [3, -10]]); P.jaw = kf(uu, [[0, 0], [1.8, 0], [2.5, -9], [3, -9]]);
+      P.ear = kf(uu - 0.06, [[0, 0], [0.8, 4], [1.6, 28], [3, 28]]);
+      P.tail = kf(uu - 0.15, [[0, 0], [0.8, 6], [1.7, 20], [3, 22]]);
+      P.tail2 = kf(uu - 0.25, [[0, 0], [0.8, 8], [1.7, 30], [2.4, 36], [3, 36]]) + 14 * cyc(uu, 2.5, 2.8, 1);
       P.glow = uu < 0.9 ? 0.8 * (Math.sin(uu * 40) > 0 ? 1 : 0.2) * (1 - uu / 0.9) : 0;
       P.dim = smooth(0.5, 1.0, uu);
       if (u > 0.05 && u < 1.1) P.shake = [(R() - 0.5) * sh * 0.8, 0];
