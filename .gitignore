@@ -9,3 +9,6 @@ playwright-report/
 .vite/
 spike/node_modules/
 .claude/settings.local.json
+# Art: candidates and recorded frames stay local; picked seeds, cut-outs, rigs and clips are committed
+art/*/candidates/*.png
+art/*/frames/

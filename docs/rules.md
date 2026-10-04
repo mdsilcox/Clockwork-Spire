@@ -1,4 +1,6 @@
-# Clockwork Spire: rules
+# Clockwork Spire: rules (v2)
+
+Version 2 (D3, owner choices D-029). Section 1 is v1's machine with targeting moved to 2.3; sections 2 to 7 are new. v1's rules are in git history (tag `v1.0`).
 
 The complete game rules. Numbers marked *(tune)* are starting values the balance simulator may move; any change is logged in `balance/` and DECISIONS.md. Part, enemy, event and trinket lists are in `docs/content.md`. Terms in **bold** are glossary entries in the game.
 
@@ -35,8 +37,8 @@ The complete game rules. Numbers marked *(tune)* are starting values the balance
 The order of a tick is therefore deterministic and visible: the animation shows the pulse leaving the Mainspring and flowing cell to cell in exactly this order.
 
 ### 1.5 Effects, words and numbers
-- **Strike X**: deal X damage to the **target** enemy (the one you tapped; by default the leftmost living one). If the target dies mid-turn, later strikes go to the next living enemy.
-- **Sweep X**: deal X damage to every enemy.
+- **Strike X**: deal X damage to the first standing entry of your **target order** (an enemy part or core; rules 2.3). Damage beyond what that target has left is lost.
+- **Sweep X**: deal X damage to the front of every enemy (its core, or its first keystone while the core is sealed; 2.3).
 - **Plate X**: gain X Plating. Plating absorbs damage you take and falls away at the start of your next turn.
 - **Charge**: a counter on a part. It persists across turns within a combat, and is lost when the part is replaced, rewound or the combat ends.
 - **Release**: what a part does when its charge reaches its threshold; the charge resets to 0.
@@ -50,7 +52,7 @@ Nothing between pressing Run and the end of your machine's ticks is random, so t
 - **Draws** (`draw` stream): at the start of your turn, before you build. Extra draws from the Sprocket Wheel happen at the next turn's start.
 - **Enemy intents** (`enemy` stream): chosen at the end of the enemy turn and shown immediately, including the target cell of a sabotage.
 - **Enemy actions** execute the shown intent with no further randomness.
-- **Rewards, shop stock, events, map** (`reward`, `shop`, `event`, `map` streams): rolled when the node is entered and saved, so a reload shows the same offer.
+- **Act layout, trader stock, events, fuse results** (`map`, `shop`, `event`, `reward` streams): rolled when the act starts or the room is entered, and saved, so a reload shows the same offer.
 - **Event choices with a chance** (the Gear Wheel of Fortune) roll from the `event` stream when chosen; the odds are shown on the button.
 - **No part has a random effect.** Any future random part must roll at the start of the turn and show its result before the player builds.
 A unit test (M11, extended in B2) plays a full combat including draws, a sabotage and a reshuffle twice from the same seed and checks identical event lists and previews.
@@ -58,122 +60,189 @@ A unit test (M11, extended in B2) plays a full combat including draws, a sabotag
 ### 1.7 Upgrades
 Every part has an upgraded form, shown with a **+** (for example Spur Gear+). Upgrades improve numbers or lower thresholds as listed in `docs/content.md`. Upgrade at the **Forge**, through some events and trinkets.
 
-## 2. Combat
+## 2. Combat: machine against machine
 
-- You fight one to three enemies. Each enemy shows its **intent** for its next action as an icon plus a number. Intent icons use shape as well as color (sword for attack, shield for defend, wrench for sabotage, up arrow for buff, down arrow for debuff, clock for charging up, spiral for special) and carry a text label in their tooltip.
-- You win when every enemy is at 0 HP. You lose the run at 0 HP.
-- Enemies may: attack (single or multi-hit), defend (gain **Shell**, their block, which falls away at the start of their next turn), buff themselves, apply statuses to you, and **sabotage** the machine:
-  - **Rust** a part (it can't fire or pass motion for your next turn),
-  - **Jam** the Mainspring (your next turn has 1 fewer tick, minimum 1),
-  - **Magnetize** a part (it is pulled off the board back into your hand at the start of your next turn),
-  - **Drain** Pressure.
-- A sabotage intent names its target part on the board before it happens (a highlighted cell), so the player can respond by building around it.
+### 2.1 Enemy machines
+- Every enemy is a **frame** holding a **core** and **parts**. The core has the enemy's HP; when it reaches 0 the enemy is destroyed. Each part has its own small HP, one **action**, a **cadence** (the turns it acts on) and, usually, a **salvage** (the player part it becomes when broken). Regular enemies have 1 to 3 parts, elites 3 to 5, wardens (bosses) 4 to 8 across their phases.
+- Parts are drawn on the enemy's painting, pinned to anchors: each shows its HP pips, its status icons and, when it will act next turn, its intent.
+- A part at 0 HP is **broken**: it never acts again this combat, and any intent it shows is cancelled at once. Breaking a part never damages the core.
+- Some parts are **passive**: they have no intent and change a rule while they stand (a Bulwark halves damage to the core; a Governor caps damage per Strike). Their effect ends when they break.
+- **Core actions**: an enemy whose acting parts are all broken falls back to its core action (usually a weak Bump, attack 3 to 6 *(tune)*).
+- **Sealed cores**: elites and wardens may have a sealed core. A sealed core can't be targeted or damaged until every **keystone** part of its current phase is broken. Sealed is shown as a lock on the core.
+
+### 2.2 Intents
+- At the end of the enemy turn, each enemy reveals its next actions: every part whose cadence includes the next turn shows its intent on itself. The enemy's intents are performed in a fixed order (left to right on its frame, then the core action if no part acted).
+- Intent icons and kinds are v1's (attack, shell, sabotage, buff, debuff, charge, special) plus the new actions in 2.4. Each carries its number and a tooltip, and color-blind labels as in v1.
+- Enemy actions have no randomness: cadences are fixed patterns; where an enemy chooses (a target cell for Rust), the choice is rolled from the `enemy` stream when the intent is revealed and shown before you build.
+
+### 2.3 Targeting: the target order
+- Before Run, you build a **target order**: tap enemy parts and cores to number them 1, 2, 3... (up to 6). Tap again to remove one. A sealed core can't be added. The order is kept between turns (broken and dead entries drop out) and defaults to: the leftmost enemy's acting parts in intent order, then its core.
+- **Strike X** hits the first entry of the order that is still standing. Damage beyond what that target has left is **lost**: it never carries over to another target, a core or a later phase. The next Strike goes to the next standing entry.
+- If the order is empty or every entry is down, Strikes hit the **front** of the leftmost living enemy: its core, or, while the core is sealed, its first unbroken keystone.
+- **Sweep X** hits the front of every living enemy.
+- New player words (parts in `docs/content.md`): **Shatter X** (X to every unbroken part of the enemy your next Strike would hit), **Drill X** (a Strike that ignores Shell, Bulwark and Governor), **Jam** (the part your next Strike would hit skips its next action), **Patch X** (heal X HP).
+- The preview shows, for every target in the order, the damage it will take and whether it breaks or dies, and the cancelled intents. Because the order is fixed before Run, the preview stays exact (1.6).
+
+### 2.4 Enemy actions
+| Action | Effect |
+|---|---|
+| Attack X (x N) | X damage to you, N times; Plating absorbs it. |
+| Pierce X | X damage that ignores Plating. |
+| Corrode X | Remove up to X of your Plating, before the enemy's attacks this turn. |
+| Siphon X | Attack X; the enemy's core heals by the Plating this attack removed. |
+| Shell X | The enemy gains Shell X (absorbs damage to its core and parts; falls away at the start of its next turn). |
+| Mend X | Heal X to its core, or rebuild one of its broken parts at half HP (the part says which). |
+| Ratchet X (passive) | At the end of your turn, if this enemy's core took no damage this turn, it gains Strength X for the rest of the combat. |
+| Countdown N: action | Ticks down each enemy turn; at 0 performs the action (usually a big Pierce). Breaking the part defuses it. |
+| Bulwark (passive) | While it stands, the core takes half damage (rounded down) from Strikes and Sweeps. |
+| Governor X (passive) | While it stands, no single Strike deals more than X to this enemy. |
+| Rust, Jam, Magnetize, Drain | v1's sabotage of your machine. |
+| Corroded X, Dazed X on you | v1 statuses, now also from parts. |
+| Summon | A new enemy joins at the right, with its intents shown. |
+
+**Counterplay by design.** Plating stacking meets Pierce, Corrode, Siphon, Ratchet and Countdown: you must break those parts, which means aiming damage at parts instead of piling Plating. Burst meets Bulwark, Governor, sealed cores and lost overkill: one giant Strike is worth less than several aimed ones. Every regular enemy has at least one part that punishes one of the two plans (content.md lists "punishes" per enemy).
+
+### 2.5 Winning, losing and salvage
+- You win the combat when every enemy is destroyed; you lose the run at 0 HP. Summoned enemies count.
+- **Salvage**: every part you broke with a salvage id goes to the salvage tray at the end of the combat. You keep any of them (each joins your bin) and scrap the rest for 3 Scrap each *(tune)*. Parts still standing when their core died are **wrecked**: 1 Scrap each. Each enemy also drops Scrap: 3 to 6 regular, 12 to 18 elite, 30 warden *(tune)*.
+- Salvage rarity is the enemy part's rarity: regular enemies carry Common and Uncommon parts, elites Uncommon and Rare, wardens Rare and Masterwork.
+- A part whose salvage is locked (not yet unlocked by a blueprint or achievement) drops as 6 Scrap and a note in the journal ("You could almost see how it worked").
+
+### 2.6 Healing
+- **Patch X** (parts) heals during combat; the Tea Kettle and new Patch parts carry it.
+- Oil stations heal outside combat (4.4). After a warden you heal 40% of the HP you've lost.
+- Enemies heal by Mend and Siphon; the answer is to break the part that does it.
 
 ## 3. Statuses
 
-On enemies:
-- **Scald X**: at the end of the enemy's turn it takes X damage, then X falls by 1.
-- **Cracked X**: takes 50% more damage from Strike and Sweep for X turns.
-- **Dazed X**: deals 25% less attack damage for X turns.
-- **Shell X**: block; absorbs damage; falls away at the start of its next turn.
+On enemies (on the core and its parts alike unless it says):
+- **Scald X**: at the end of the enemy's turn its core takes X damage, then X falls by 1 (a sealed core is immune; the Scald waits).
+- **Cracked X**: the enemy's core and parts take 50% more damage from Strike and Sweep for X turns.
+- **Dazed X**: its attacks deal 25% less for X turns.
+- **Shell X**: block for the whole enemy.
+- **Jammed** (a part): skips its next action, then clears.
+- **Strength X**: its attacks deal +X (from Ratchet and buffs).
 
-On you:
-- **Plating X**: block (see 1.5).
-- **Corroded X**: you gain 25% less Plating for X turns.
-- **Grit X**: every Strike you deal gains +X this combat (from trinkets or parts).
+On you: **Plating X**, **Corroded X**, **Grit X** (v1). On your parts: **Rusted**, **Magnetized** (v1).
 
-On parts: **Rusted**, **Magnetized** (see section 2).
+## 4. The climb
 
-Every status has an icon, a number, a tooltip and a glossary entry.
+### 4.1 Acts as places
+- Three acts: the Gearworks, the Steamworks, the Belfry. Each act is one **section** of the Spire, drawn as a cut-away: 5 to 6 **floors** of 3 to 4 **rooms**, 16 to 20 rooms in all *(tune)*.
+- Rooms connect by **passages**: along a floor to the next room, and by stairs, ducts and lifts between floors. The section is generated from the run seed (`map` stream): a connected graph with at least two loops, every room reachable, the **entry** at the bottom and the **warden's door** at the top. Some passages are **locked doors** (4.6).
+- The whole layout is visible. A room you have visited, or one next to it, shows its kind; other rooms show a silhouette only. Rooms you cleared stay cleared and can be crossed again.
 
-## 4. The run
+### 4.2 The Spire clock
+- Each act starts at dusk, hour 0. Moving to a connected room takes **1 hour**. Resting at an oil station takes 1 more hour. Fights, events, trading and the workbench take no extra time.
+- At **midnight** (hour 12 on Journeyman; modes in 5.7), when the current room is resolved, the warden comes: the warden fight starts where you stand.
+- You may walk to the warden's door and **ring the bell** early. Each hour left pays 4 Scrap and 2 Brass *(tune)*.
+- The clock, hours left and each roaming elite's next room are always on screen.
 
-### 4.1 Structure
-- Three **acts**. Each act is a map of **12 floors** plus the **boss** floor (13). Act 1: the Gearworks; act 2: the Steamworks; act 3: the Belfry. The Clockmaker waits at the top of act 3.
-- The map is a branching graph: 4 lanes wide, generated from the run seed, each floor having 2 to 4 nodes, each node linking to 1 to 2 nodes on the next floor, paths may cross lanes but not each other.
-- Node types and rules:
-  - **Fight** (regular enemies). Floor 1 is always a fight.
-  - **Elite** (harder; drops a trinket). Not before floor 4.
-  - **Event** (a short story with choices).
-  - **Forge**: upgrade one part, or remove one part from your bin.
-  - **Oil station**: repair 30% of max HP, or **polish**: +4 max HP.
-  - **Shop**: buy parts, trinkets, a part removal, and oil (heal 15 HP).
-  - Floor 12 is always an Oil station. Floor 7 is always a Forge. *(tune)*
-- Mix per act *(tune)*: about 45% fights, 15% elites, 22% events, 8% shops, the fixed forge and oil floors, plus random forges and oil stations at about 10%.
+### 4.3 Roaming elites
+- Each act has 1 or 2 elites (2 from act 2) with a **patrol**: a loop of 3 to 5 rooms drawn as a dotted path. After each of your moves, every elite steps one room along its patrol.
+- If you step into an elite's room, or it steps into yours, you fight it there. A defeated elite drops a trinket (from its act's pool), its salvage and a blueprint (as v1).
+- Elites never enter the entry room or the warden's door.
 
-### 4.2 Rewards
-- After a fight: **Cogs** (gold, 12 to 20 *(tune)*) and a choice of 1 part from 3 (or skip). Rarity: common 70%, uncommon 25%, rare 5%, shifting toward rare in later acts.
-- After an elite: more Cogs (25 to 35), a part choice and a trinket.
-- After a boss: a rare part choice, a trinket choice of 1 from 3, and you heal 40% of the HP you've lost.
-- **Brass** (the meta material) is earned throughout: see 5.2.
+### 4.4 Rooms
+| Room | Per act *(tune)* | Does |
+|---|---|---|
+| Fight | 7 to 9 | An encounter from the act's pool; deeper floors draw harder encounters. |
+| Workbench | 1 (2 in act 3) | Upgrade a part (C 15, U 25, R 40, M 60 Scrap); remove a part (25 Scrap, +15 per use in a run); **fuse** two parts of the same family and rarity into a part of the next rarity in that family (you see two candidate results and pick one). Each action once per visit; revisits allowed. |
+| Oil station | 1 to 2 | Rest (1 extra hour): heal 30% of max HP; or polish: +4 max HP. Once per station. |
+| Trader | 1 to 2 | Barter (4.5). |
+| Event | 3 to 4 | A person or a place (content.md); some send a resident to Bellfoot (5.4). |
+| Vault | 0 to 1 | Behind a locked door, guarded by a fixed elite; a Masterwork part and 40 Scrap. |
+| Entry | 1 | Safe. The first act's entry has Sprocket's ball (pet him: nothing, but he wiggles). |
+| Warden's door | 1 | Ring the bell (4.2). |
 
-### 4.3 The bosses
-- Act 1 boss: the **Foreman**, act 2: the **Boilermaker Queen**, act 3: the **Clockmaker**. Details in `docs/content.md`.
+### 4.5 Traders and Scrap
+- **Scrap** replaces Cogs. Earned from fights (2.5), early bells, events.
+- A trader stocks 4 parts and 1 trinket rolled on entry (`shop` stream; rarity by act as content.md). Each item has a **value** (part C 20, U 35, R 60, M 100; trinket 60 to 120 Scrap *(tune)*).
+- **Barter**: hand over one of your parts (it's worth its value) plus Scrap for the difference; or buy with Scrap alone at value + 25%. Traders also sell oil (heal 15, 15 Scrap).
 
-### 4.4 The Clockmaker (final boss)
-- Three phases, each with its own HP bar (*(tune)* 110, 130, 150). Reaching 0 in a phase ends that phase at once: the board is kept, enemy statuses clear, and he speaks one short line.
-- **Rewind.** At the start of each of his turns he rewinds your **strongest combination** from your previous turn: the part that contributed the most (damage dealt plus Plating gained, after all modifiers) together with the part that powered it that turn. Both are lifted off the board back into your draw pile with their charge lost, and he heals half the damage that combination dealt last turn. The cells flash and run backwards on screen. If no part fired, nothing is rewound.
-  - Phase 1, **Tick**: rewinds the strongest combination.
-  - Phase 2, **Tock**: rewinds the strongest combination and resets Pressure to 0.
-  - Phase 3, **Midnight**: rewinds the two strongest combinations, and each turn **Jams** the Mainspring on alternate turns.
-- So no single trick wins: the player keeps two or three engines going and rebuilds what he takes.
-- Defeating phase 3 ends the run in victory: the victory ending, then credits.
+### 4.6 Locked doors and keys
+- A locked door opens with a **key**: a key salvage (some enemy parts drop a Brass Key instead of a part) or picking the lock (25 Scrap and 1 extra hour). Behind locked doors: shortcuts (passages that save hours) and vaults.
 
-## 5. Between runs: the Workshop
+### 4.7 Wardens
+- Act 1: **the Foreman**; act 2: **the Boilermaker Queen**; act 3: **the Clockmaker**. Every warden has phases (4.8); content.md has each phase's parts.
+- Winning: the warden's core breaks open: a Rare or Masterwork part (the act 2 warden: a Legendary, if any is unlocked and you hold none), its salvage, a boss trinket choice (as v1), heal 40% of HP lost. The next act starts at dusk.
 
-### 5.1 The hub
-Every run, win or lose, ends in the **Workshop**. Sprocket greets you and reacts to the run (see 5.5). The Workshop shows: Brass and blueprints, the upgrade bench, the chassis rack, run history, and the door back up the Spire.
+### 4.8 Phases you see
+- A warden's phase is a set of parts. Its core is sealed until every keystone of the current phase is broken. When the last keystone breaks:
+  1. its remaining intents this turn are cancelled and no damage carries over;
+  2. the **phase beat** plays (a line, the arena changes, the painting's phase mood);
+  3. the warden takes one free **phase action** at once (a summon, a heal, a Rewind) shown before it happens;
+  4. the next phase's parts unfold with their intents.
+- In the last phase the core is exposed, usually behind a Bulwark or Governor. Target length on Journeyman: Foreman about 7 turns, Queen about 8, the Clockmaker about 9 for the expert bot, at least 2 turns per phase (7.4).
+
+### 4.9 The Clockmaker
+- Three phases (Tick, Tock, Midnight), each with its own keystones; his core is exposed only in Midnight.
+- **Rewind** (v1 rule 4.4, kept): at the start of each of his turns he lifts your strongest combination off the board. Tock also resets Pressure; Midnight rewinds two combinations and Jams the Mainspring on alternate turns.
+- **He remembers** (5.4): he starts the fight with one extra part chosen against your last three runs' main plan.
+- Defeating Midnight ends the run in victory (v1's ending and credits).
+
+## 5. Between runs: Bellfoot
+
+### 5.1 The town
+Every run ends in **Bellfoot**, the town at the Spire's foot (replaces v1's Workshop screen). It is a short street you walk along (tap a place, or arrow keys); every place is also one tap from the town menu. Places: the Workshop (upgrade bench, chassis rack, inventor's notes), Sprocket's corner, the trophy shelf (achievements), the archivist (journal, bestiary, the Clockmaker's note), the clock tower door (mode and Overwind), the Spire gate (start a run), and residents' stalls (5.4). Sprocket greets you as in v1 (5.5).
 
 ### 5.2 Earning
-- **Brass** per run *(tune)*: 4 per floor climbed (act 2 floors count 6, act 3 floors 8), plus 10 per elite, 25 per boss, plus 50 for a victory.
-- **Blueprints** are found in the Spire: every boss and elite drops one, a few events offer one, and Sprocket sniffs one out in his events. Each blueprint unlocks one specific locked part into the run pool. A run that dies still keeps its blueprints.
-- 17 of the 46 parts start locked (docs/content.md).
+- **Brass** per run: v1's table (4 per floor climbed becomes 2 per room cleared, act 2 rooms 3, act 3 rooms 4), plus 10 per elite, 25 per warden, 50 for a victory, plus early bells (4.2). Scaled by mode (5.7).
+- **Blueprints**: as v1 (elites, wardens, some events, Sprocket's events); each unlocks one Rare part.
 
-### 5.3 Permanent upgrades (the upgrade bench) *(tune)*
-| Upgrade | Levels | Cost per level | Effect |
-|---|---|---|---|
-| Reinforced Frame | 5 | 40, 60, 80, 100, 120 | +5 max HP each |
-| Oiled Bearings | 3 | 50, 90, 140 | start each run with 1 random starting part upgraded per level |
-| Tool Belt | 1 | 150 | hand size 4 |
-| Spare Cogs | 3 | 30, 50, 70 | +25 starting Cogs each |
-| Inventor's Notes | 2 | 80, 160 | part rewards offer 4 choices (level 1); the first elite each act drops an extra blueprint (level 2) |
-| Lucky Charm | 1 | 120 | start each run with a random common trinket |
-| Second Wind | 1 | 200 | once per run, survive a killing blow at 1 HP |
+### 5.3 The bench and chassis
+v1's upgrade bench (Reinforced Frame, Oiled Bearings, Tool Belt, Spare Cogs renamed Spare Scrap, Inventor's Notes level 1 becomes "traders stock one more part", Lucky Charm, Second Wind) and v1's three chassis, plus a fourth chassis unlocked by an achievement (content.md).
 
-### 5.4 Chassis
-A chassis is the starting archetype: its starting parts, a passive and a look for the machine frame.
-- **Tinker** (unlocked at the start): balanced gears and escapements. Passive: the first time each combat you replace a part, refund the placement.
-- **Stoker** (unlock: reach act 2, or 150 Brass): boilers and pistons. Passive: start every combat with 6 Pressure.
-- **Horologist** (unlock: defeat the act 2 boss, or 300 Brass): cams and pendulums. Passive: your first turn of each combat has 1 extra tick.
-Starting parts are in `docs/content.md`.
+### 5.4 The Spire remembers
+- **Residents**: some events end with a person moving to Bellfoot after the run (whether the run is won or lost). Each opens a stall for every later run: the Oil Merchant (start each run with 2 oil), the Apprentice (start with one part upgraded), the Lamplighter (each act's layout fully revealed), the Hour Ghost (the archivist's lore and bestiary), the Trader's cousin (one extra trader per act). Residents are listed with their event in content.md.
+- **Landmarks**: feats that change the Spire in later runs: the repaired lift (a shortcut in the Gearworks), an opened vault (stays a known room, its guardian replaced by a regular fight), the lit beacon (act 3 starts at hour 0 with a clearer layout). Each is shown on the archivist's map.
+- **The Clockmaker's memory**: the profile keeps the main plan of the last three runs (by the share of damage and Plating from each source: Plating, burst Strikes, Pressure, statuses). The Clockmaker's extra part answers the most common one (Plating: a Pierce drill; burst: a Governor; Pressure: a Drain valve; statuses: a Purge chime). The archivist's note names it before each run.
 
 ### 5.5 Sprocket
-Sprocket greets you every time you return. His reaction depends on the run:
-- **Celebration** (victory): spins, jumps, joyful barks, confetti of tiny gears.
-- **Happy wiggle** (a good climb: reached act 2 or beyond, or set a new best floor of 8 or higher).
-- **Comforting nudge** (a bad run: died in act 1 without a new best of floor 8 or higher): he trots over, leans on you, a soft "boof".
-- **Sleepy** when you idle in the Workshop for a while.
-Petting him (tap) plays a happy bark and a wiggle. His Spire appearances are in events (see content).
+v1's reactions, now in Bellfoot (painted and rigged: idle, happy, sleepy, walk). He walks the Spire with you between rooms.
 
-### 5.6 The curve (enforced by the balance simulator, see section 7)
-- A first run almost never wins: with no upgrades the bot wins under 3% of runs.
-- Every run earns Brass, so every run buys at least something within one or two runs.
-- Following a sensible upgrade path, the bot's median first win falls between run 8 and run 12.
+### 5.6 Achievements and unlocks
+- About 30 achievements (content.md: id, condition, reward, hidden or not). Progress is shown on the trophy shelf.
+- Rewards scale with difficulty: easy feats unlock journal pages and Sprocket's collars; medium feats unlock Rare and Masterwork parts into the pool, landmarks and the fourth chassis; hard feats (wins on Master or Clockwork, high Overwind) unlock Legendary parts and Overwind levels.
+- **Masterwork and Legendary parts all start locked**; achievements are their only unlock. Legendary: at most one per run.
+
+### 5.7 Difficulty
+| Mode | Enemy HP | Enemy damage | Hours per act | Oil heal | Brass | Unlocked |
+|---|---|---|---|---|---|---|
+| Apprentice | 80% | 75% | 14 | 40% | 75% | from the start |
+| Journeyman | 100% | 100% | 12 | 30% | 100% | from the start (default) |
+| Master | 115% | 115% | 11 | 25% | 125% | after a Journeyman win |
+| Clockwork | 130% | 125% | 10 | 20% | 150% | after a Master win |
+All *(tune)*. The curve (5.8) is set on Journeyman. **Overwind** unlocks after your first win on Journeyman or harder: a dial of 10 levels on top of the mode, each adding one named twist (content.md); level N includes all twists below it; +10% Brass per level.
+
+### 5.8 The curve (enforced by the simulator, 7.4)
+- With no meta progression, the expert bot wins under 5% of Journeyman runs (the greedy bot under 2%).
+- Following the sensible upgrade path, the expert bot's median first win on Journeyman is between run 8 and run 12.
+- Every run earns Brass enough to buy something within one or two runs (v1).
 
 ## 6. Saves
-
-- Three save slots, each a whole profile (meta progress, history, an optional run in progress). Settings are global (not per slot).
-- The run in progress is saved after every player action that changes state (placement, run, choice, node entered), so a reload resumes exactly where you were, mid-combat included.
-- Saves carry a version number and are migrated on load.
+- Three slots, settings global (v1). The run is saved after every action (placements, Run, moves, choices).
+- **Version 2**: v1 saves migrate on load: Brass, bench upgrades, blueprints, chassis, history and statistics carry over; Cogs are dropped; a v1 run in progress is closed as a loss at its floor and credited its Brass, with a one-line notice ("The Spire has changed while you were away.").
 
 ## 7. The balance simulator
 
-- `npm run sim -- --careers 200 --seed 1` plays complete runs headless with the real rules (`src/core`) and a bot player. Output is a Markdown report written to `balance/YYYY-MM-DD-<label>.md`.
-- **Bot:** builds greedily using the preview (for each placement, it tries every hand part in every legal cell and keeps the best score: expected damage plus the value of Plating against the shown incoming attack, plus a small bonus for stored charge and pressure). It picks rewards with a simple synergy score (family counts in its bin), takes the shop's best affordable value, upgrades the most-used part at the Forge, rests when below 50% HP. Map pathing prefers fights early, elites when healthy, oil when hurt.
-- **Careers:** a career starts from a fresh profile and plays runs one after another, spending Brass on a fixed sensible upgrade path (Reinforced Frame, Spare Cogs, Oiled Bearings, Tool Belt, Inventor's Notes, Second Wind, Lucky Charm, then remaining levels), and unlocking chassis as earned.
-- **Report:** win rate by meta-progression level (Brass spent bands), runs-to-first-win distribution (median, quartiles), per-part pick rate and win-rate impact.
-- **Win-rate impact** of a part is measured at the moment of choice, so it isn't skewed by survivorship (rare parts come from bosses that only strong runs reach). Every time the part is **offered** (reward or shop), the run joins the "took it" or the "passed" group, within the same meta band and act. Impact = win rate of "took it" divided by win rate of "passed", pooled across bands and acts weighted by offers (a ratio; 1.0 means no effect). The bot picks with a 20% random exploration rate so both groups fill. Parts with fewer than 30 offers in either group are excluded and listed. For offers in acts 1 and 2, "win" means beating that act's boss; for act 3, beating the Clockmaker, so early parts are judged by what they influence.
-- **Targets, checked by tests (`tests/sim/`):**
-  1. With no meta progression, win rate under 3% (at least 300 runs).
-  2. Median first win between run 8 and run 12 inclusive (at least 100 careers; a career with no win by run 30 counts as 31).
-  3. No part's win-rate impact is more than double the median part's impact.
+### 7.1 Bots
+- **Greedy** (v1's bot, ported): one placement at a time by the preview; the casual-player proxy.
+- **Turtle**: maximizes Plating each turn, then damage; targets the core.
+- **Burst**: maximizes damage each turn, Plating only as a tie-break; targets the core.
+- **Expert**: beam search over the turn (placements, swap, target order) with a one-turn lookahead (next intents, charge, Pressure, Ratchet, Countdown), and part-aware targeting (break what punishes its plan first). Under 50 ms per turn on average.
+- Run policies: greedy (v1-like) and **expert** (drafts toward a plan, removes weak starters, plans routes against the clock, values salvage, rings early when ready).
+
+### 7.2 Reports
+`npm run sim -- --mode fights|runs|careers|strategies` writes dated reports to `balance/`: per-tier win rate, HP lost (mean, p10, p90) and turns for every bot; turns per warden phase; peak Plating; careers' first-win distribution; offer-based part impact (offers are now trader stock, fuse results and salvage taken versus scrapped).
+
+### 7.3 v1 evidence
+`balance/2026-10-04-v1-strategies.md` (the D3 spike) measures v1 with these bots; its findings set the targets below.
+
+### 7.4 Targets, checked by tests (`tests/sim/`)
+1. Expert, no meta progression, Journeyman: win rate under 5% (300 runs); greedy under 2%.
+2. Expert careers on the sensible path: median first win between run 8 and 12 (at least 100 careers; no win by run 30 counts as 31).
+3. **No trivial strategy**: for every elite and warden, neither the turtle nor the burst bot averages under 10% of max HP lost, and the expert's win rate beats each of them by at least 15 points at the same bins.
+4. **Phases seen**: wardens' turns for the expert: Foreman 6 to 9, Queen 7 to 10, Clockmaker 8 to 12 (median); every phase lasts at least 2 turns in 90% of expert fights.
+5. No part's offer-based impact is more than double the median part's (v1 target 3, kept).
+6. Expert per-turn time under 50 ms on average (so careers finish in minutes).

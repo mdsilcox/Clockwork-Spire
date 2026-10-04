@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Foreman Rig Trial</title>
+<style>
+  :root { --bg: #1b2327; --panel: #26363d; --brass: #d9a441; --text: #f2e6cf; --muted: #b9a98c; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: radial-gradient(ellipse at 50% 40%, #3a3328 0%, var(--bg) 70%); color: var(--text);
+         font: 15px/1.4 system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 16px; overflow-x: hidden; }
+  h1 { font: 600 22px Georgia, serif; color: var(--brass); margin: 4px 0 2px; }
+  p.note { color: var(--muted); margin: 0 0 10px; text-align: center; max-width: 560px; }
+  .stage { position: relative; width: min(100%, 560px); aspect-ratio: 1196 / 1232; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+  button { background: var(--panel); color: var(--text); border: 1px solid #5a4a2a; padding: 8px 16px; font: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--brass); color: #1d2a30; border-color: var(--brass); }
+  label { color: var(--muted); display: flex; align-items: center; gap: 6px; padding: 8px; }
+</style>
+</head>
+<body>
+<h1>The Foreman: rig trial</h1>
+<p class="note">One generated painting, animated with a bone-weighted mesh. Glow, steam, sparks and dust are drawn in code.</p>
+<div class="stage" id="stage"></div>
+<div class="bar">
+  <button data-mood="idle" aria-pressed="true">Idle</button>
+  <button data-mood="attack">Attack</button>
+  <button data-mood="hurt">Hurt</button>
+  <button data-mood="overheat">Overheat</button>
+  <label><input type="checkbox" id="mesh"> Show mesh</label>
+</div>
+<script>__RIGJS__</script>
+<script>
+const { smooth, band, rad, rot } = Rig;
+const FEET = [447, 1095], SHOULDER = { L: [245, 400], R: [650, 400] }, ELBOW = { L: [170, 640], R: [725, 640] };
+const CHEST = [447, 420], MOUTH = [447, 585], EYES = [[418, 202], [474, 202]];
+const VENTS = [[382, 72], [508, 72], [295, 238], [588, 245]];
+
+function armEdges(y) { const hip = smooth(640, 760, y); return { L: 284 - 30 * hip, R: 613 + 34 * hip }; }
+const foreman = {
+  size: [896, 1152], grid: [112, 144], pad: [150, 40],
+  weights(x, y) {
+    // Arm edges follow the painting: next to the torso up top, next to the legs below the hips.
+    const arms = smooth(290, 330, y) * smooth(1045, 1020, y), hip = smooth(640, 760, y);
+    const { L: edgeL, R: edgeR } = armEdges(y), soft = 8 - 5 * hip;
+    const w = {
+      head: smooth(278, 240, y) * band(x, 320, 570, 15),
+      armL: smooth(edgeL + soft, edgeL - soft, x) * arms,
+      armR: smooth(edgeR - soft, edgeR + soft, x) * arms,
+      chest: smooth(740, 600, y),
+    };
+    w.elbowL = w.armL * smooth(610, 670, y);
+    w.elbowR = w.armR * smooth(610, 670, y);
+    w.low = smooth(700, 770, y) * (1 - w.armL) * (1 - w.armR);
+    return w;
+  },
+  // Below the hips the arms hang free beside the legs: tear the mesh along that gap.
+  part(x, y) { const e = armEdges(y); return x < e.L ? 1 : x > e.R ? 2 : 0; },
+  tear(x, y) { return y > 590 && y < 1050; },
+  deform(x, y, w, P) {
+    [x, y] = rot(x, y, ...ELBOW.L, rad(P.elbowL), w.elbowL);
+    [x, y] = rot(x, y, ...ELBOW.R, rad(P.elbowR), w.elbowR);
+    [x, y] = rot(x, y, ...SHOULDER.L, rad(P.armL), w.armL);
+    [x, y] = rot(x, y, ...SHOULDER.R, rad(P.armR), w.armR);
+    [x, y] = rot(x, y, 445, 258, rad(P.head), w.head);
+    // Crouch: legs compress toward the feet, everything above drops with them.
+    const k = 1 - 0.3 * P.crouch, drop = (FEET[1] - 720) * (1 - k), yc = FEET[1] - (FEET[1] - y) * k;
+    y = y + (yc - y) * w.low + drop * (1 - w.low);
+    // Breathing swells the torso around the hips.
+    const b = P.breath * w.chest * (1 - w.low);
+    x = CHEST[0] + (x - CHEST[0]) * (1 + b * 0.6); y = 720 + drop - (720 + drop - y) * (1 + b);
+    [x, y] = rot(x, y, ...FEET, rad(P.lean), 1);
+    return [x, y];
+  },
+  moods: {
+    idle:     { glow: 0.55, eyes: 0.6, breath: 0.012, breathHz: 0.3, sway: 2, steam: 0.5, jitter: 0 },
+    attack:   { glow: 0.7,  eyes: 0.9, breath: 0.01,  breathHz: 0.5, sway: 0, steam: 0.4, jitter: 0 },
+    hurt:     { glow: 0.45, eyes: 0.6, breath: 0.012, breathHz: 0.6, sway: 0, steam: 0.3, jitter: 0 },
+    overheat: { glow: 1.5,  eyes: 1.3, breath: 0.022, breathHz: 1.1, sway: 1, steam: 5,   jitter: 1.6 },
+  },
+  onMood(m, api) { api.state.start = undefined; },
+  pose(L, t, dt, S, api) {
+    if (S.start === undefined) { S.start = t; S.phase = 0; S.puffs = S.puffs || []; S.sparks = S.sparks || []; S.dust = S.dust || []; }
+    S.phase += dt * L.breathHz * 2 * Math.PI;
+    const u = t - S.start, br = Math.sin(S.phase), flick = 0.85 + 0.15 * Math.sin(t * 23) * Math.sin(t * 7.3);
+    const P = { head: 1.2 * Math.sin(S.phase * 0.5), armL: L.sway * Math.sin(S.phase), armR: -L.sway * Math.sin(S.phase + 0.6),
+                elbowL: 0, elbowR: 0, lean: 0, crouch: 0, breath: L.breath * br, flash: 0,
+                glow: L.glow * flick * (1 + 0.15 * br), eyes: L.eyes * flick, shake: null };
+    const ease = v => v * v * (3 - 2 * v), clamp = v => Math.min(1, Math.max(0, v));
+    const burst = (n, at, spread) => { for (let i = 0; i < n; i++) S.puffs.push(puff(at, spread)); };
+
+    if (api.mood === "attack") {
+      const c = u % 2.6;
+      if (c < 0.9) { const e = ease(c / 0.9); P.armR = -30 * e; P.elbowR = -95 * e; P.head = -5 * e; P.lean = -2.5 * e; P.glow *= 1 + 0.6 * e; }
+      else if (c < 1.04) { const e = clamp((c - 0.9) / 0.14); P.armR = -30 + 42 * e * e; P.elbowR = -95 + 103 * e; P.head = -5 + 11 * e; P.lean = -2.5 + 5.5 * e; P.crouch = 0.3 * e; }
+      else if (c < 1.7) { const d = Math.exp(-(c - 1.04) * 6); P.armR = 12; P.elbowR = 8; P.head = 6; P.lean = 3; P.crouch = 0.3; P.glow *= 1 + 1.2 * d;
+        P.shake = [(Math.random() - 0.5) * 18 * d, (Math.random() - 0.5) * 12 * d]; }
+      else { const e = ease(clamp((c - 1.7) / 0.8)); P.armR = 12 * (1 - e); P.elbowR = 8 * (1 - e); P.head = 6 * (1 - e); P.lean = 3 * (1 - e); P.crouch = 0.3 * (1 - e); }
+      if (S.cycle !== Math.floor((u - 1.04) / 2.6) && c >= 1.04 && c < 1.2) {
+        S.cycle = Math.floor((u - 1.04) / 2.6); burst(10, VENTS[2 + (S.cycle % 2)], 1.5); burst(6, VENTS[0], 1); S.dust.push({ born: t });
+      }
+    } else if (api.mood === "hurt") {
+      const c = u % 1.8, d = Math.exp(-c * 5);
+      P.flash = 0.6 * Math.exp(-c * 14); P.lean = -5 * d; P.head = 9 * d; P.armL = 10 * d; P.armR = -10 * d; P.elbowL = 14 * d; P.elbowR = -14 * d;
+      P.eyes *= c < 0.5 ? (Math.sin(c * 60) > 0 ? 1 : 0.1) : 1;
+      P.shake = [(Math.random() - 0.5) * 14 * d, (Math.random() - 0.5) * 8 * d];
+      if (S.hit !== Math.floor(u / 1.8)) { S.hit = Math.floor(u / 1.8); for (let i = 0; i < 14; i++) S.sparks.push(spark(t)); }
+    } else if (api.mood === "overheat") {
+      P.shake = [(Math.random() - 0.5) * 2 * L.jitter, (Math.random() - 0.5) * 2 * L.jitter];
+      P.flash = 0.12 * (0.5 + 0.5 * Math.sin(t * 9));
+    }
+    // Ambient steam from the vents.
+    S.acc = (S.acc || 0) + dt * L.steam;
+    while (S.acc > 1) { S.acc -= 1; S.puffs.push(puff(VENTS[Math.floor(Math.random() * VENTS.length)], 0.6)); }
+    P.t = t;
+    return P;
+  },
+  under(c, P, t, api) {
+    c.fillStyle = "rgba(0,0,0,0.35)"; c.beginPath(); c.ellipse(FEET[0], FEET[1] + 6, 270, 24, 0, 0, 2 * Math.PI); c.fill();
+    for (const d of api.state.dust || []) {
+      const a = (t - d.born) / 0.9; if (a > 1) continue;
+      c.strokeStyle = `rgba(200,170,120,${0.5 * (1 - a)})`; c.lineWidth = 10 * (1 - a);
+      c.beginPath(); c.ellipse(FEET[0], FEET[1], 200 + 260 * a, 20 + 26 * a, 0, 0, 2 * Math.PI); c.stroke();
+    }
+  },
+  over(c, P, t, api) {
+    const S = api.state, at = p => api.point(p[0], p[1], P);
+    c.globalCompositeOperation = "lighter";
+    glow(c, at(CHEST), 120, [255, 150, 50], 0.38 * P.glow);
+    glow(c, at(CHEST), 40, [255, 220, 140], 0.5 * P.glow);
+    glow(c, at(MOUTH), 70, [255, 120, 30], 0.6 * P.glow);
+    for (const e of EYES) glow(c, at(e), 30, [255, 200, 90], 0.55 * P.eyes);
+    S.sparks = (S.sparks || []).filter(s => t - s.born < s.life);
+    for (const s of S.sparks) {
+      const a = (t - s.born) / s.life, x = s.x + s.vx * (t - s.born), y = s.y + s.vy * (t - s.born) + 400 * (t - s.born) ** 2;
+      c.strokeStyle = `rgba(255,${180 + 60 * (1 - a)},90,${1 - a})`; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(x, y); c.lineTo(x - s.vx * 0.03, y - s.vy * 0.03); c.stroke();
+    }
+    c.globalCompositeOperation = "source-over";
+    S.puffs = (S.puffs || []).filter(p => t - p.born < p.life);
+    for (const p of S.puffs) {
+      const a = (t - p.born) / p.life, dt = t - p.born, r = p.r * (0.4 + 1.4 * a);
+      const x = p.x + p.vx * dt, y = p.y + p.vy * dt;
+      const g = c.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, `rgba(235,232,225,${0.45 * Math.sin(Math.PI * Math.min(1, a * 1.3))})`); g.addColorStop(1, "rgba(235,232,225,0)");
+      c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 2 * Math.PI); c.fill();
+    }
+  },
+};
+function glow(c, [x, y], r, [R, G, B], a) {
+  if (a <= 0) return;
+  const g = c.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(${R},${G},${B},${Math.min(1, a)})`); g.addColorStop(1, `rgba(${R},${G},${B},0)`);
+  c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 2 * Math.PI); c.fill();
+}
+let now = 0;
+function puff([x, y], spread) {
+  return { x: x + (Math.random() - 0.5) * 10, y, vx: (Math.random() - 0.5) * 60 * spread, vy: -60 - Math.random() * 80 * spread,
+           r: 22 + Math.random() * 18 * spread, born: now, life: 1.4 + Math.random() * 0.8 };
+}
+function spark(t) {
+  const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.4, v = 250 + Math.random() * 350;
+  return { x: CHEST[0] + (Math.random() - 0.5) * 120, y: CHEST[1] + (Math.random() - 0.5) * 120, vx: Math.cos(a) * v, vy: Math.sin(a) * v, born: t, life: 0.5 + Math.random() * 0.4 };
+}
+// Particles are stamped with the current rig time.
+const basePose = foreman.pose;
+foreman.pose = (L, t, dt, S, api) => { now = t; return basePose(L, t, dt, S, api); };
+
+const rig = Rig.mount(document.getElementById("stage"), foreman, "__IMG__");
+window.rig = rig;
+document.querySelectorAll("button[data-mood]").forEach(b => b.addEventListener("click", () => {
+  rig.setMood(b.dataset.mood); document.querySelectorAll("button[data-mood]").forEach(o => o.setAttribute("aria-pressed", o === b));
+}));
+document.getElementById("mesh").addEventListener("change", e => { rig.showMesh = e.target.checked; });
+</script>
+</body>
+</html>
