@@ -1,3 +1,5 @@
+// The dev server's hot-reload socket (not game code; the game opens no sockets) may log a refused connection under load.
+const VITE_HMR_NOISE = /\[vite\]|WebSocket connection to 'ws:/;
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { noSidewaysScroll, press, skipFirstLaunch } from './helpers';
@@ -10,7 +12,7 @@ const call = <T = unknown>(page: Page, expr: string, arg?: unknown): Promise<T> 
 function watchAll(page: Page): string[] {
   const bad: string[] = [];
   page.on('console', (m) => {
-    if (m.type() === 'error' || m.type() === 'warning') bad.push(`${m.type()}: ${m.text()}`);
+    if ((m.type() === 'error' || m.type() === 'warning') && !VITE_HMR_NOISE.test(m.text())) bad.push(`${m.type()}: ${m.text()}`);
   });
   page.on('pageerror', (e) => bad.push(`pageerror: ${String(e)}`));
   return bad;

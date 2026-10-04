@@ -37,10 +37,13 @@ export const practice = (page: Page, o: { enemies?: string[]; bin?: string | str
 export const setIntent = (page: Page, i: number, intent: Record<string, unknown>): Promise<void> =>
   page.evaluate(([n, it]) => (window as unknown as W).__game.debugEnemy(n as number, { intent: it as never }), [i, intent] as const);
 
+/** The dev server's hot-reload socket may log a refused connection under load; the game itself opens no sockets. */
+export const VITE_HMR_NOISE = /\[vite\]|WebSocket connection to 'ws:/;
+
 export function watchErrors(page: Page): string[] {
   const errors: string[] = [];
   page.on('console', (m) => {
-    if (m.type() === 'error') errors.push(m.text());
+    if (m.type() === 'error' && !VITE_HMR_NOISE.test(m.text())) errors.push(m.text());
   });
   page.on('pageerror', (e) => errors.push(String(e)));
   return errors;
