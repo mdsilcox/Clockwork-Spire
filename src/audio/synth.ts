@@ -384,6 +384,15 @@ export function phaseGong(clockmaker = false): void {
   noise(0.3, 'lowpass', 900, 0.8, 0.1, 200);
 }
 
+/** The Clockmaker rewinds a part: a clock ticking backwards, falling in pitch. */
+export function rewindTick(): void {
+  for (let i = 0; i < 6; i++) {
+    tone(1500 - i * 190, 0.05, 'triangle', 0.07, undefined, i * 0.07);
+    noise(0.03, 'highpass', 4000, 0.7, 0.05, undefined, i * 0.07);
+  }
+  tone(520, 0.5, 'sine', 0.07, 180, 0.05);
+}
+
 /** The Momentum chain passes 10 (level 1) or 20 (level 2): a rising chime. */
 export function chainChime(level: number): void {
   const notes = level >= 2 ? [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568] : [523.25, 659.25, 783.99, 1046.5];

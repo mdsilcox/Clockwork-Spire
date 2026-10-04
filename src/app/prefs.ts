@@ -43,3 +43,6 @@ export function openGlossary(term = ''): void {
 export function closeGlossary(): void {
   glossaryOpen.value = null;
 }
+
+/** The bin viewer overlay (all the parts of the current run). */
+export const binOpen = signal(false);
