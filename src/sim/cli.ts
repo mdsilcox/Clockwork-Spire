@@ -1,7 +1,7 @@
 // Balance simulator CLI (docs/rules.md section 7). Modes: --mode fights. Others arrive in later phases.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { botStats } from './bot';
-import { buildReport, loadEncounters } from './combat-report';
+import { buildReportWithSummary, loadEncounters } from './combat-report';
 
 function arg(name: string, def: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -18,11 +18,13 @@ async function main(): Promise<void> {
   const date = arg('date', new Date().toISOString().slice(0, 10)); // the only clock read
   const encounters = await loadEncounters();
   const t0 = performance.now();
-  const md = buildReport({ seed, fights, encounters }, date);
+  const { markdown: md, summary } = buildReportWithSummary({ seed, fights, encounters }, date);
   const secs = (performance.now() - t0) / 1000;
   mkdirSync('balance', { recursive: true });
   const file = `balance/${date}-fights-${seed}.md`;
   writeFileSync(file, md + '\n');
+  const json = arg('json', '');
+  if (json) writeFileSync(json, JSON.stringify(summary, null, 1) + '\n');
   console.log(
     `Wrote ${file}: ${fights} fights in ${secs.toFixed(1)} s (${(fights / secs).toFixed(0)} fights/s, ${(botStats.previews / secs).toFixed(0)} previews/s).`,
   );
