@@ -197,7 +197,7 @@ describe('10. Enemy actions: counters to turtling and burst', () => {
 
   it('EA5: Countdown 2 lands on the second enemy turn and resets; breaking defuses it; Jam delays it a turn', () => {
     const mk = () =>
-      combatWith({ enemies: [{ core: 99, parts: [{ id: 'bomb', hp: 10, act: 'pierce 25', cadence: { countdown: 2 } }] }] });
+      combatWith({ enemies: [{ core: 99, bump: 'shell 1', parts: [{ id: 'bomb', hp: 10, act: 'pierce 25', cadence: { countdown: 2 } }] }] }); // bump: a defused bomb leaves the core Bump, which must not hit
     const a = mk();
     runTurn(a);
     expect(a.playerHp).toBe(50);

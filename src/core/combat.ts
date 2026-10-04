@@ -3,7 +3,8 @@ import { CELLS, MAINSPRING } from './types';
 import type { CombatState, EnemyState, GameEvent, PartInstance, TurnPreview, TurnResult } from './types';
 import { inBoard } from './board';
 import { enemyDef } from './content/enemies';
-import { chooseIntent, enemyTurn, newEnemy } from './enemy';
+import { afterPlayerTurn, chooseIntent, enemyTurn, newEnemy, summonEnemy } from './enemy';
+import { defaultOrder, defaultOrderFor, syncTargetIdx } from './frames';
 import { trinketDef } from './content/trinkets';
 import { anyAlive, hasTrinket, MAX_TICKS, runEnemyAttackHooks, runMachine, runTurnStartHooks } from './machine';
 import { initStreams, shuffle } from './rng';
@@ -77,7 +78,12 @@ export function createCombat(o: CreateCombatOpts): CombatState {
   for (const id of o.enemies) c.enemies.push(newEnemy(id));
   const initial = c.enemies.length;
   for (let i = 0; i < initial; i++) enemyDef(c.enemies[i].defId).onStart?.(c, i);
+  for (let i = 0; i < initial; i++) {
+    for (const id of enemyDef(c.enemies[i].defId).frame?.startSummons ?? []) summonEnemy(c, id, null);
+  }
   for (let i = 0; i < initial; i++) chooseIntent(c, i); // companions summoned by onStart chose their own
+  c.order = defaultOrder(c);
+  syncTargetIdx(c);
   beginTurn(c, []);
   for (const id of c.trinkets) trinketDef(id).onCombatStart?.(c);
   return c;
@@ -176,8 +182,11 @@ export function swapParts(c: CombatState, a: number, b: number): boolean {
   return true;
 }
 
+/** v1 shortcut: aim at one enemy (its default order: acting parts, then its core). */
 export function setTarget(c: CombatState, idx: number): void {
-  if (c.enemies[idx] && c.enemies[idx].hp > 0) c.targetIdx = idx;
+  if (!c.enemies[idx] || c.enemies[idx].hp <= 0) return;
+  c.order = defaultOrderFor(c, idx);
+  c.targetIdx = idx;
 }
 
 /** What Run would do now. Runs the real machine on a copy; never mutates `c`. */
@@ -205,7 +214,8 @@ export function runTurn(c: CombatState): TurnResult {
   for (let i = 0; i < c.enemies.length; i++) {
     if (c.enemies[i].hp > 0) enemyDef(c.enemies[i].defId).afterMachine?.(c, i, events);
   }
-  enemyTurn(c, events, (i) => runEnemyAttackHooks(c, i, events));
+  afterPlayerTurn(c, events);
+  enemyTurn(c, events, (i, partId) => runEnemyAttackHooks(c, i, events, partId));
   if (c.playerHp <= 0) return finish(c, events, preview, 'lost');
   if (!anyAlive(c)) return finish(c, events, preview, 'won');
 
@@ -254,10 +264,7 @@ function beginTurn(c: CombatState, events: GameEvent[]): void {
   c.swapUsed = false;
   c.momentum = 0;
   for (const p of c.board) if (p) p.firedThisTurn = 0;
-  if (!c.enemies[c.targetIdx] || c.enemies[c.targetIdx].hp <= 0) {
-    const i = c.enemies.findIndex((e) => e.hp > 0);
-    c.targetIdx = i < 0 ? 0 : i;
-  }
+  syncTargetIdx(c);
   events.push({ kind: 'turnStart', tick: 0, step: 0, amount: c.turn });
   // Magnetized parts return to the hand with their charge lost.
   for (let i = 0; i < c.board.length; i++) {

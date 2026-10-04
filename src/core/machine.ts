@@ -4,7 +4,10 @@
 import { diagonals, neighbors } from './board';
 import { partDef } from './content/parts';
 import type { ReleaseInfo, TickCtx } from './defs';
-import { damageEnemy, damagePlayer } from './enemy';
+import { damageEnemy, damagePlayer, damageTarget, jamPart } from './enemy';
+import type { HitOpts, HitResult } from './enemy';
+import { canTarget, currentTarget, frontOf, parseRef } from './frames';
+import { frameOf } from './framelib';
 import { MAINSPRING } from './types';
 import type { CombatState, GameEvent, PlacedPart, TurnPreview } from './types';
 
@@ -26,10 +29,10 @@ export function anyAlive(c: CombatState): boolean {
   return c.enemies.some((e) => e.hp > 0);
 }
 
-/** The enemy a Strike goes to: the chosen target while it lives, else the leftmost living one; -1 if none. */
+/** The enemy the next Strike goes to (the enemy of the current target); -1 if none. */
 export function liveTarget(c: CombatState): number {
-  if (c.enemies[c.targetIdx] && c.enemies[c.targetIdx].hp > 0) return c.targetIdx;
-  return c.enemies.findIndex((e) => e.hp > 0);
+  const t = currentTarget(c);
+  return t ? parseRef(t).enemy : -1;
 }
 
 interface Acc {
@@ -39,6 +42,8 @@ interface Acc {
   statuses: { target: number; status: string; amount: number }[];
   statusBonus: number; // Inventor's Lamp
   once: Set<string>; // oncePerTurn keys
+  byTarget: TurnPreview['byTarget'];
+  cancelled: TurnPreview['cancelled'];
 }
 
 interface Rt {
@@ -46,6 +51,8 @@ interface Rt {
   events: GameEvent[];
   acc: Acc;
   firedIds: Set<string>; // part def ids that fired earlier this tick
+  /** During an enemy's attack: the part that attacked (Spring Trap strikes it). */
+  attacker?: { enemy: number; part: string };
 }
 
 interface QItem {
@@ -67,13 +74,20 @@ const newAcc = (c: CombatState): Acc => ({
   statuses: [],
   statusBonus: 0,
   once: new Set(),
+  byTarget: {},
+  cancelled: [],
 });
 
 export function runMachine(c: CombatState, events: GameEvent[]): TurnPreview {
   c.momentum = 0;
   c.lastTurnContrib = {};
   for (const p of c.board) if (p) p.firedThisTurn = 0;
+  for (const e of c.enemies) {
+    e.coreTookThisTurn = 0; // Braced counts per player turn
+    for (const p of e.parts) p.tookThisTurn = 0;
+  }
   const acc = newAcc(c);
+  for (const r of c.order) if (canTarget(c, r)) acc.byTarget[r] = { damage: 0, breaks: false };
   const rt: Rt = { c, events, acc, firedIds: new Set() };
 
   for (let tick = 1; tick <= c.ticksThisTurn && anyAlive(c); tick++) runTick(rt, tick);
@@ -96,8 +110,8 @@ export function runMachine(c: CombatState, events: GameEvent[]): TurnPreview {
   }
 
   return {
-    byTarget: {}, // B7: the engine lane fills these
-    cancelled: [],
+    byTarget: acc.byTarget,
+    cancelled: acc.cancelled,
     damageByEnemy: acc.damage,
     plating: acc.plating,
     pressureAfter: c.pressure,
@@ -124,8 +138,8 @@ export function runTurnStartHooks(c: CombatState, events: GameEvent[]): void {
 }
 
 /** After enemy `enemyIdx` attacked the player: Spring Trap releases at it. */
-export function runEnemyAttackHooks(c: CombatState, enemyIdx: number, events: GameEvent[]): void {
-  const rt: Rt = { c, events, acc: newAcc(c), firedIds: new Set() };
+export function runEnemyAttackHooks(c: CombatState, enemyIdx: number, events: GameEvent[], partId = 'core'): void {
+  const rt: Rt = { c, events, acc: newAcc(c), firedIds: new Set(), attacker: { enemy: enemyIdx, part: partId } };
   for (let cell = 0; cell < c.board.length; cell++) {
     const p = c.board[cell];
     if (!p || c.enemies[enemyIdx].hp <= 0) continue;
@@ -235,13 +249,31 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
     } else c.lastTurnContrib[p.uid] = { value, fedBy, dmg };
   };
 
-  const hit = (idx: number, raw: number): void => {
+  const record = (idx: number, partId: string, r: HitResult): void => {
+    const key = `e${idx}.${partId}`;
+    const t = (acc.byTarget[key] ??= { damage: 0, breaks: false });
+    t.damage += r.lost;
+    if (r.broke) t.breaks = true;
+    if (r.cancelled) acc.cancelled.push({ enemy: idx, partId });
+    if (partId === 'core') acc.damage[idx] = (acc.damage[idx] ?? 0) + r.lost;
+  };
+  /** One hit on a part or core, through the damage pipeline (legacy enemies: Cracked and Shell as v1). */
+  const hitAt = (idx: number, partId: string, raw: number, opts: HitOpts = {}): HitResult => {
     const e = c.enemies[idx];
-    let dmg = raw;
-    if ((e.statuses.cracked ?? 0) > 0) dmg = Math.floor(dmg * 1.5);
-    const lost = damageEnemy(c, idx, dmg, events, base);
-    acc.damage[idx] = (acc.damage[idx] ?? 0) + lost;
-    contribute(dmg, lost);
+    const cracked = (e.statuses.cracked ?? 0) > 0 ? Math.floor(raw * 1.5) : raw;
+    let r: HitResult;
+    if (frameOf(e)) r = damageTarget(c, idx, partId, raw, events, base, opts);
+    else {
+      const lost = damageEnemy(c, idx, cracked, events, base, { ignoreShell: opts.drill });
+      r = { lost, broke: e.hp <= 0 && lost > 0, died: e.hp <= 0 && lost > 0, cancelled: false };
+    }
+    record(idx, partId, r);
+    contribute(cracked, r.lost);
+    return r;
+  };
+  const hitRef = (ref: string, raw: number, opts: HitOpts = {}): HitResult => {
+    const t = parseRef(ref);
+    return hitAt(t.enemy, t.part, raw, opts);
   };
   const knuckles = (): number => (hasTrinket(c, 'brass-knuckles') && ctx.oncePerTurn('brass-knuckles') ? 4 : 0);
   const grit = (): number => c.playerStatuses.grit ?? 0;
@@ -266,17 +298,30 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
     },
     firedEarlier: (defId) => rt.firedIds.has(defId),
     strike(amount) {
-      const idx = liveTarget(c);
-      if (idx < 0) return;
-      hit(idx, amount + ctx.boostIn + grit() + knuckles());
+      const ref = currentTarget(c);
+      if (!ref) return;
+      hitRef(ref, amount + ctx.boostIn + grit() + knuckles());
     },
     strikeAt(idx, amount) {
-      if (!c.enemies[idx] || c.enemies[idx].hp <= 0) return;
-      hit(idx, amount + ctx.boostIn + grit() + knuckles());
+      const e = c.enemies[idx];
+      if (!e || e.hp <= 0) return;
+      const raw = amount + ctx.boostIn + grit() + knuckles();
+      const a = rt.attacker;
+      if (a && a.enemy === idx && a.part !== 'core') {
+        const ps = e.parts.find((p) => p.id === a.part);
+        if (ps && !ps.broken) {
+          hitAt(idx, a.part, raw); // Spring Trap hits the part that attacked
+          return;
+        }
+      }
+      const ref = frontOf(c, idx);
+      if (ref) hitRef(ref, raw);
     },
     sweep(amount) {
       for (let i = 0; i < c.enemies.length; i++) {
-        if (c.enemies[i].hp > 0) hit(i, amount + ctx.boostIn);
+        if (c.enemies[i].hp <= 0) continue;
+        const ref = frontOf(c, i);
+        if (ref) hitRef(ref, amount + ctx.boostIn);
       }
     },
     plate(amount) {
@@ -343,21 +388,43 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
     drawNextTurn(n) {
       c.extraDraw = (c.extraDraw ?? 0) + n;
     },
-    // B7 CONTRACT stubs: the enemy-engine lane implements these (docs/rules.md 2.3).
-    shatter() {
-      throw new Error('B7: shatter not implemented');
+    // v2 player words (docs/rules.md 2.3). Boost, Grit and Brass Knuckles apply as for strike().
+    shatter(amount) {
+      const ref = currentTarget(c);
+      if (!ref) return;
+      const idx = parseRef(ref).enemy;
+      const raw = amount + ctx.boostIn + grit() + knuckles();
+      for (const p of c.enemies[idx].parts.slice()) if (!p.broken) hitAt(idx, p.id, raw);
     },
-    drill() {
-      throw new Error('B7: drill not implemented');
+    drill(amount) {
+      const ref = currentTarget(c);
+      if (!ref) return;
+      hitRef(ref, amount + ctx.boostIn + grit() + knuckles(), { drill: true });
     },
     jam() {
-      throw new Error('B7: jam not implemented');
+      const ref = currentTarget(c);
+      if (!ref) return;
+      const t = parseRef(ref);
+      if (t.part !== 'core') jamPart(c, t.enemy, t.part);
     },
-    pry() {
-      throw new Error('B7: pry not implemented');
+    pry(amount) {
+      const ref = currentTarget(c);
+      if (!ref) return false;
+      const idx = parseRef(ref).enemy;
+      const raw = amount + ctx.boostIn + grit() + knuckles();
+      let weakest: string | null = null;
+      let least = Infinity;
+      for (const p of c.enemies[idx].parts) {
+        if (!p.broken && p.hp < least) {
+          least = p.hp;
+          weakest = p.id;
+        }
+      }
+      const r = weakest ? hitAt(idx, weakest, raw) : hitRef(ref, raw);
+      return r.broke;
     },
-    patch() {
-      throw new Error('B7: patch not implemented');
+    patch(amount) {
+      ctx.heal(amount);
     },
     addStatusBonus(n) {
       acc.statusBonus += n;

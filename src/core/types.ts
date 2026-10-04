@@ -294,7 +294,7 @@ export interface ShopItem {
 }
 
 export type Pending =
-  | { kind: 'salvage'; items: SalvageItem[]; cogs: number; trinkets: string[]; blueprint?: string; extraBlueprint?: string; trinketTaken: boolean; done: boolean } // B7: replaces 'reward' after fights (Cogs stand in for Scrap until B8)
+  | { kind: 'salvage'; items: SalvageItem[]; wrecked?: number; cogs: number; trinkets: string[]; blueprint?: string; extraBlueprint?: string; trinketTaken: boolean; done: boolean } // B7: replaces 'reward' after fights (Cogs stand in for Scrap until B8)
   | { kind: 'reward'; cogs: number; parts: string[]; trinkets: string[]; blueprint?: string; extraBlueprint?: string; partTaken: boolean; trinketTaken: boolean }
   | { kind: 'event'; eventId: string; result?: string; needsPart?: 'remove' | 'upgrade' | 'duplicate' | 'transform' | 'sell'; choice?: number; partFilter?: Family } // choice, partFilter ADDED in B3
   | { kind: 'shop'; stock: ShopItem[]; removalsBought: number }

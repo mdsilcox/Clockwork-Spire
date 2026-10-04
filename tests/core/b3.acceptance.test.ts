@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { combatWith, cell } from '../../src/core/testkit';
 import { createCombat, placePart, runTurn } from '../../src/core/combat';
 import { initStreams } from '../../src/core/rng';
+import { takeSalvage } from '../../src/core/salvage';
 import { generateActMap } from '../../src/core/map';
 import {
   defaultRunConfig,
@@ -10,7 +11,6 @@ import {
   availableNodes,
   enterNode,
   settleCombat,
-  takeRewardPart,
   leaveNode,
   chooseEvent,
   eventPickPart,
@@ -93,33 +93,40 @@ describe('B3 run flow', () => {
     expect(enterNode(run, 'not-a-node')).toBe(false);
   });
 
-  it('R2: a won fight gives Cogs and 3 part choices; skipping is allowed', () => {
+  it('R2 (salvage tray, B7): a won fight gives Cogs and the salvage tray; scrapping everything is allowed', () => {
     const run = freshRun();
     const cogs = run.cogs;
     winFirstFight(run);
     expect(run.phase).toBe('reward');
     const p = run.pending!;
-    expect(p.kind).toBe('reward');
-    if (p.kind !== 'reward') return;
-    expect(p.parts.length).toBe(3);
+    expect(p.kind).toBe('salvage');
+    if (p.kind !== 'salvage') return;
     expect(run.cogs - cogs).toBeGreaterThanOrEqual(12);
     expect(run.cogs - cogs).toBeLessThanOrEqual(20);
     const binBefore = run.bin.length;
-    expect(takeRewardPart(run, null)).toBe(true);
+    expect(takeSalvage(run, [])).toBe(true);
     expect(run.bin.length).toBe(binBefore);
+    expect(takeSalvage(run, [])).toBe(false);
     expect(leaveNode(run)).toBe(true);
     expect(run.phase).toBe('map');
   });
 
-  it('R2b: taking a reward part adds it to the bin', () => {
+  it('R2b (salvage tray, B7): keeping a salvaged part adds it to the bin; scrapped ones pay 3 Cogs each', () => {
     const run = freshRun(11);
     winFirstFight(run);
     const p = run.pending!;
-    if (p.kind !== 'reward') throw new Error('no reward');
-    const id = p.parts[1];
-    expect(takeRewardPart(run, 1)).toBe(true);
-    expect(run.bin.some((b) => b.defId === id)).toBe(true);
-    expect(takeRewardPart(run, 0)).toBe(false);
+    if (p.kind !== 'salvage') throw new Error('no salvage tray');
+    p.items = [
+      { enemy: 0, partId: 'jaw', salvage: 'spur', rarity: 'common', locked: false },
+      { enemy: 0, partId: 'tail', salvage: 'coil', rarity: 'common', locked: false },
+    ];
+    const cogs = run.cogs;
+    const spurs = run.bin.filter((b) => b.defId === 'spur').length;
+    expect(takeSalvage(run, [0, 5])).toBe(false); // an index that is not in the tray changes nothing
+    expect(takeSalvage(run, [0])).toBe(true);
+    expect(run.bin.filter((b) => b.defId === 'spur').length).toBe(spurs + 1);
+    expect(run.cogs).toBe(cogs + 3);
+    expect(takeSalvage(run, [1])).toBe(false);
   });
 
   it('C3: dying ends the run in defeat with a record', () => {
