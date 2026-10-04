@@ -29,3 +29,7 @@ A new player understands a turn within two minutes: tooltips on every part, stat
 
 ## Done when
 Unit and e2e suites green in your worktree at both sizes; you completed the tutorial yourself at 667x375 and looked at screenshots of tooltips, glossary and the sandbox. Report per template.
+
+## From the B1 critic (must-fix in this lane)
+- On phone the tooltip covers part of the board and stays after a part is placed: dismiss it on tap-away, on placement and on Run.
+- The default practice fight is still won in 3 turns by placing anything. Once `ENCOUNTERS` exists, make the default practice encounter `brass-beetle` + `spring-imp` (Shell and a growing attack) at 50 HP, and confirm with the `fight-sim` bot or a quick script that random placement loses noticeably more often than greedy placement. Keep the B1 setup as the fallback when those enemies are missing.

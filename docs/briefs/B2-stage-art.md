@@ -25,3 +25,6 @@ Every part and enemy is drawn in code with a distinct, readable silhouette in on
 
 ## Done when
 `npm run build` type-checks, unit tests stay green, `e2e/perf.spec.ts` passes in your worktree, and you looked at screenshots of a full board and of several enemies at 1280x800 and 667x375 (Playwright, deviceScaleFactor 2). You may preview parts not yet in the core registry with a temporary debug page or a test that renders every id offscreen; leave no debug UI in the game. Report what you drew and any id you couldn't map.
+
+## From the B1 critic (must-fix in this lane)
+- Stronger payoff beats: screen shake (skipped when reducedEffects) and a distinct rising chime for long chains (Momentum 10 and 20), a bigger burst on kills and releases. Check the audio in a real (non-webdriver) page: add `?sound=1` to force audio on under automation so you can at least confirm the graph builds without errors.
