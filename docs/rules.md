@@ -67,11 +67,11 @@ Every part has an upgraded form, shown with a **+** (for example Spur Gear+). Up
 - Parts are drawn on the enemy's painting, pinned to anchors: each shows its HP pips, its status icons and, when it will act next turn, its intent.
 - A part at 0 HP is **broken**: it never acts again this combat, and any intent it shows is cancelled at once. Breaking a part never damages the core.
 - Some parts are **passive**: they have no intent and change a rule while they stand (a Bulwark halves damage to the core; a Governor caps damage per Strike). Their effect ends when they break.
-- **Core actions**: an enemy whose acting parts are all broken falls back to its core action (usually a weak Bump, attack 3 to 6 *(tune)*).
+- **Core actions**: only an enemy whose acting parts are **all broken** falls back to its core action (usually a weak Bump, attack 3 to 6 *(tune)*). A turn where living parts simply rest by cadence is a quiet turn, not a Bump.
 - **Sealed cores**: elites and wardens may have a sealed core. A sealed core can't be targeted or damaged until every **keystone** part of its current phase is broken. Sealed is shown as a lock on the core.
 
 ### 2.2 Intents
-- At the end of the enemy turn, each enemy reveals its next actions: every part whose cadence includes the next turn shows its intent on itself. The enemy's intents are performed in a fixed order (left to right on its frame, then the core action if no part acted).
+- At the end of the enemy turn, each enemy reveals its next actions: every part whose cadence includes the next turn shows its intent on itself. The enemy's intents are performed in a fixed order (left to right on its frame; the core action only as 2.1 says).
 - Intent icons and kinds are v1's (attack, shell, sabotage, buff, debuff, charge, special) plus the new actions in 2.4. Each carries its number and a tooltip, and color-blind labels as in v1.
 - Enemy actions have no randomness: cadences are fixed patterns; where an enemy chooses (a target cell for Rust), the choice is rolled from the `enemy` stream when the intent is revealed and shown before you build.
 
@@ -80,7 +80,7 @@ Every part has an upgraded form, shown with a **+** (for example Spur Gear+). Up
 - **Strike X** hits the first entry of the order that is still standing. Damage beyond what that target has left is **lost**: it never carries over to another target, a core or a later phase. The next Strike goes to the next standing entry.
 - If the order is empty or every entry is down, Strikes hit the **front** of the leftmost living enemy: its core, or, while the core is sealed, its first unbroken keystone.
 - **Sweep X** hits the front of every living enemy.
-- New player words (parts in `docs/content.md`): **Shatter X** (X to every unbroken part of the enemy your next Strike would hit), **Drill X** (a Strike that ignores Shell, Bulwark and Governor), **Jam** (the part your next Strike would hit skips its next action), **Patch X** (heal X HP).
+- New player words (parts in `docs/content.md`): **Shatter X** (X to every unbroken part of the enemy your next Strike would hit), **Drill X** (a Strike that ignores Shell, Bulwark and Governor), **Jam** (the part your next Strike would hit skips its next action, and a Countdown on it doesn't tick), **Pry X** (a Strike X at the weakest unbroken part, by HP left, of the enemy your next Strike would hit; ties left to right), **Patch X** (heal X HP).
 - The preview shows, for every target in the order, the damage it will take and whether it breaks or dies, and the cancelled intents. Because the order is fixed before Run, the preview stays exact (1.6).
 
 ### 2.4 Enemy actions
@@ -92,19 +92,23 @@ Every part has an upgraded form, shown with a **+** (for example Spur Gear+). Up
 | Siphon X | Attack X; the enemy's core heals by the Plating this attack removed. |
 | Shell X | The enemy gains Shell X (absorbs damage to its core and parts; falls away at the start of its next turn). |
 | Mend X | Heal X to its core, or rebuild one of its broken parts at half HP (the part says which). |
-| Ratchet X (passive) | At the end of your turn, if this enemy's core took no damage this turn, it gains Strength X for the rest of the combat. |
-| Countdown N: action | Ticks down each enemy turn; at 0 performs the action (usually a big Pierce). Breaking the part defuses it. |
+| Ratchet X (passive) | At the end of your turn, if this enemy's core (or, while the core is sealed, any keystone) took no damage this turn, it gains Strength X for the rest of the combat. |
+| Countdown N: action | Ticks down each enemy turn (by 1, or by the amount the part lists, plus any bonus it lists, such as the Queen's heat rising by Pressure drained); at 0 performs the action (usually a big Pierce) and resets. Breaking the part defuses it; Jam pauses it for a turn. |
 | Bulwark (passive) | While it stands, the core takes half damage (rounded down) from Strikes and Sweeps. |
 | Governor X (passive) | While it stands, no single Strike deals more than X to this enemy. |
 | Rust, Jam, Magnetize, Drain | v1's sabotage of your machine. |
 | Corroded X, Dazed X on you | v1 statuses, now also from parts. |
-| Summon | A new enemy joins at the right, with its intents shown. |
+| Summon | A new enemy joins at the right, with its intents shown (some enemies summon once at the start of combat). |
+| Buff X | Its allies (or itself) gain Strength X. |
+| Enrage X (passive) | When a linked ally is destroyed, this enemy gains Strength X. |
+| Purge | Clears every status on its own frame (v1's statuses on enemies). |
+| Echo | Attacks for the damage your strongest part dealt last turn (v1's Echo Sprite), minimum as listed. |
 
 **Counterplay by design.** Plating stacking meets Pierce, Corrode, Siphon, Ratchet and Countdown: you must break those parts, which means aiming damage at parts instead of piling Plating. Burst meets Bulwark, Governor, sealed cores and lost overkill: one giant Strike is worth less than several aimed ones. Every regular enemy has at least one part that punishes one of the two plans (content.md lists "punishes" per enemy).
 
 ### 2.5 Winning, losing and salvage
 - You win the combat when every enemy is destroyed; you lose the run at 0 HP. Summoned enemies count.
-- **Salvage**: every part you broke with a salvage id goes to the salvage tray at the end of the combat. You keep any of them (each joins your bin) and scrap the rest for 3 Scrap each *(tune)*. Parts still standing when their core died are **wrecked**: 1 Scrap each. Each enemy also drops Scrap: 3 to 6 regular, 12 to 18 elite, 30 warden *(tune)*.
+- **Salvage**: every part you broke with a salvage id goes to the salvage tray at the end of the combat. You keep any of them (each joins your bin) and scrap the rest for 3 Scrap each *(tune)*. Keeping is optional, so the bin grows only by choice. Parts still standing when their core died are **wrecked**: 1 Scrap each. Each enemy also drops Scrap: 3 to 6 regular, 12 to 18 elite, 30 warden *(tune)*.
 - Salvage rarity is the enemy part's rarity: regular enemies carry Common and Uncommon parts, elites Uncommon and Rare, wardens Rare and Masterwork.
 - A part whose salvage is locked (not yet unlocked by a blueprint or achievement) drops as 6 Scrap and a note in the journal ("You could almost see how it worked").
 
@@ -112,10 +116,11 @@ Every part has an upgraded form, shown with a **+** (for example Spur Gear+). Up
 - **Patch X** (parts) heals during combat; the Tea Kettle and new Patch parts carry it.
 - Oil stations heal outside combat (4.4). After a warden you heal 40% of the HP you've lost.
 - Enemies heal by Mend and Siphon; the answer is to break the part that does it.
+- Your parts' reactions during the enemy turn (Spring Trap) strike the part that attacked; if that breaks it, the rest of its action is cancelled.
 
 ## 3. Statuses
 
-On enemies (on the core and its parts alike unless it says):
+On enemies (a status always applies to the whole frame, core and parts alike, whichever part was hit):
 - **Scald X**: at the end of the enemy's turn its core takes X damage, then X falls by 1 (a sealed core is immune; the Scald waits).
 - **Cracked X**: the enemy's core and parts take 50% more damage from Strike and Sweep for X turns.
 - **Dazed X**: its attacks deal 25% less for X turns.
@@ -136,6 +141,7 @@ On you: **Plating X**, **Corroded X**, **Grit X** (v1). On your parts: **Rusted*
 - Each act starts at dusk, hour 0. Moving to a connected room takes **1 hour**. Resting at an oil station takes 1 more hour. Fights, events, trading and the workbench take no extra time.
 - At **midnight** (hour 12 on Journeyman; modes in 5.7), when the current room is resolved, the warden comes: the warden fight starts where you stand.
 - You may walk to the warden's door and **ring the bell** early. Each hour left pays 4 Scrap and 2 Brass *(tune)*.
+- Some event choices cost or give back hours; the button says so ("Take the long way: +1 hour").
 - The clock, hours left and each roaming elite's next room are always on screen.
 
 ### 4.3 Roaming elites
@@ -147,17 +153,17 @@ On you: **Plating X**, **Corroded X**, **Grit X** (v1). On your parts: **Rusted*
 | Room | Per act *(tune)* | Does |
 |---|---|---|
 | Fight | 7 to 9 | An encounter from the act's pool; deeper floors draw harder encounters. |
-| Workbench | 1 (2 in act 3) | Upgrade a part (C 15, U 25, R 40, M 60 Scrap); remove a part (25 Scrap, +15 per use in a run); **fuse** two parts of the same family and rarity into a part of the next rarity in that family (you see two candidate results and pick one). Each action once per visit; revisits allowed. |
+| Workbench | 1 (2 in act 3) | Upgrade a part (C 15, U 25, R 40, M 60, L 80 Scrap); remove any part (25 Scrap, +15 per use in a run); **fuse** two parts of the same family and rarity into a part of the next rarity in that family (you see two candidate results and pick one; shown greyed with the reason when no unlocked part of the next rarity exists in that family; Masterworks never fuse into Legendaries). Each action once per visit; revisits allowed. |
 | Oil station | 1 to 2 | Rest (1 extra hour): heal 30% of max HP; or polish: +4 max HP. Once per station. |
 | Trader | 1 to 2 | Barter (4.5). |
 | Event | 3 to 4 | A person or a place (content.md); some send a resident to Bellfoot (5.4). |
-| Vault | 0 to 1 | Behind a locked door, guarded by a fixed elite; a Masterwork part and 40 Scrap. |
+| Vault | 0 to 1 | Behind a locked door, guarded by a fixed elite; a Masterwork part and 40 Scrap. In act 3, if you hold no Legendary and one is unlocked, a Legendary instead. |
 | Entry | 1 | Safe. The first act's entry has Sprocket's ball (pet him: nothing, but he wiggles). |
 | Warden's door | 1 | Ring the bell (4.2). |
 
 ### 4.5 Traders and Scrap
 - **Scrap** replaces Cogs. Earned from fights (2.5), early bells, events.
-- A trader stocks 4 parts and 1 trinket rolled on entry (`shop` stream; rarity by act as content.md). Each item has a **value** (part C 20, U 35, R 60, M 100; trinket 60 to 120 Scrap *(tune)*).
+- A trader stocks 4 parts and 1 trinket rolled on entry (`shop` stream; rarity by act as content.md). Prices are fixed (no variance). Each item has a **value** (part C 20, U 35, R 60, M 100; trinket 60 to 120 Scrap *(tune)*).
 - **Barter**: hand over one of your parts (it's worth its value) plus Scrap for the difference; or buy with Scrap alone at value + 25%. Traders also sell oil (heal 15, 15 Scrap).
 
 ### 4.6 Locked doors and keys
@@ -165,7 +171,7 @@ On you: **Plating X**, **Corroded X**, **Grit X** (v1). On your parts: **Rusted*
 
 ### 4.7 Wardens
 - Act 1: **the Foreman**; act 2: **the Boilermaker Queen**; act 3: **the Clockmaker**. Every warden has phases (4.8); content.md has each phase's parts.
-- Winning: the warden's core breaks open: a Rare or Masterwork part (the act 2 warden: a Legendary, if any is unlocked and you hold none), its salvage, a boss trinket choice (as v1), heal 40% of HP lost. The next act starts at dusk.
+- Winning: the warden's core breaks open: a Rare or Masterwork part (the act 2 warden: a Legendary, if any is unlocked and you hold none), its salvage, a boss trinket choice (as v1), heal 40% of HP lost. The next act starts at dusk. The Clockmaker's defeat ends the run, so his broken parts pay 4 Brass each instead of salvage.
 
 ### 4.8 Phases you see
 - A warden's phase is a set of parts. Its core is sealed until every keystone of the current phase is broken. When the last keystone breaks:
@@ -177,7 +183,7 @@ On you: **Plating X**, **Corroded X**, **Grit X** (v1). On your parts: **Rusted*
 
 ### 4.9 The Clockmaker
 - Three phases (Tick, Tock, Midnight), each with its own keystones; his core is exposed only in Midnight.
-- **Rewind** (v1 rule 4.4, kept): at the start of each of his turns he lifts your strongest combination off the board. Tock also resets Pressure; Midnight rewinds two combinations and Jams the Mainspring on alternate turns.
+- **Rewind** (v1 rule 4.4, kept, now a part): each phase has a Rewind part (the Tick Spring, the Tock Weight, the Hour Wheel). While it stands, at the start of each of his turns he lifts your strongest combination off the board and heals half its damage; break it to stop Rewind for the rest of that phase. Tock's also resets Pressure; Midnight's rewinds two combinations, and the Midnight Bell Jams the Mainspring on alternate turns.
 - **He remembers** (5.4): he starts the fight with one extra part chosen against your last three runs' main plan.
 - Defeating Midnight ends the run in victory (v1's ending and credits).
 
@@ -237,12 +243,16 @@ All *(tune)*. The curve (5.8) is set on Journeyman. **Overwind** unlocks after y
 `npm run sim -- --mode fights|runs|careers|strategies` writes dated reports to `balance/`: per-tier win rate, HP lost (mean, p10, p90) and turns for every bot; turns per warden phase; peak Plating; careers' first-win distribution; offer-based part impact (offers are now trader stock, fuse results and salvage taken versus scrapped).
 
 ### 7.3 v1 evidence
-`balance/2026-10-04-v1-strategies.md` (the D3 spike) measures v1 with these bots; its findings set the targets below.
+`balance/2026-10-04-v1-strategies.md` (the D3 spike, `src/sim/strat/`) measures v1 with these bots:
+- The expert's median first win is **run 2** (quartiles 1 to 3) against the v1 bot's 9; with no meta it wins 36% of runs (v1 bot 1%). The owner's run-4 win sits inside this range: v1 was far too easy for a good player.
+- What dominates is **Plating that covers the shown incoming**, with the rest of the output spent on damage: the expert's mean peak Plating is 37, 50 and 59 by act, and it absorbs every attack for 3 turns running in 54 to 87% of fights. The turtle bot alone wins 32% with no meta. Pure burst wins 0%.
+- The Clockmaker lasts 8.8 turns on average for the expert, but phase 1 takes 5 and phases 2 and 3 about 2 each: the late phases collapse.
+These set the v2 targets below: Plating is the line the v2 enemy parts must answer (2.4), the turtle bot is the main thing to beat in target 3, and target 4 asks for even phases. Target 3 also applies to act normal fights for the turtle bot (the spike found it losing under 10% of max HP in acts 1 and 3).
 
 ### 7.4 Targets, checked by tests (`tests/sim/`)
 1. Expert, no meta progression, Journeyman: win rate under 5% (300 runs); greedy under 2%.
 2. Expert careers on the sensible path: median first win between run 8 and 12 (at least 100 careers; no win by run 30 counts as 31).
-3. **No trivial strategy**: for every elite and warden, neither the turtle nor the burst bot averages under 10% of max HP lost, and the expert's win rate beats each of them by at least 15 points at the same bins.
+3. **No trivial strategy**: for every elite and warden (and for each act's normal fights as a group), neither the turtle nor the burst bot averages under 10% of max HP lost, and the expert's win rate beats each of them by at least 15 points at the same bins.
 4. **Phases seen**: wardens' turns for the expert: Foreman 6 to 9, Queen 7 to 10, Clockmaker 8 to 12 (median); every phase lasts at least 2 turns in 90% of expert fights.
 5. No part's offer-based impact is more than double the median part's (v1 target 3, kept).
 6. Expert per-turn time under 50 ms on average (so careers finish in minutes).

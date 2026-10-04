@@ -1,5 +1,9 @@
 # Clockwork Spire: acceptance criteria
 
+**Version 2.** Sections 1 to 8 are v1's (all green at `v1.0`). v2 adds sections 9 to 17. Where v2 replaces a v1 rule, the v1 criterion is **superseded**: its test is rewritten or retired in the build phase that builds the replacement. Every other v1 criterion stays green. The Phase column of sections 9 to 17 is filled in at D5 (roadmap).
+
+Superseded by v2: C2 (the reward becomes the salvage tray: SV1), C4 (enemy defs become frames: EM1), C6 to C9 (kept as WP4 and WP5, phases as keystones: WP1), R1 (node map: CL1), R2 (part reward: SV1), R5 (shop: SV4), R9 (map screen: CL7), A1 (no image files: AR1), BS2 and BS3 (the curve moves to the expert bot: BV1, BV2).
+
 Every feature, as Given / When / Then with exact numbers where rules decide them. Each criterion has an id, a test kind (**U** unit or rules test in Vitest, **S** balance simulator test, **E** Playwright end-to-end at 1280x800 and 667x375, **C** critic or browser check) and the build phase that turns it green (see `docs/roadmap.md`). The U and S criteria become test files in the phase's contract step before any lane starts, and never get weaker.
 
 Test harness contract (built in B1): `src/core/testkit.ts` exports `combatWith({ board: { B2: 'spur', C2: 'coil+' }, enemies: ['dummy'], hand: ['spur'], pressure?, ticks? })`, which builds a `CombatState` with the given parts placed; `dummy` is an enemy with 999 HP and no attack. Board cells use the A1 to E3 names; `+` marks an upgraded part.
@@ -68,7 +72,7 @@ Test harness contract (built in B1): `src/core/testkit.ts` exports `combatWith({
 | id | Given | When | Then | Kind | Phase |
 |---|---|---|---|---|---|
 | O1 | a brand-new profile | the first run starts | a guided first fight teaches place, preview, run, intents in short steps; it can't be lost | E | B2 |
-| O2 | any screen | open the glossary | every term in docs/rules.md marked bold has an entry | U, E | B2 |
+| O2 | any screen | open the glossary | every term in docs/rules.md marked bold has an entry (reads docs/v1/rules.md until the v2 glossary build) | U, E | B2 |
 | O3 | how to play | open it | a short page explains a turn with a diagram | E | B5 |
 | Q1 | settings | change music, effects volume, mute | audio levels change and persist across reload | E | B5 |
 | Q2 | animation speed set to skip | run a turn | the result appears with no animation delay | E | B5 |
@@ -103,3 +107,111 @@ Test harness contract (built in B1): `src/core/testkit.ts` exports `combatWith({
 | P3 | `window.__game` | in the browser | exposes `state()`, `place(hand, cell)`, `run()`, `choose(i)`, `go(nodeId)`, `newRun(chassis)`, `seed(n)`, `setSpeed(s)`, `cheat.*` for tests | E | B1, grows each phase |
 | P5 | a fresh save | the bot plays a full career through `window.__game` at skip speed | the Clockmaker is defeated and the victory ending shows; README explains how to run and play | E | B6 |
 | P4 | the manifest and service worker | Lighthouse-style check | installable, offline after first load | E | B5 |
+
+## 9. Enemy machines and targeting (rules 2.1 to 2.3)
+Test harness addition: `combatWith` accepts `enemies: [{ core: 40, parts: [{ id: 'jaw', hp: 8, action: 'attack 5x2', cadence: 'odd', salvage: 'spur' }], sealed: true, keystones: ['jaw'] }]` as well as enemy ids, and `order: ['e0.jaw', 'e0.core']` for the target order.
+| id | Given | When | Then | Kind | Phase |
+|---|---|---|---|---|---|
+| EM1 | every enemy def (15 regular, 6 elite, 3 wardens) | build it | it has a core with HP and 1 to 8 parts; every part has hp, action, cadence; every salvage id is a part def or `brass-key`; an anchor is named for each part | U | |
+| EM2 | an enemy whose Jaw (8 HP) shows Attack 5x2 | a Strike 9 at the Jaw | the Jaw breaks, its intent is cancelled, the enemy turn deals 0 from it; the 1 overkill is lost (core unchanged) | U | |
+| EM3 | order [Jaw, core], Spur at B2 (Strike 3, 3 ticks), Jaw 5 HP, core 20 | run | tick 1: Jaw 2 left; tick 2: Jaw breaks (1 lost); tick 3: core 17 | U | |
+| EM4 | empty order, two enemies | Strike | it hits the leftmost living enemy's front (core, or first keystone if sealed) | U | |
+| EM5 | a sealed core | try to add it to the order; Sweep 5 | refused; the Sweep hits its first unbroken keystone instead | U | |
+| EM6 | an enemy with every acting part broken | its turn | it performs its core action only | U | |
+| EM7 | any board and order | preview, then Run | per-target damage, breaks, deaths and cancelled intents in the preview equal the run's exactly; preview leaves state unchanged | U | |
+| EM8 | the combat screen at 1280x800 and 667x375 | tap two parts and a core | they show 1, 2, 3 badges on the painting's anchors; tapping again removes one; the order persists next turn with broken entries removed | E | |
+| EM9 | a part shows an intent | look at it | the intent icon, number and HP pips sit on the part's anchor and follow it as the rig moves; the tooltip names the part and its action | E | |
+| EM10 | Shatter 4 with order [e0.core], e0 has 3 parts | run | each unbroken part of e0 takes 4; the core takes 0 from Shatter | U | |
+| EM11 | Drill 10 against Shell 6 and a standing Bulwark | run | the core takes 10 | U | |
+
+## 10. Enemy actions: counters to turtling and burst (rules 2.4, 3)
+| id | Given | When | Then | Kind | Phase |
+|---|---|---|---|---|---|
+| EA1 | player Plating 20; enemy Pierce 7 | enemy acts | player loses 7 HP; Plating 20 untouched | U | |
+| EA2 | Plating 12; Corrode 8 then Attack 6 | enemy acts | Plating 4 after Corrode; the attack takes it to 0 and deals 2 | U | |
+| EA3 | Plating 10; Siphon 8; core 30 of 40 | enemy acts | player loses 0 HP; Plating 2; core 38 | U | |
+| EA4 | Ratchet 3; the player's turn dealt no damage to its core | turn ends | Strength 3; its attacks deal +3; a turn that hits the core adds nothing | U | |
+| EA5 | Countdown 2: Pierce 25 | two enemy turns pass / the part breaks first | Pierce 25 lands on the second / nothing happens | U | |
+| EA6 | Bulwark standing; Strike 9 at the core | run | core takes 4; after the Bulwark breaks, 9 | U | |
+| EA7 | Governor 8; a Strike 20 | run | the target takes 8 | U | |
+| EA8 | Mend (rebuild) on a broken Jaw | enemy acts | the Jaw returns at half HP with its action; its salvage no longer counts as broken | U | |
+| EA9 | Jam on a part | next enemy turn | that part skips; the turn after it acts normally | U | |
+| EA10 | Patch 5 at 30 of 50 HP; Patch 5 at 48 of 50 | run | 35; 50 | U | |
+| EA11 | every regular enemy | read its def | at least one part punishes Plating stacking or burst (tagged in content); at least half the regulars punish Plating, at least a third punish burst | U | |
+
+## 11. Wardens and phases (rules 4.7 to 4.9)
+| id | Given | When | Then | Kind | Phase |
+|---|---|---|---|---|---|
+| WP1 | a warden in phase 1 with keystones A and B | break A, then B in the same turn with 30 damage left over | phase 2 begins; the 30 is lost; phase 1's remaining intents are cancelled | U | |
+| WP2 | the last keystone of a phase breaks | the turn resolves | the phase action (summon, heal or Rewind) happens once and was shown first; the phase line and phase mood play | U, E | |
+| WP3 | each warden | read its def | Foreman 2+ phases, Queen 2+, Clockmaker 3; each phase adds a mechanic the previous one lacks | U | |
+| WP4 | the Clockmaker with the Tick Spring standing; last turn the Coil (fed by the Idler) dealt the most; then the Tick Spring broken | his turn starts | Coil and Idler return to the draw pile, charge 0; he heals half their damage (v1 C6, kept); after the Spring breaks, no Rewind for the rest of the phase | U | |
+| WP5 | Tock / Midnight | his turn starts | Pressure resets / two combinations rewound and the Mainspring Jammed on alternate turns (v1 C8, C9, kept) | U | |
+| WP6 | the profile's last three runs mainly Plating | the Clockmaker fight starts | he has the Pierce drill part; the archivist's note before the run named it | U, E | |
+| WP7 | the Queen's phase change on screen | it plays | the `phase` mood runs on her rig and the broken gauge stays shown broken | E, C | |
+
+## 12. The climb (rules 4.1 to 4.6)
+| id | Given | When | Then | Kind | Phase |
+|---|---|---|---|---|---|
+| CL1 | 200 seeds | generate each act | 16 to 20 rooms on 5 to 6 floors; connected; at least two loops; entry at the bottom, warden's door at the top; room counts per rules 4.4; patrols are loops of 3 to 5 rooms avoiding entry and door | U | |
+| CL2 | hour 3, a connected room | move | hour 4; elites step one room along their patrols | U | |
+| CL3 | an elite steps into the player's room / the player steps into an elite's | resolve | a fight with that elite starts there | U | |
+| CL4 | hour 11, one move | move, then resolve the room | the warden fight starts at midnight after the room resolves | U | |
+| CL5 | at the warden's door at hour 8 (Journeyman) | ring the bell | +16 Scrap, +8 Brass; the warden fight starts | U | |
+| CL6 | a cleared room | move through it again | no encounter; 1 hour passes | U | |
+| CL7 | the act screen at 667x375 and 1280x800 | look | the whole section, the clock, hours left and each elite's next room visible with no sideways scroll; tapping a connected room walks there (tinker and Sprocket animate, skippable) | E | |
+| CL8 | visibility | enter a room | it and its neighbors show their kind; others show silhouettes; a Lamplighter resident reveals all | U, E | |
+| CL9 | a locked door | use a Brass Key / pick the lock | it opens / it opens for 25 Scrap and 1 extra hour | U | |
+| CL10 | an oil station | rest / polish | heal 30% of max HP and 1 extra hour / +4 max HP, no extra hour; once per station | U | |
+| CL11 | a run in progress in an act | reload | same room, hour, elite positions, layout and revealed rooms | E | |
+
+## 13. Salvage, Scrap, workbench, traders (rules 2.5, 4.4, 4.5)
+| id | Given | When | Then | Kind | Phase |
+|---|---|---|---|---|---|
+| SV1 | a fight won after breaking a Jaw (salvage gnasher) with a Plate left standing | the salvage tray shows | Gnasher offered (keep, or scrap for 3); the wrecked Plate gave 1 Scrap; enemy Scrap added; no pick-1-of-3 screen | U, E | |
+| SV2 | a broken part whose salvage is locked | the tray shows | 6 Scrap instead and a journal note | U | |
+| SV3 | two Common Gears and a workbench | fuse | both leave the bin; two Uncommon Gear candidates show; the picked one joins the bin | U | |
+| SV4 | a trader with a Rare (value 60); the player offers a Common (20) and 40 Scrap | barter | the Rare joins the bin, the Common leaves, Scrap -40; buying with Scrap alone costs 75 | U | |
+| SV5 | the workbench | upgrade a Rare / remove twice | -40 Scrap / -25 then -40 Scrap | U | |
+| SV6 | the offer-based impact metric | a run's offers | trader stock, fuse candidates and salvage kept versus scrapped all count as offers | S | |
+
+## 14. Bellfoot and the Spire's memory (rules 5.1 to 5.5)
+| id | Given | When | Then | Kind | Phase |
+|---|---|---|---|---|---|
+| BF1 | a run ends | return | Bellfoot shows; Sprocket reacts per v1 W4; every place reachable by walking and by the town menu, at both sizes | E | |
+| BF2 | the Lamplighter's lift fixed in a run that is then lost | next run | his stall is in Bellfoot; act layouts are fully revealed; the Gearworks has the lift shortcut | U, E | |
+| BF3 | each resident | read content | each has an event that sends it and a stall effect applied the next run | U | |
+| BF4 | runs whose main plan was Plating, Plating, burst | compute memory | Plating; the Clockmaker's extra part is the drill | U | |
+| BF5 | a v1 profile with Spare Cogs II | migrate | Spare Scrap II, same Brass spent | U | |
+| BF6 | Sprocket in Bellfoot and in the Spire | look | painted rig with idle, happy, sleepy and walk; he walks with the tinker between rooms | C, E | |
+
+## 15. Achievements, rarity, difficulty (rules 5.6, 5.7; content)
+| id | Given | When | Then | Kind | Phase |
+|---|---|---|---|---|---|
+| AD1 | the catalog | read | about 30 achievements, each with id, condition, tier, reward; every Masterwork and Legendary part unlocked by exactly one achievement | U | |
+| AD2 | an achievement's condition met mid-run | the run ends | it unlocks in the same save write as the RunRecord, shows on the trophy shelf, its reward is in the pool next run | U, E | |
+| AD3 | a run | gain parts | never more than one Legendary in the bin; locked tiers never appear | U | |
+| AD4 | each mode | start a run | enemy HP and damage, hours per act, oil heal and Brass match rules 5.7 | U | |
+| AD5 | no win yet / a Journeyman win | open the clock tower door | Overwind locked / Overwind 1 available; level N applies twists 1 to N | U, E | |
+| AD6 | parts of each tier | look | each tier distinct by color and by a shape mark, not color alone | E, C | |
+
+## 16. Art and atmosphere (D-026, docs/art-direction.md)
+| id | Given | When | Then | Kind | Phase |
+|---|---|---|---|---|---|
+| AR1 | the build | scan `src/` and `public/` | images only under `public/art/`, WebP only, each in the art manifest with a source folder in `art/`; no audio or font files (rescoped A1) | U | |
+| AR2 | every enemy, warden and Sprocket in the manifest | load its rig | idle, attack, hurt (wardens also phase; Sprocket happy, sleepy, walk) and an anchor for every part in its def | U | |
+| AR3 | the title screen at both sizes | open the game | the painted title with animated steam and lamps; Continue, New run, Settings; the tower not covered | E, C | |
+| AR4 | combat with 3 rigged enemies at 667x375 with 4x CPU throttling | 10 s | median and p95 frame time within the budget in docs/spike-art.md | E | |
+| AR5 | each art gate | the owner reviews | one clip per asset; an art-reviewer verdict in `review/<phase>/` | C | |
+| AR6 | each act and Bellfoot | play there | a painted backdrop with code ambience (steam, lamps) and an ambient sound bed | C, E | |
+
+## 17. Balance v2 (rules 7.4)
+| id | Given | When | Then | Kind | Phase |
+|---|---|---|---|---|---|
+| BV1 | expert bot, no meta, Journeyman | 300 runs | win rate under 5%; greedy under 2% | S | |
+| BV2 | 100 expert careers on the sensible path | until first win (cap 30) | median first win between run 8 and 12 | S | |
+| BV3 | every elite and warden, bins from expert runs | turtle and burst bots play them | neither averages under 10% of max HP lost; the expert's win rate beats each by 15 points or more | S | |
+| BV4 | the expert against each warden | 100 fights | median turns: Foreman 6 to 9, Queen 7 to 10, Clockmaker 8 to 12; every phase at least 2 turns in 90% | S | |
+| BV5 | the per-part table | offer-based impact | highest at most 2x the median | S | |
+| BV6 | the expert bot | a career | under 50 ms per turn on average | S | |
+| BV7 | a fixed seed | run any sim mode twice | identical reports (v1 BS1, kept) | S | |

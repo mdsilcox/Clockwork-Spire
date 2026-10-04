@@ -1,25 +1,40 @@
 {
-  "version": 1,
+  "version": 2,
   "about": "The one style every Clockwork Spire painting is generated with (docs/art-direction.md). core goes on every prompt; each kind adds its framing. Never edit for one asset: change it here, for all, with a decision.",
   "model": "sd_xl_base_1.0.safetensors",
-  "sampler": {"steps": 30, "cfg": 6.5, "sampler_name": "dpmpp_2m", "scheduler": "karras"},
-  "core": "storybook steampunk illustration, painterly digital art, clean confident black linework, rich brass and copper, teal accents, warm amber lamplight glow, soft painterly shading, light from the upper left, high quality",
-  "negative": "photo, photorealistic, 3d render, blurry, lowres, jpeg artifacts, extra limbs, deformed, bad anatomy, text, watermark, signature, logo, cropped, multiple characters",
+  "sampler": {
+    "steps": 30,
+    "cfg": 6.5,
+    "sampler_name": "dpmpp_2m",
+    "scheduler": "karras"
+  },
+  "core": "storybook steampunk picture book illustration, bold thick black ink outlines around every shape, flat cel shading with soft painterly texture, rich brass and copper, teal accents, warm amber lamplight glow, light from the upper left, high quality",
+  "negative": "photo, photorealistic, 3d render, blurry, lowres, jpeg artifacts, extra limbs, deformed, bad anatomy, text, watermark, signature, logo, cropped, multiple characters, airbrushed, glossy 3d render, photorealistic metal, chrome reflections, thin faint lines, octane render",
   "kinds": {
     "character": {
       "framing": "full body, whole figure visible, limbs held clearly apart from the body, isolated on a plain flat light gray background, no scenery, game character sprite reference",
       "negative": "background scenery, frame, border, circle, vignette, cropped feet, floor shadow pool",
-      "sizes": {"front": "896x1152", "profile": "1216x832"}
+      "sizes": {
+        "front": "896x1152",
+        "profile": "1216x832"
+      }
     },
     "part": {
       "framing": "a single clockwork machine part seen straight on, centered, isolated on a plain flat light gray background, game item icon, crisp edges",
       "negative": "background scenery, frame, border, hands, person, multiple objects",
-      "sizes": {"square": "1024x1024"}
+      "sizes": {
+        "square": "1024x1024"
+      }
     },
     "scene": {
       "framing": "wide establishing shot, atmospheric depth, layered silhouettes, game background art, open calm area for interface",
       "negative": "characters in the foreground, frame, border",
-      "sizes": {"landscape": "1216x832"}
+      "sizes": {
+        "landscape": "1216x832"
+      }
     }
-  }
+  },
+  "changes": [
+    "v2 (D-030): stronger ink and cel shading after the D4 review found the boss and rat airbrushed and photo-real beside Sprocket and the title"
+  ]
 }

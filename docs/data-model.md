@@ -142,3 +142,83 @@ type Pending = { kind: 'reward'; cogs: number; parts: string[]; trinket?: string
 9. **Workshop.** Sprocket's mood: bestFloor rose (new best) but act 1 death -> `happy` (a new best counts as a good climb). Player buys Reinforced Frame I (40). Next run starts with 55 max HP and two more parts in the pool.
 
 Found while walking it: `lastTurnContrib` is needed for Rewind and Echo Sprite; `magnetized` must drop the part's charge; `bestFloor` must count across acts (act 2 floor 3 = 16); the RunRecord needs `killedBy` for the history screen.
+
+## Version 2 changes (save version 2)
+
+v2 keeps the shape above where it isn't listed here. Rules: `docs/rules.md` sections 2 to 7. Migration: rules 6.
+
+### Definitions
+```ts
+type Rarity = 'common' | 'uncommon' | 'rare' | 'masterwork' | 'legendary';
+interface PartDef { /* v1 fields */ unlock: 'pool' | 'blueprint' | { achievement: string };
+  aims?: 'parts';                // Shatter-like effects read the target order differently
+}
+interface EnemyDef { id; name; act; tier: 'normal'|'elite'|'warden';
+  core: { hp: number; action: ActionDef; sealed?: boolean };
+  parts: EnemyPartDef[];         // phase 1 (and only) set for regulars and elites
+  phases?: { keystones: string[]; parts: EnemyPartDef[]; beat: string; action: ActionDef; mood: string }[];
+  memoryParts?: Record<'plating'|'burst'|'pressure'|'statuses', EnemyPartDef>; // the Clockmaker
+  punishes: ('plating'|'burst'|'pressure'|'statuses'|'slow')[]; bestiary: string; rig: string; }
+interface EnemyPartDef { id: string; name: string; hp: number; rarity: Rarity;
+  action: ActionDef | null;      // null for passives (Bulwark, Governor)
+  passive?: { kind: 'bulwark' } | { kind: 'governor'; cap: number } | { kind: 'ratchet'; x: number };
+  cadence: number[] | 'every' | 'odd' | 'even' | { countdown: number };
+  salvage: string | 'brass-key' | null; keystone?: boolean; anchor: string; }
+type ActionDef = { kind: 'attack'|'pierce'|'corrode'|'siphon'|'shell'|'mend'|'rebuild'|'rust'|'jam'|'magnetize'|'drain'|'status'|'summon'|'buff'|'rewind'; amount?: number; hits?: number; status?: string; summon?: string };
+interface AchievementDef { id; name; text; tier: 'easy'|'medium'|'hard'; hidden: boolean;
+  check: (ctx: AchievementCtx) => boolean;  // evaluated at run end and at named moments
+  reward: { parts?: string[]; chassis?: string; landmark?: string; overwind?: number; journal?: string; collar?: string }; }
+interface ResidentDef { id; name; eventId: string; choice: number; stall: string; effect: RunConfigPatch; }
+interface LandmarkDef { id; name; effect: MapGenPatch; }
+interface ModeDef { id: 'apprentice'|'journeyman'|'master'|'clockwork'; enemyHp: number; enemyDmg: number; hours: number; oilHeal: number; brass: number; }
+interface OverwindDef { level: number; name: string; text: string; patch: RunConfigPatch; }
+```
+
+### State
+```ts
+interface Profile { /* v1 fields */ version: 2;
+  achievements: Record<string, string>;       // id -> unlocked at (ISO)
+  achievementProgress: Record<string, number>; // counters (Sprocket pets, bells rung)
+  residents: string[]; landmarks: string[];
+  planHistory: ('plating'|'burst'|'pressure'|'statuses')[]; // last 3 runs, newest first
+  modesUnlocked: string[]; overwindMax: number; lastMode: string; lastOverwind: number;
+  journal: string[]; bestiary: string[]; collars: string[]; collar: string | null; }
+
+interface RunState { /* v1 fields, minus floor/map/nodeId/cogs */
+  mode: string; overwind: number; scrap: number;
+  act: 1|2|3; section: ActSection; roomId: string; hour: number;
+  phase: 'section'|'combat'|'salvage'|'event'|'trader'|'workbench'|'oil'|'door'|'victory'|'defeat';
+  elites: { defId: string; patrol: string[]; at: number; defeated: boolean }[];
+  keys: number; legendaryTaken: boolean;
+  stats: { /* v1 */ roomsCleared: number; bellsRung: number; partsBroken: number; plan: Record<string, number> }; }
+interface ActSection { act: number; rooms: Room[]; passages: Passage[]; entry: string; door: string; }
+interface Room { id: string; floor: number; slot: number; kind: 'fight'|'workbench'|'oil'|'trader'|'event'|'vault'|'entry'|'door';
+  encounter?: string[]; eventId?: string; visited: boolean; cleared: boolean; revealed: boolean; used?: boolean; }
+interface Passage { a: string; b: string; kind: 'floor'|'stairs'|'duct'|'lift'; locked?: boolean; }
+
+interface EnemyState { defId: string; core: { hp: number; maxHp: number; sealed: boolean };
+  parts: { id: string; hp: number; maxHp: number; broken: boolean; jammed: boolean; countdown?: number }[];
+  phase: number; shell: number; strength: number; statuses: Record<string, number>;
+  intents: { partId: string | 'core'; action: ActionDef; target?: number }[]; mem: Record<string, number>; }
+interface CombatState { /* v1 fields, targetIdx replaced by */ order: TargetRef[]; brokenThisFight: { enemy: number; partId: string }[]; }
+type TargetRef = `e${number}.${string}`;     // 'e0.jaw', 'e1.core'
+type Pending = { kind: 'salvage'; parts: { defId: string; rarity: Rarity }[]; scrap: number; trinket?: string; blueprint?: string }
+             | { kind: 'event'; eventId: string; result?: string }
+             | { kind: 'trader'; stock: TradeItem[] }
+             | { kind: 'workbench'; usedUpgrade: boolean; usedRemove: boolean; usedFuse: boolean; fuseCandidates?: string[] }
+             | { kind: 'oil' } | { kind: 'door'; passage: string };
+```
+
+### New invariants
+7. A broken part never acts and never shows an intent; a sealed core never takes damage.
+8. Damage is never carried past a target (rules 2.3): the sum of damage events for a target never exceeds the HP it had.
+9. At most one Legendary part in a run's bin; no locked part (by blueprint or achievement) ever enters a run.
+10. Achievements, residents, landmarks, planHistory, Brass and blueprints are written in the same save write as the RunRecord (extends invariant 5).
+11. `hour` only grows; the warden fight starts at most once per act, at midnight or at the bell.
+
+### A v2 act walked through the model
+1. Bellfoot, slot 1 (migrated from v1: brass 120 kept, cogs dropped, `version: 2`). Journeyman, Tinker. RunState: scrap 0, act 1, section generated (18 rooms, 2 loops, gearhound patrol r7-r8-r11-r10), roomId 'r0' (entry), hour 0.
+2. Move to r3 (fight): hour 1; the gearhound steps r7 -> r8. Combat: Cog Rat {core 18, parts jaw 8 (attack 5x2, odd), plate 10 (shell 6, even)} + Rust Mite. order ['e0.jaw', 'e1.core']. Turn 1 breaks the jaw (cancels its intent) and kills the mite. Turn 2 the rat's plate shells; the core dies turn 3; the plate is wrecked.
+3. `pending: {kind: 'salvage', parts: [{defId: 'gnasher', rarity: 'common'}], scrap: 5 + 1}`. Keep Gnasher: new PartInstance. phase 'section'.
+4. Move to r6 (trader), hour 2; barter Spur + 20 Scrap for a Rare Bellows... (the walkthrough in docs/vision-v2.md continues the act).
+Found while walking it: the salvage tray needs the broken list per fight (`brokenThisFight`); elites need `at` as an index into the patrol; `stats.plan` accumulates damage and Plating by source for the Clockmaker's memory; a passage can be locked, so locks live on passages, not rooms.
