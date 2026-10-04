@@ -1,0 +1,151 @@
+// The glossary: one short entry for every bold term in docs/rules.md (checked by tests/ui/glossary.test.ts).
+// `icon` names an intent kind or status the UI can draw next to the entry.
+
+export interface GlossaryEntry {
+  term: string;
+  text: string;
+  icon?: string;
+}
+
+const g = (term: string, text: string, icon?: string): GlossaryEntry => (icon ? { term, text, icon } : { term, text });
+
+export const GLOSSARY: GlossaryEntry[] = [
+  // The machine
+  g('5 columns by 3 rows', 'The board: 15 cells. Columns are letters A to E, rows are numbers 1 to 3. A1 is the top left.'),
+  g('Mainspring', 'The fixed spring in A2. It sends out the motion that powers your machine every tick. It cannot be replaced or moved.'),
+  g('motion', 'What the Mainspring sends out. It spreads from part to part and powers each one it reaches.'),
+  g('part', 'A clockwork piece you place on a cell. Every cell holds at most one part. Parts never rotate.'),
+  g('adjacent', 'Two parts are adjacent when they share an edge: up, right, down or left. Diagonals only count if a part says so.'),
+  g('bin', 'All the parts you own this run, like a deck. In a fight it is shuffled into your draw pile.'),
+  g('draw pile', 'Where new parts come from. When it runs out, the discard pile is shuffled back into it.'),
+  g('discard pile', 'Parts you did not place go here at the end of your turn. A replaced part goes here too, and loses its charge.'),
+  g('hand', 'The parts you can place this turn. You draw up to 3 at the start of each turn.'),
+  g('Start of turn', 'Your Plating from last turn falls away, statuses tick down, and you draw up to a full hand.'),
+  g('Draws', 'Parts are drawn at the start of your turn, before you build. The order is random but fixed once the fight begins.'),
+  g('Build', 'The part of your turn where you place parts and swap. Nothing runs until you press Run.'),
+  g('2 placements', 'You can place two parts from your hand each turn. Some trinkets give one more.'),
+  g('replace', 'Place a part on top of one already there. The old part goes to the discard pile and loses its charge.'),
+  g('swap', 'Once per turn, for free, swap the places of two parts on the board. Stored charge moves with the part.'),
+  g('Preview', 'At every moment it shows what Run would do now: damage, Plating, and a badge on each part that will fire.'),
+  g('Run', 'Press it to run the machine for the turn. Then the enemies act.'),
+  g('3 ticks', 'A machine run lasts 3 ticks to begin with. Some parts add ticks, and a Jam removes one.'),
+  g('Tick', 'One beat of the machine. Each tick, the Mainspring sends one pulse and motion spreads through the parts.'),
+  g('pulse', 'One wave of motion sent out by the Mainspring at the start of a tick.'),
+  g('breadth first', 'Motion reaches the nearest parts first, then the next ring out. Ties go up, right, down, left.'),
+  g('powered', 'A part is powered when motion reaches it. It can be powered at most once per tick, so motion never loops.'),
+  g('effect', 'What a part does when it is powered, such as Strike 3 or Plate 3.'),
+  g('Fires', 'A part fires when its effect resolves. Parts that hold motion still fire: they gain charge.'),
+  g('passes', 'After a part fires, it usually passes motion on to its neighbors that are not yet powered.'),
+  g('hold', 'Some parts, like springs while charging, keep the motion instead of passing it on. The chain stops there for that tick.'),
+  g('Momentum', 'How many times any part has fired this turn. It is the chain counter on screen, and some parts read it.'),
+  g('Echo', 'The part fires its effect one more time. It is still powered only once.'),
+  g('Boost', 'Boost X: the parts powered next add X to every Strike, Sweep and Plate they do this tick.'),
+  g('Strike', 'Strike X: deal X damage to your target enemy. If it dies mid-turn, later strikes go to the next living enemy.'),
+  g('Sweep', 'Sweep X: deal X damage to every enemy.'),
+  g('Plate', 'Plate X: gain X Plating.'),
+  g('Charge', 'A counter on a part. It stays across turns in one fight, and is lost if the part is replaced.'),
+  g('Release', 'What a part does when its charge reaches its threshold. The charge goes back to 0.'),
+  g('Pressure', 'A shared steam gauge for the machine, capped at 30. Above 20 at the end of your turn, it overpressures: 6 damage to you and Pressure drops to 10.', 'pressure'),
+  g('overpressure', 'Pressure above 20 at the end of your turn costs 6 HP (Plating absorbs it) and drops the gauge to 10.'),
+  g('Plating', 'Block for you. It absorbs damage you take and falls away at the start of your next turn.', 'plating'),
+  g('No part has a random effect', 'Everything a part does is known before you press Run. Any random choice is rolled at turn start and shown first.'),
+  g('Enemy intents', 'Enemy intents are chosen at the end of the enemy turn and shown right away, including the cell a sabotage will hit.'),
+  g('Enemy actions', 'Enemies do exactly what their shown intent says, with no extra chance.'),
+  g('Enemy turn', 'After your Run, each enemy does its shown intent, left to right, then shows its next one.'),
+  g('Rewards, shop stock, events, map', 'These are rolled once when you enter a node and saved, so a reload shows the same offer.'),
+  g('Event choices with a chance', 'Some event choices roll a die when chosen. The odds are written on the button.'),
+  g('+', 'A plus after a part name means it is upgraded, for example Spur Gear+. It has better numbers or a lower threshold.'),
+
+  // Combat
+  g('intent', 'What an enemy will do next, shown as an icon and a number. Shapes differ so you never need color to tell them apart.', 'attack'),
+  g('Shell', 'An enemy block. It absorbs damage and falls away at the start of that enemy next turn.', 'shell'),
+  g('sabotage', 'An enemy move that targets your machine: Rust, Jam, Magnetize or Drain. The target is shown before you build.', 'sabotage'),
+  g('Rust', 'Rust a part: it cannot fire or pass motion on your next run. The wrench marks the cell.', 'sabotage'),
+  g('Rusted', 'A Rusted part neither fires nor passes motion until the rust clears.', 'sabotage'),
+  g('Jam', 'Jam the Mainspring: your next turn has one fewer tick, but never fewer than 1.', 'sabotage'),
+  g('Magnetize', 'A Magnetized part is pulled off the board back into your hand at the start of your next turn.', 'sabotage'),
+  g('Magnetized', 'This part will leave the board and return to your hand at the start of your next turn.', 'sabotage'),
+  g('Drain', 'Drain removes some of your Pressure.', 'sabotage'),
+  g('Scald', 'Scald X: at the end of the enemy turn it takes X damage, then X falls by 1.', 'scald'),
+  g('Cracked', 'Cracked X: the enemy takes 50% more damage from Strike and Sweep for X turns.', 'cracked'),
+  g('Dazed', 'Dazed X: the enemy deals 25% less attack damage for X turns.', 'dazed'),
+  g('Corroded', 'Corroded X: you gain 25% less Plating for X turns.', 'corroded'),
+  g('Grit', 'Grit X: every Strike you deal gains +X for this combat.', 'grit'),
+  g('target', 'The enemy your Strikes hit. Tap an enemy to target it. By default it is the leftmost one still standing.'),
+  g('Fight', 'A regular battle with one to three enemies.'),
+  g('Elite', 'A harder fight that drops a trinket. Not before floor 4.'),
+  g('boss', 'The enemy at the top of each act.'),
+  g('Foreman', 'The boss of act 1, in the Gearworks.'),
+  g('Boilermaker Queen', 'The boss of act 2, in the Steamworks.'),
+  g('Clockmaker', 'The final boss, at the top of act 3 in the Belfry.'),
+  g('Rewind', 'The Clockmaker lifts your strongest combination from last turn back off the board. Build something that does not depend on one chain.'),
+  g('strongest combination', 'The part that did the most (damage plus Plating) together with the parts that fed it.'),
+  g('Tock', 'The second phase of the Clockmaker: it rewinds and resets your Pressure.'),
+  g('Midnight', 'The final phase of the Clockmaker: it rewinds two combinations and Jams your Mainspring on alternate turns.'),
+
+  // The run
+  g('acts', 'The Spire has three acts, each a map of 12 floors plus a boss floor.'),
+  g('12 floors', 'Each act is 12 floors of fights, events and rest stops, then the boss on floor 13.'),
+  g('Event', 'A short story with choices.'),
+  g('Forge', 'Upgrade one part, or remove one part from your bin.'),
+  g('Oil station', 'Repair 30% of your max HP, or polish for +4 max HP.'),
+  g('polish', 'At an Oil station, +4 max HP instead of healing.'),
+  g('Shop', 'Buy parts, trinkets, a part removal, and oil.'),
+  g('Cogs', 'Gold for the shop. Earned after fights.'),
+  g('offered', 'A part is offered when it appears as a reward or in a shop.'),
+
+  // Between runs
+  g('Workshop', 'The hub between runs, where Sprocket greets you and you spend Brass.'),
+  g('Brass', 'The permanent material you earn every run, win or lose. Spend it at the upgrade bench.'),
+  g('Blueprints', 'Each blueprint unlocks one locked part for future runs.'),
+  g('Tinker', 'The starting chassis: balanced gears and escapements. The first time each combat you replace a part, the placement is refunded.'),
+  g('Stoker', 'A chassis of boilers and pistons. It starts every combat with 6 Pressure.'),
+  g('Horologist', 'A chassis of cams and pendulums. Your first turn of each combat has 1 extra tick.'),
+  g('Celebration', 'Sprocket after a victory: spins, jumps and confetti of tiny gears.'),
+  g('Happy wiggle', 'Sprocket after a good climb.'),
+  g('Comforting nudge', 'Sprocket after a hard run: a lean against your leg and a soft boof.'),
+  g('Sleepy', 'What Sprocket does when you idle in the Workshop.'),
+];
+
+/** Words in tooltip text that open their glossary entry. Longer words first, so "Plating" wins over "Plate". */
+export const LINK_TERMS: string[] = [
+  'Mainspring',
+  'Momentum',
+  'Magnetized',
+  'Magnetize',
+  'Overpressure',
+  'Pressure',
+  'Plating',
+  'Plate',
+  'Strike',
+  'Sweep',
+  'Shell',
+  'Charge',
+  'Release',
+  'Boost',
+  'Echo',
+  'Rusted',
+  'Rust',
+  'Jam',
+  'Drain',
+  'Scald',
+  'Cracked',
+  'Dazed',
+  'Grit',
+  'Corroded',
+  'sabotage',
+  'intent',
+  'Ticks',
+  'Tick',
+  'Holds',
+  'hold',
+];
+
+const ALIASES: Record<string, string> = { ticks: 'tick', holds: 'hold' };
+
+/** The glossary entry for a word as it appears in text (case-insensitive, with a few plural aliases). */
+export function glossaryFor(word: string): GlossaryEntry | undefined {
+  const w = word.toLowerCase();
+  const key = ALIASES[w] ?? w;
+  return GLOSSARY.find((e) => e.term.toLowerCase() === key);
+}

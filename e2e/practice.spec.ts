@@ -68,6 +68,11 @@ async function newFightWithSpur(page: Page): Promise<void> {
   throw new Error('no seed with a Spur in the opening hand');
 }
 
+// The very first launch starts the guided fight (e2e/tutorial.spec.ts); these specs start from the title screen.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('cs.tutorialDone', '1'));
+});
+
 test('plays a practice fight through the real UI', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('/');

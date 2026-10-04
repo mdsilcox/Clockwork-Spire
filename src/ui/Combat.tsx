@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { attachStage, combat, cycleSpeed, goTitle, newFight, place, replaying, run, speed, swap, target, view } from '../app/controller';
+import { attachStage, combat, cycleSpeed, goTitle, lastResult, newFight, place, replaying, run, speed, swap, target, tutorial, tutorialAck, view } from '../app/controller';
+import { colorBlind, glossaryOpen, openGlossary, setColorBlind } from '../app/prefs';
+import { intentTargets } from '../app/intents';
+import { glossaryFor } from '../core/content/glossary';
 import { cellName, cell as cellIdx } from '../core/board';
 import { previewTurn } from '../core/combat';
 import { enemyDef } from '../core/content/enemies';
@@ -12,7 +15,8 @@ import type { Layout } from '../render/layout';
 import { FAMILY_COLOR, FAMILY_LABEL } from '../render/palette';
 import { viewFromState } from '../render/replay';
 import { Stage } from '../render/stage';
-import { INTENT_NAME, IntentIcon } from './icons';
+import { INTENT_NAME, IntentIcon, STATUS_NAME, StatusIcon } from './icons';
+import { Coach, tutorialTargets } from './Coach';
 import { Tooltip } from './Tooltip';
 import type { TipInfo } from './Tooltip';
 
@@ -26,7 +30,7 @@ function enemyNames(c: CombatState): string[] {
 
 function intentNumber(c: CombatState, i: number): string {
   const it = c.enemies[i].intent;
-  if (it.kind === 'attack') return `${it.amount ?? 0}${(it.hits ?? 1) > 1 ? `x${it.hits}` : ''}`;
+  if (it.kind === 'attack') return `${it.amount ?? 0}${(it.hits ?? 1) > 1 ? ` x${it.hits}` : ''}`;
   if (it.kind === 'defend' || it.kind === 'buff' || it.kind === 'debuff') return it.amount !== undefined ? String(it.amount) : '';
   if (it.kind === 'sabotage' && it.target !== undefined) return cellName(it.target);
   return '';
@@ -57,6 +61,11 @@ export function CombatScreen() {
   const hideTimer = useRef<number>(0);
   const longFired = useRef(false);
   const [kbd, setKbd] = useState(false);
+  const [hoverEnemy, setHoverEnemy] = useState<number | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const tut = tutorial.value;
+  const gloss = glossaryOpen.value !== null;
+  const cb = colorBlind.value;
   const [toast, setToast] = useState<string>('');
   const [ghost, setGhost] = useState<{ x: number; y: number; idx: number } | null>(null);
   const toastTimer = useRef<number>(0);
@@ -116,6 +125,7 @@ export function CombatScreen() {
   const doPlace = (handIndex: number, cell: number): void => {
     if (!live) return;
     if (place(handIndex, cell)) {
+      hideTip();
       setSel(null);
       setMark(-1);
       setCursor(cell);
@@ -152,6 +162,7 @@ export function CombatScreen() {
   const doRun = (): void => {
     if (busy || over) return;
     unlockAudio();
+    hideTip();
     setSel(null);
     setMark(-1);
     void run();
@@ -164,6 +175,9 @@ export function CombatScreen() {
     const onKey = (e: KeyboardEvent): void => {
       const L = latest.current;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (glossaryOpen.value !== null) return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       unlockAudio();
       if (e.key.startsWith('Arrow') || e.key === 'Enter') setKbd(true);
       const inButton = (e.target as HTMLElement | null)?.closest?.('button') != null;
@@ -203,7 +217,11 @@ export function CombatScreen() {
     if (busy || over) return;
     unlockAudio();
     dragRef.current = { idx, sx: e.clientX, sy: e.clientY, active: false };
-    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    } catch {
+      /* a pointer that is already gone cannot be captured */
+    }
   };
   const onCardMove = (e: PointerEvent): void => {
     const d = dragRef.current;
@@ -246,27 +264,38 @@ export function CombatScreen() {
     window.clearTimeout(hideTimer.current);
     setTipInfo(null);
   };
+  const hideSoon = (): void => {
+    window.clearTimeout(hideTimer.current);
+    hideTimer.current = window.setTimeout(() => setTipInfo(null), 160);
+  };
+  const keepTip = (): void => window.clearTimeout(hideTimer.current);
   /** Event handlers that show `info()` on hover, keyboard focus and a 400 ms press. */
   const tipHandlers = (info: () => Omit<TipInfo, 'rect'> | null) => ({
     onPointerEnter: (e: PointerEvent) => {
-      if (e.pointerType === 'mouse') showTip(e.currentTarget as Element, info());
+      if (e.pointerType === 'mouse') {
+        window.clearTimeout(hideTimer.current);
+        showTip(e.currentTarget as Element, info());
+      }
     },
     onPointerLeave: (e: PointerEvent) => {
-      if (e.pointerType === 'mouse') hideTip();
+      if (e.pointerType === 'mouse') hideSoon();
     },
     onFocus: (e: FocusEvent) => showTip(e.currentTarget as Element, info()),
-    onBlur: () => hideTip(),
+    onBlur: () => hideSoon(),
     onPointerDown: (e: PointerEvent) => {
+      e.stopPropagation();
       longFired.current = false;
       const el = e.currentTarget as Element;
       window.clearTimeout(longTimer.current);
       longTimer.current = window.setTimeout(() => {
         longFired.current = true;
         showTip(el, info());
-        hideTimer.current = window.setTimeout(() => setTipInfo(null), 3000);
+        window.clearTimeout(hideTimer.current);
+        hideTimer.current = window.setTimeout(() => setTipInfo(null), 6000);
       }, 400);
     },
     onPointerUp: () => window.clearTimeout(longTimer.current),
+    onPointerCancel: () => window.clearTimeout(longTimer.current),
   });
   const cellInfo = (i: number): Omit<TipInfo, 'rect'> | null => {
     if (i === MAINSPRING) return { title: 'Mainspring.', text: 'The source of all motion. It cannot be replaced.' };
@@ -286,6 +315,17 @@ export function CombatScreen() {
     return { title: `${partName(inst.defId, inst.plus)}.`, text: partText(inst.defId, inst.plus), detail: `${FAMILY_LABEL[partDef(inst.defId).family]} part. Fresh: no charge yet.` };
   };
 
+  // a tap or click anywhere outside the tooltip dismisses it
+  useEffect(() => {
+    const away = (e: PointerEvent): void => {
+      if ((e.target as HTMLElement | null)?.closest?.('.tip')) return;
+      window.clearTimeout(hideTimer.current);
+      setTipInfo(null);
+    };
+    window.addEventListener('pointerdown', away, true);
+    return () => window.removeEventListener('pointerdown', away, true);
+  }, []);
+
   // keyboard cursor shows the tip of the part under it
   useEffect(() => {
     if (!kbd || busy || over) return;
@@ -301,11 +341,25 @@ export function CombatScreen() {
     return sum + (e.intent.amount ?? 0) * (e.intent.hits ?? 1);
   }, 0);
   const pressurePct = Math.min(100, (vw.pressure / 30) * 100);
+  const calm = !busy && !over;
+  const targets = c.enemies.map((_, i) => (calm ? intentTargets(c, i) : { cells: [] as number[], mainspring: false, pressure: false }));
+  const saboCells = new Set(targets.flatMap((t) => t.cells));
+  const hotCells = new Set(hoverEnemy !== null && targets[hoverEnemy] ? targets[hoverEnemy].cells : []);
+  const jamNow = targets.some((t) => t.mainspring);
+  const drainNow = targets.some((t) => t.pressure);
+  const glow = tut && live ? tutorialTargets(tut.step, c) : new Set<string>();
+  const last = lastResult.value;
+  const recap = last && !busy ? `Chain x${last.preview.momentum}, ${last.preview.damageByEnemy.reduce((a, b) => a + b, 0)} damage, ${last.preview.plating} Plating` : '';
+  const pillTip = (title: string, text: string, detail?: string) => tipHandlers(() => ({ title, text, detail }));
+  const statusInfo = (id: string, n: number, who: string) => () => {
+    const e = glossaryFor(id);
+    return { title: `${STATUS_NAME[id] ?? id} ${n}.`, text: e ? e.text : 'A status effect.', detail: who };
+  };
 
   return (
     <main class="combat" data-testid="combat" data-outcome={c.outcome}>
       <header class="hud">
-        <div class="pill hp" data-testid="hp" title="Your HP">
+        <div class="pill hp" data-testid="hp" tabIndex={0} {...pillTip('HP.', 'Your health. At 0 the machine stops for good.')}>
           <span class="lbl">HP</span>
           <span class="bar">
             <i style={{ width: `${(vw.playerHp / c.playerMaxHp) * 100}%` }} />
@@ -314,40 +368,94 @@ export function CombatScreen() {
             {vw.playerHp}/{c.playerMaxHp}
           </b>
         </div>
-        <div class="pill plating" data-testid="plating" title="Plating absorbs damage until your next turn">
+        <div class="pill plating" data-testid="plating" tabIndex={0} {...pillTip('Plating.', 'Block. It absorbs damage you take, and falls away at the start of your next turn.')}>
+          <StatusIcon kind="plating" size={14} />
           <span class="lbl">Plating</span>
           <b>{vw.plating}</b>
           {preview && preview.plating > 0 && <span class="gain">+{preview.plating}</span>}
         </div>
-        <div class={`pill pressure ${preview?.overpressure ? 'danger' : ''} ${c.outcome === 'lost' && !busy ? 'sputter' : ''}`} data-testid="pressure" title="Pressure above 20 at the end of your turn costs 6 HP">
+        <div
+          class={`pill pressure ${preview?.overpressure ? 'danger' : ''} ${c.outcome === 'lost' && !busy ? 'sputter' : ''}`}
+          data-testid="pressure"
+          tabIndex={0}
+          {...pillTip('Pressure.', 'A shared steam gauge. Above 20 at the end of your turn it overpressures: 6 damage to you, then it drops to 10.', `Now ${vw.pressure} of 30.`)}
+        >
+          <StatusIcon kind="pressure" size={14} />
           <span class="lbl">Pressure</span>
           <span class="bar gauge">
             <i style={{ width: `${pressurePct}%` }} />
             <em style={{ left: `${(20 / 30) * 100}%` }} />
           </span>
           <b>{vw.pressure}</b>
+          {drainNow && (
+            <span class="sabbadge" data-testid="drain-badge" aria-label="An enemy will Drain Pressure">
+              <IntentIcon kind="sabotage" size={14} />
+            </span>
+          )}
           {preview && preview.pressureAfter !== vw.pressure && (
             <span class={preview.overpressure ? 'warn' : 'gain'}>{preview.overpressure ? 'Overpressure -6 HP' : `to ${preview.pressureAfter}`}</span>
           )}
         </div>
-        <div class="pill" data-testid="ticks" title="Ticks this turn">
+        <div class="pill" data-testid="ticks" tabIndex={0} {...pillTip('Ticks.', 'How many beats the machine runs this turn. Each tick, motion spreads from the Mainspring.')}>
           <span class="lbl">Ticks</span>
           <b>{vw.tick > 0 ? `${vw.tick}/${vw.ticks}` : vw.ticks}</b>
+        </div>
+        <div class="pill" data-testid="momentum" tabIndex={0} {...pillTip('Momentum.', 'How many times any part has fired this turn. Some parts read it.')}>
+          <span class="lbl">Momentum</span>
+          <b>{vw.chain}</b>
         </div>
         <div class="pill" data-testid="turn">
           <span class="lbl">Turn</span>
           <b>{c.turn}</b>
         </div>
+        {Object.entries(c.playerStatuses).map(([id, n]) => (
+          <span key={id} class="pip" tabIndex={0} data-testid={`pip-${id}`} {...tipHandlers(statusInfo(id, n, 'On you.'))}>
+            <StatusIcon kind={id} />
+            <span class="lbl">{STATUS_NAME[id] ?? id}</span>
+            <b>{n}</b>
+          </span>
+        ))}
         {incoming > 0 && (
-          <div class="pill incoming" data-testid="incoming" title="Attack damage shown on the enemy intents">
+          <div class="pill incoming" data-testid="incoming" tabIndex={0} {...pillTip('Incoming.', 'Attack damage shown on the enemy intents, before your Plating.')}>
             <span class="lbl">Incoming</span>
             <b>{incoming}</b>
           </div>
         )}
-        <button class="ghostbtn menu" onClick={goTitle}>
-          Menu
-        </button>
+        <div class="menuwrap">
+          <button class="ghostbtn menu" data-testid="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>
+            Menu
+          </button>
+          {menuOpen && (
+            <div class="menupanel" role="menu" data-testid="menu-panel">
+              <button
+                role="menuitem"
+                data-testid="menu-glossary"
+                onClick={() => {
+                  setMenuOpen(false);
+                  openGlossary();
+                }}
+              >
+                Glossary
+              </button>
+              <label class="check">
+                <input type="checkbox" data-testid="menu-colorblind" checked={cb} onChange={(e) => setColorBlind((e.currentTarget as HTMLInputElement).checked)} />
+                Color-blind icons
+              </label>
+              <button
+                role="menuitem"
+                data-testid="menu-title"
+                onClick={() => {
+                  setMenuOpen(false);
+                  goTitle();
+                }}
+              >
+                {tut ? 'Quit the tutorial' : 'Back to title'}
+              </button>
+            </div>
+          )}
+        </div>
       </header>
+      <Coach />
 
       <section class="stage" ref={wrapRef} data-testid="stage">
         <canvas ref={canvasRef} class="canvas" />
@@ -367,14 +475,20 @@ export function CombatScreen() {
                       style={style}
                       data-cell={i}
                       data-testid="cell-A2"
+                      tabIndex={0}
                       aria-label="A2, the Mainspring: the source of all motion"
-                      title="Mainspring: the source of all motion"
                       {...tipHandlers(() => cellInfo(i))}
                       onClick={() => {
                         if (!longFired.current) tapCell(i);
                         longFired.current = false;
                       }}
-                    />
+                    >
+                      {jamNow && (
+                        <span class="sabbadge wedge" data-testid="jam-badge" aria-label="An enemy will Jam the Mainspring">
+                          <StatusIcon kind="jam" size={16} />
+                        </span>
+                      )}
+                    </div>
                   );
                 }
                 const label = part ? `${cellName(i)}, ${partName(part.defId, part.plus)}. ${partText(part.defId, part.plus)}${part.rusted > 0 ? ' Rusted.' : ''}` : `${cellName(i)}, empty`;
@@ -382,12 +496,11 @@ export function CombatScreen() {
                   <button
                     key={i}
                     tabIndex={part ? 0 : -1}
-                    class={`cell ${part ? 'has' : ''} ${cursor === i ? 'cursor' : ''} ${mark === i ? 'marked' : ''} ${sel !== null ? 'drop' : ''}`}
+                    class={`cell ${part ? 'has' : ''} ${cursor === i ? 'cursor' : ''} ${mark === i ? 'marked' : ''} ${sel !== null ? 'drop' : ''} ${saboCells.has(i) ? 'sabo' : ''} ${hotCells.has(i) ? 'hot' : ''} ${glow.has(`cell:${i}`) ? 'tut-glow' : ''}`}
                     style={style}
                     data-cell={i}
                     data-testid={`cell-${cellName(i)}`}
                     aria-label={label}
-                    title={part ? `${partName(part.defId, part.plus)}: ${partText(part.defId, part.plus)}` : undefined}
                     disabled={busy || over}
                     {...tipHandlers(() => cellInfo(i))}
                     onClick={() => {
@@ -400,11 +513,16 @@ export function CombatScreen() {
                         x{n}
                       </span>
                     )}
+                    {saboCells.has(i) && (
+                      <span class="sabbadge" data-testid={`sabo-${cellName(i)}`}>
+                        <IntentIcon kind="sabotage" size={14} />
+                      </span>
+                    )}
                   </button>
                 );
               })}
             </div>
-            <div class="enemies">
+            <div class={`enemies ${c.enemies.length > 2 ? 'dense' : ''}`}>
               {c.enemies.map((e, i) => {
                 const slot = slots[i];
                 if (!slot) return null;
@@ -413,21 +531,58 @@ export function CombatScreen() {
                 const dead = hp <= 0;
                 const dmg = preview?.damageByEnemy[i] ?? 0;
                 const num = intentNumber(c, i);
+                const isTarget = c.targetIdx === i && !dead;
+                const pips = Object.entries(e.statuses).filter(([, n]) => n > 0);
+                const def = enemyDef(e.defId);
+                const enemyInfo = (): Omit<TipInfo, 'rect'> => ({
+                  title: `${names[i]}.`,
+                  text: dead ? 'Scrapped.' : `Acts: ${e.intent.label || 'waits'}.`,
+                  detail: `${hp} of ${e.maxHp} HP${shell > 0 ? `. Shell ${shell}` : ''}. ${def.tier === 'normal' ? '' : `${def.tier[0].toUpperCase()}${def.tier.slice(1)}. `}${isTarget ? 'Targeted: your Strikes go here.' : 'Tap to target.'}`,
+                });
+                const where = targets[i].cells.length > 0 ? ` It will hit ${targets[i].cells.map(cellName).join(', ')}.` : targets[i].mainspring ? ' It will hit the Mainspring.' : targets[i].pressure ? ' It will hit your Pressure.' : '';
+                const intentInfo = (): Omit<TipInfo, 'rect'> => ({ title: `${INTENT_NAME[e.intent.kind]}.`, text: `${e.intent.label || INTENT_NAME[e.intent.kind]}.${where}`, detail: e.intent.kind === 'attack' ? 'Plating soaks this up first.' : undefined });
                 return (
-                  <button
+                  <div
                     key={i}
-                    class={`enemy ${c.targetIdx === i && !dead ? 'target' : ''} ${dead ? 'dead' : ''}`}
+                    class={`enemy ${isTarget ? 'target' : ''} ${dead ? 'dead' : ''}`}
                     style={{ left: `${slot.x}px`, top: `${slot.y}px`, width: `${slot.w}px`, height: `${slot.h}px` }}
-                    data-testid={`enemy-${i}`}
-                    aria-pressed={c.targetIdx === i && !dead}
-                    aria-label={`${names[i]}, ${hp} of ${e.maxHp} HP${shell > 0 ? `, Shell ${shell}` : ''}. ${dead ? 'Scrapped.' : intentText(c, i)}. ${c.targetIdx === i ? 'Targeted.' : 'Tap to target.'}`}
-                    disabled={dead || busy || over}
-                    onClick={() => target(i)}
+                    onPointerEnter={(ev) => ev.pointerType === 'mouse' && setHoverEnemy(i)}
+                    onPointerLeave={(ev) => ev.pointerType === 'mouse' && setHoverEnemy(null)}
                   >
+                    <button
+                      class="etap"
+                      data-testid={`enemy-${i}`}
+                      aria-pressed={isTarget}
+                      aria-label={`${names[i]}, ${hp} of ${e.maxHp} HP${shell > 0 ? `, Shell ${shell}` : ''}. ${dead ? 'Scrapped.' : intentText(c, i)}. ${isTarget ? 'Targeted.' : 'Tap to target.'}`}
+                      disabled={dead || busy || over}
+                      {...tipHandlers(enemyInfo)}
+                      onClick={() => {
+                        if (!longFired.current) target(i);
+                        longFired.current = false;
+                      }}
+                    />
                     {!dead ? (
-                      <span class={`intent k-${e.intent.kind}`} title={intentText(c, i)} data-testid={`intent-${i}`}>
-                        <IntentIcon kind={e.intent.kind} />
-                        {num && <b>{num}</b>}
+                      <span
+                        class={`intent k-${e.intent.kind} ${glow.has('intent') ? 'tut-glow' : ''}`}
+                        tabIndex={0}
+                        data-testid={`intent-${i}`}
+                        data-kind={e.intent.kind}
+                        aria-label={intentText(c, i)}
+                        {...tipHandlers(intentInfo)}
+                        onFocus={(ev) => {
+                          setHoverEnemy(i);
+                          tipHandlers(intentInfo).onFocus(ev);
+                        }}
+                        onBlur={() => {
+                          setHoverEnemy(null);
+                          hideSoon();
+                        }}
+                      >
+                        <span class="irow">
+                          <IntentIcon kind={e.intent.kind} />
+                          {num && <b>{num}</b>}
+                        </span>
+                        {cb && <span class="ilabel">{INTENT_NAME[e.intent.kind]}</span>}
                       </span>
                     ) : (
                       <span class="intent none" />
@@ -445,8 +600,24 @@ export function CombatScreen() {
                           {dmg >= hp ? ' (scrapped)' : ''}
                         </span>
                       )}
+                      {!dead && (shell > 0 || pips.length > 0) && (
+                        <span class="pips">
+                          {shell > 0 && (
+                            <span class="pip" tabIndex={0} data-testid={`pip-shell-${i}`} {...tipHandlers(statusInfo('shell', shell, `On ${names[i]}.`))}>
+                              <StatusIcon kind="shell" />
+                              <b>{shell}</b>
+                            </span>
+                          )}
+                          {pips.map(([id, n]) => (
+                            <span key={id} class="pip" tabIndex={0} data-testid={`pip-${id}-${i}`} {...tipHandlers(statusInfo(id, n, `On ${names[i]}.`))}>
+                              <StatusIcon kind={id} />
+                              <b>{n}</b>
+                            </span>
+                          ))}
+                        </span>
+                      )}
                     </span>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -454,6 +625,11 @@ export function CombatScreen() {
               Chain x{vw.chain}
             </div>
           </>
+        )}
+        {recap && !over && (
+          <div class="recap" data-testid="turn-summary">
+            {recap}
+          </div>
         )}
         {toast && (
           <div class="toast" role="status" data-testid="toast">
@@ -469,9 +645,15 @@ export function CombatScreen() {
                   ? `The machine scrapped every enemy in ${c.turn} ${c.turn === 1 ? 'turn' : 'turns'}.`
                   : 'You ran out of HP. A good machine is built one tick at a time.'}
               </p>
-              <button class="primary" data-testid="again" onClick={() => newFight()}>
-                Again
-              </button>
+              {tut ? (
+                <button class="primary" data-testid="again" onClick={() => tutorialAck()}>
+                  Finish
+                </button>
+              ) : (
+                <button class="primary" data-testid="again" onClick={() => newFight()}>
+                  Again
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -486,7 +668,7 @@ export function CombatScreen() {
             return (
               <button
                 key={uid}
-                class={`card ${sel === idx ? 'sel' : ''}`}
+                class={`card ${sel === idx ? 'sel' : ''} ${glow.has(`card:${inst.defId}`) ? 'tut-glow' : ''}`}
                 data-testid="hand-card"
                 data-hand-index={idx}
                 aria-pressed={sel === idx}
@@ -523,7 +705,7 @@ export function CombatScreen() {
           })}
         </div>
         <div class="controls">
-          <p class="summary" data-testid="preview" aria-live="polite">
+          <p class={`summary ${glow.has('preview') ? 'tut-glow' : ''}`} data-testid="preview" aria-live="polite">
             {preview ? (
               <>
                 {preview.damageByEnemy.reduce((a, b) => a + b, 0)} damage, {preview.plating} Plating, {preview.ticks} ticks
@@ -537,7 +719,7 @@ export function CombatScreen() {
             {c.swapUsed ? '' : ' | Swap ready'}
           </p>
           <div class="row">
-            <button class="primary run" data-testid="run" disabled={busy || over} onClick={doRun}>
+            <button class={`primary run ${glow.has('run') ? 'tut-glow' : ''}`} data-testid="run" disabled={busy || over} onClick={doRun}>
               Run
             </button>
             <button class="speed" data-testid="speed" onClick={cycleSpeed} aria-label={`Animation speed ${speed.value}. Tap to change.`}>
@@ -546,7 +728,7 @@ export function CombatScreen() {
           </div>
         </div>
       </footer>
-      {tipInfo && <Tooltip tip={tipInfo} />}
+      {tipInfo && !gloss && <Tooltip tip={tipInfo} onEnter={keepTip} onLeave={hideSoon} />}
       {ghost && c.hand[ghost.idx] !== undefined && (
         <div class="dragghost" style={{ left: `${ghost.x}px`, top: `${ghost.y}px` }}>
           {partName(c.parts[c.hand[ghost.idx]].defId, c.parts[c.hand[ghost.idx]].plus)}
