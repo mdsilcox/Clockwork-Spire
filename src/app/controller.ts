@@ -1057,13 +1057,29 @@ export function installDebug(): void {
           liveRun.act = 3;
           liveRun.floor = 13;
           liveRun.phase = 'victory';
+          // a genuine climb: every floor left (4, 6 and 8 Brass by act) and the three bosses beaten
+          liveRun.stats.floorBrass = 12 * 4 + 12 * 6 + 12 * 8 + 3 * 0;
+          liveRun.stats.bossesBeaten = 3;
         } else {
           const f = Math.max(1, floor ?? 3);
           liveRun.act = Math.min(3, Math.ceil(f / 13)) as 1 | 2 | 3;
           liveRun.floor = ((f - 1) % 13) + 1;
           liveRun.phase = 'defeat';
           liveRun.killedBy = 'rust-mite';
+          // Brass for the floors actually left, as the real run pays it
+          let fb = 0;
+          for (let i = 1; i < f; i++) fb += [4, 6, 8][Math.ceil(i / 13) - 1] ?? 8;
+          liveRun.stats.floorBrass = fb;
+          liveRun.stats.bossesBeaten = Math.floor((f - 1) / 13);
         }
+        afterRun(true);
+      },
+      /** Show a particular event right now (for looking at its art and text). */
+      event: (id: string): void => {
+        if (!liveRun) return;
+        liveRun.combat = null;
+        liveRun.pending = { kind: 'event', eventId: id };
+        liveRun.phase = 'event';
         afterRun(true);
       },
       setCogs: (n: number): void => {

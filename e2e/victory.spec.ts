@@ -42,13 +42,16 @@ test('cheat to the Clockmaker, win, and see the victory screen', async ({ page }
   if (await page.getByTestId('reward-trinket').count()) await press(page, page.getByTestId('reward-trinket').first());
   await press(page, page.getByTestId('continue-node'));
   await expect(page.getByTestId('victory')).toBeVisible();
-  await expect(page.getByText('The Clockmaker stops.')).toBeVisible();
+  await expect(page.getByTestId('ending')).toBeVisible();
   await noSidewaysScroll(page);
   // the ending (and credits) lead on, to the Workshop with a slot or the title without one
-  for (let i = 0; i < 8 && (await page.getByTestId('title').or(page.getByTestId('workshop')).count()) === 0; i++) {
-    await page.getByTestId('victory').getByRole('button').last().click();
-    await page.waitForTimeout(150);
-  }
+  await noSidewaysScroll(page);
+  const skip = page.getByTestId('ending-skip');
+  if (await skip.count()) await skip.click(); // straight to the credits
+  await expect(page.getByTestId('credits')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('ending-stats')).toBeVisible();
+  await noSidewaysScroll(page);
+  await page.getByTestId('ending-done').click();
   await expect(page.getByTestId('title').or(page.getByTestId('workshop'))).toBeVisible();
   expect(errors).toEqual([]);
 });

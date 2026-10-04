@@ -174,7 +174,7 @@ export function WorkshopScreen() {
   if (!p) return null;
   const avail = safe(() => meta.chassisAvailable(p), ['tinker']);
   const pick = avail.includes(chosen) ? chosen : 'tinker';
-  const size = typeof window !== 'undefined' && window.innerWidth < 760 ? 78 : 120;
+  const size = typeof window !== 'undefined' && window.innerWidth < 760 ? 84 : 150;
 
   return (
     <main class="workshop" data-testid="workshop" data-slot={slotNo.value ?? ''} onPointerDown={poke} onKeyDown={poke}>

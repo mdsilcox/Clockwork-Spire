@@ -59,10 +59,15 @@ export const isCompact = (slot: Rect): boolean => slot.h < COMPACT_SLOT_H;
 /** Compact slots: the name and HP share one short line at the bottom, the intent chip sits top right. */
 const COMPACT_TEXT_H = 16;
 
-/** The DOM slot is a grid of intent (22%, at least 26px), body (the rest) and name/HP text (28%). */
+/** Roomy slots: the text block (name, HP, Run damage) sits at the bottom, the HP bar just above it. */
+function textBlock(slot: Rect): number {
+  return Math.max(44, slot.h * 0.28);
+}
+
+/** The sprite fills the room between the top (the intent chip may overlap its corner) and the HP bar. */
 function bodyBand(slot: Rect): { top: number; bottom: number } {
-  const top = slot.y + Math.max(slot.h * 0.22, 26);
-  const bottom = slot.y + slot.h * 0.72 - 20; // above the HP bar, which sits just over the name text
+  const top = slot.y + Math.max(20, slot.h * 0.12);
+  const bottom = slot.y + slot.h - textBlock(slot) - 8;
   return { top, bottom: Math.max(top + 16, bottom) };
 }
 
@@ -78,7 +83,7 @@ export function enemyBody(slot: Rect): Rect {
     return { x: slot.x + 2 + (slot.w * 0.56 - size) / 2, y: slot.y + 1 + (room - size) / 2, w: size, h: size };
   }
   const { top, bottom } = bodyBand(slot);
-  const size = Math.min(slot.w * 0.9, bottom - top);
+  const size = Math.min(slot.w * 0.96, bottom - top);
   return { x: slot.x + (slot.w - size) / 2, y: top + (bottom - top - size) / 2, w: size, h: size };
 }
 
@@ -86,5 +91,5 @@ export function enemyBody(slot: Rect): Rect {
 export function enemyBar(slot: Rect): Rect {
   const w = Math.min(slot.w * 0.8, 120);
   if (isCompact(slot)) return { x: slot.x + (slot.w - w) / 2, y: slot.y + slot.h - COMPACT_TEXT_H - 7, w, h: 5 };
-  return { x: slot.x + (slot.w - w) / 2, y: slot.y + slot.h * 0.72 - 15, w, h: 5 };
+  return { x: slot.x + (slot.w - w) / 2, y: slot.y + slot.h - textBlock(slot) - 5, w, h: 5 };
 }
