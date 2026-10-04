@@ -1,7 +1,7 @@
 // B7 engine details beyond the acceptance tests: intents, cadences, order, the v1 compatibility fields.
 import { describe, expect, it } from 'vitest';
 import { cloneCombat, previewTurn, runTurn, setTarget } from '../../src/core/combat';
-import { currentTarget, defaultOrder, toggleTarget } from '../../src/core/frames';
+import { breakPart, currentTarget, defaultOrder, toggleTarget } from '../../src/core/frames';
 import { combatWith } from '../../src/core/testkit';
 
 describe('B7 engine: intents and cadences', () => {
@@ -108,5 +108,17 @@ describe('B7 engine: target order', () => {
     setTarget(c, 1);
     expect(c.order).toEqual(['e1.b', 'e1.core']);
     expect(c.targetIdx).toBe(1);
+  });
+});
+
+describe('B7 engine: breakPart (the path a hit takes)', () => {
+  it('queues the salvage, cancels the intent and shows the core action when nothing acts', () => {
+    const c = combatWith({ enemies: [{ core: 20, bump: 'attack 2', parts: [{ id: 'jaw', hp: 5, act: 'attack 5', salvage: 'spur' }] }] });
+    const events: import('../../src/core/types').GameEvent[] = [];
+    expect(breakPart(c, 0, 'jaw', events)).toBe(true);
+    expect(events.map((e) => e.kind)).toEqual(['partBroken']);
+    expect(c.broken.map((b) => b.salvage)).toEqual(['spur']);
+    expect(c.enemies[0].intents.map((i) => i.partId)).toEqual(['core']);
+    expect(breakPart(c, 0, 'jaw', events)).toBe(false);
   });
 });

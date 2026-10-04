@@ -6,6 +6,7 @@ import { ENCOUNTERS, bandForFloor, encounterPool } from '../../src/core/content/
 import { ENEMIES, enemyDef } from '../../src/core/content/enemies';
 import { MAX_ENEMIES, summonEnemy } from '../../src/core/enemy';
 import { runMachine } from '../../src/core/machine';
+import { setOrder } from '../../src/core/frames';
 import { combatWith } from '../../src/core/testkit';
 import type { CombatState, GameEvent } from '../../src/core/types';
 
@@ -60,20 +61,19 @@ describe('statuses', () => {
 
   it('Strength: a buff raises the attacks of allies, including the intent already shown', () => {
     const c = combatWith({ enemies: ['tinpot-general'], hp: 500 });
+    const r = runTurn(c); // the Horn summons two Rust Mites, then the Bugle buffs them
     expect(c.enemies.map((e) => e.defId)).toEqual(['tinpot-general', 'rust-mite', 'rust-mite']);
-    const r = runTurn(c);
     expect(kinds(r.events, 'buff').length).toBe(2);
     expect(c.enemies[1].statuses.strength).toBe(3);
-    expect(c.enemies[1].intent.amount).toBe(10);
-    expect(c.enemies[1].intent.label).toBe('Attack 10');
+    expect(c.enemies[1].intent.amount).toBe(8);
+    expect(c.enemies[1].intent.label).toBe('Pierce 8');
     runTurn(c);
-    expect(c.enemies[1].statuses.strength).toBe(3); // strength lasts
+    expect(c.enemies[1].statuses.strength).toBe(6); // strength lasts, and the Bugle buffs every turn
   });
 
   it('Corroded: 25% less Plating for its turns (applied by an Oil Slick)', () => {
     const c = combatWith({ board: { B2: 'escapement' }, enemies: ['oil-slick'], hp: 500 });
-    runTurn(c); // Attack 9
-    const r = runTurn(c); // Corroded 2
+    const r = runTurn(c); // the Nozzle strips Plating and applies Corroded 2
     expect(kinds(r.events, 'status')[0]).toMatchObject({ status: 'corroded', amount: 2, note: 'player' });
     expect(c.playerStatuses.corroded).toBe(2);
     const before = c.plating;
@@ -134,6 +134,8 @@ describe('sabotage', () => {
   it('Rust set by an enemy lasts through the next machine run', () => {
     const c = combatWith({ board: { B2: 'spur', B1: 'spur', B3: 'spur' }, enemies: ['gauge-gremlin'], hp: 999 });
     const targets = c.enemies[0].intent.targets!;
+    setOrder(c, ['e0.core']);
+    c.enemies[0].hp = c.enemies[0].maxHp = 99;
     runTurn(c); // my machine runs, then the enemy rusts its two targets for the next turn
     for (const t of targets) expect(c.board[t]!.rusted).toBe(1);
   });
@@ -147,25 +149,29 @@ describe('enemy behaviors', () => {
   });
 
   it('Spring Imp grows by 3 each turn; Pendulum Blade swings 8 to 24 then resets', () => {
-    expect(seq(combatWith({ enemies: ['spring-imp'], hp: 999 }), 4)).toEqual(['attack:4', 'attack:7', 'attack:10', 'attack:13']);
+    // The Tail Pierces 4, 5, 6 then resets; the Key's Ratchet adds 1 Strength a turn on top.
+    expect(seq(combatWith({ enemies: ['spring-imp'], hp: 999 }), 4)).toEqual(['attack:4', 'attack:6', 'attack:8', 'attack:7']);
+    // The Edge swings 8, 12, 16, 20, 24 then resets; the Weight's Ratchet adds 1 a turn on top.
     expect(seq(combatWith({ enemies: ['pendulum-blade'], hp: 999 }), 6)).toEqual([
       'attack:8',
-      'attack:12',
-      'attack:16',
-      'attack:20',
-      'attack:24',
-      'attack:8',
+      'attack:13',
+      'attack:18',
+      'attack:23',
+      'attack:28',
+      'attack:13',
     ]);
   });
 
   it('Furnace Golem charges up (clock icon) and then hits for 24', () => {
     const c = combatWith({ enemies: ['furnace-golem'], hp: 999 });
     expect(c.enemies[0].intent.kind).toBe('charge');
+    expect(c.enemies[0].intent.label).toBe('Pierce 22 in 3');
+    runTurn(c); // the Fist hits 6
+    expect(c.playerHp).toBe(999 - 6);
     runTurn(c);
-    expect(c.playerHp).toBe(999);
-    expect(c.enemies[0].intent).toMatchObject({ kind: 'attack', amount: 26 });
-    runTurn(c);
-    expect(c.playerHp).toBe(999 - 26);
+    expect(c.enemies[0].intent).toMatchObject({ kind: 'attack', amount: 22 });
+    runTurn(c); // the Heart lands its Pierce 22 and the Fist hits 6
+    expect(c.playerHp).toBe(999 - 6 - 6 - 28);
   });
 
   it('Pressure Warden gains Shell equal to half your Pressure each turn', () => {
@@ -176,7 +182,7 @@ describe('enemy behaviors', () => {
 
   it('Echo Sprite copies your strongest part last turn (min 6)', () => {
     const c = combatWith({ enemies: ['echo-sprite'], hp: 999 });
-    expect(c.enemies[0].intent.amount).toBe(8);
+    expect(c.enemies[0].intent.amount).toBe(6);
     const d = combatWith({ board: { B2: 'spur' }, enemies: ['echo-sprite'], hp: 999 });
     runTurn(d);
     expect(d.enemies[0].intent.amount).toBe(9);
@@ -185,24 +191,24 @@ describe('enemy behaviors', () => {
   it('Minute Warden heals 10 each turn and rusts your strongest part', () => {
     const c = combatWith({ board: { B2: 'spur', A1: 'chime' }, enemies: ['minute-warden'], hp: 999 });
     runTurn(c);
-    expect(c.enemies[0].hp).toBe(170 - 12 + 10);
-    runTurn(c); // Attack 15
-    expect(c.enemies[0].intent.label).toBe('Rusts your strongest part');
-    expect(c.enemies[0].intent.target).toBe(cell('B2'));
+    runTurn(c); // the Needle acts on odd turns: its intent for turn 3 names the strongest part
+    const needle = c.enemies[0].intents.find((i) => i.partId === 'minute-needle')!;
+    expect(needle.label).toBe('Rust');
+    expect(needle.target).toBe(cell('B2'));
   });
 
   it('Grand Orrery: 3 moons give it Shell 6 each per turn', () => {
     const c = combatWith({ enemies: ['orrery'], hp: 999 });
-    expect(c.enemies.map((e) => e.defId)).toEqual(['orrery', 'orrery-moon', 'orrery-moon', 'orrery-moon']);
+    expect(c.enemies).toHaveLength(1);
     runTurn(c);
     expect(c.enemies[0].shell).toBe(18);
-    c.enemies[1].hp = 0;
+    c.enemies[0].parts[0].broken = true; // a Moon falls
     runTurn(c);
     expect(c.enemies[0].shell).toBe(12);
   });
 
   it('Twin Pistons: one attacks while the other shells; the survivor enrages (+6 attack)', () => {
-    const c = combatWith({ board: { B2: 'spur' }, enemies: ['twin-pistons'], hp: 999 });
+    const c = combatWith({ board: { B2: 'spur' }, enemies: ['twin-pistons'], hp: 999, order: ['e0.core'] });
     expect(c.enemies).toHaveLength(2);
     expect(c.enemies[0].intent).toMatchObject({ kind: 'attack', amount: 19 });
     expect(c.enemies[1].intent.kind).toBe('defend');

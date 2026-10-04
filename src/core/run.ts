@@ -5,7 +5,7 @@
 import { BASE_PLACEMENTS, BASE_TICKS, createCombat } from './combat';
 import type { CreateCombatOpts } from './combat';
 import { CHASSIS } from './content/chassis';
-import { ENCOUNTERS } from './content/encounters';
+import { bandForFloor, ENCOUNTERS, encounterPool } from './content/encounters';
 import type { Encounter } from './content/encounters';
 import { EVENTS } from './content/events';
 import { candidates, EFFECTS, randomPartOf } from './eventfx';
@@ -93,8 +93,11 @@ export function availableNodes(run: RunState): string[] {
 
 function pickEncounter(run: RunState, tier: Encounter['tier']): Encounter {
   const act = run.act;
-  const t = tier === 'normal' && act === 1 && run.floor <= 3 ? 'easy' : tier;
-  const pool = ENCOUNTERS.filter((e) => e.act === act && e.tier === t);
+  // Fight rooms draw by band (content.md section 4); the 12 map floors count as 6 floors.
+  const pool =
+    tier === 'normal'
+      ? encounterPool(act, bandForFloor(Math.ceil(run.floor / 2), 6))
+      : ENCOUNTERS.filter((e) => e.act === act && e.tier === tier);
   const key = (e: Encounter) => `${e.act}:${e.enemies.join('+')}`;
   const fresh = pool.filter((e) => !run.recentEncounters.includes(key(e)));
   const e = pick(run.rng, 'enemy', fresh.length ? fresh : pool);

@@ -2,6 +2,7 @@
 // B7 CONTRACT: signatures are fixed; the enemy-engine lane implements the bodies (and the rules inside
 // enemy.ts, machine.ts and combat.ts). Pure and deterministic, like the rest of src/core.
 import { partDefOf } from './framelib';
+export { breakPart } from './enemy';
 import type { CombatState, PartIntent, TargetRef } from './types';
 
 /** At most this many entries in the target order. */

@@ -148,24 +148,22 @@ describe('B1 parts: base and upgraded', () => {
 
 describe('Shell, Plating and enemies', () => {
   it('Shell absorbs strikes and falls away at the start of the enemy turn', () => {
-    const c = combatWith({ board: { B2: 'spur' }, enemies: ['cog-rat'] });
+    const c = combatWith({ board: { B2: 'spur' }, enemies: [{ core: 20, bump: 'attack 1' }] });
     c.enemies[0].shell = 5;
-    c.enemies[0].intent = { kind: 'special', label: 'Waits' };
     runTurn(c);
     expect(lost(c)).toBe(4);
     expect(c.enemies[0].shell).toBe(0);
   });
 
   it('a defend intent grants Shell that lasts through the next player turn', () => {
-    const c = combatWith({ enemies: ['cog-rat'] });
-    c.enemies[0].intent = { kind: 'defend', amount: 5, label: 'Shell 5' };
+    const c = combatWith({ enemies: [{ core: 20, bump: 'shell 5' }] });
     runTurn(c);
     expect(c.enemies[0].shell).toBe(5);
   });
 
   it('multi-hit attacks hit once per hit and Plating absorbs from the pool', () => {
-    const c = combatWith({ board: { B2: 'escapement' }, enemies: ['cog-rat'], ticks: 1 });
-    runTurn(c); // Plate 3, cog rat attacks 5 x2: 3 + 10 - 3 = 7 lost
+    const c = combatWith({ board: { B2: 'escapement' }, enemies: [{ core: 99, parts: [{ id: 'jaw', hp: 20, act: 'attack 5x2' }] }], ticks: 1 });
+    runTurn(c); // Plate 3, the jaw attacks 5 x2: 3 + 10 - 3 = 7 lost
     expect(c.playerHp).toBe(50 - 7);
   });
 
@@ -177,7 +175,7 @@ describe('Shell, Plating and enemies', () => {
   });
 
   it('strikes move on to the next living enemy when the target dies', () => {
-    const c = combatWith({ board: { B2: 'spur' }, enemies: ['rust-mite', 'rust-mite'] });
+    const c = combatWith({ board: { B2: 'spur' }, enemies: [{ core: 11 }, { core: 11 }] });
     c.enemies[0].hp = 2;
     runTurn(c);
     expect(c.enemies[0].hp).toBe(0);
@@ -185,7 +183,7 @@ describe('Shell, Plating and enemies', () => {
   });
 
   it('setTarget aims strikes at a living enemy', () => {
-    const c = combatWith({ board: { B2: 'spur' }, enemies: ['rust-mite', 'rust-mite'] });
+    const c = combatWith({ board: { B2: 'spur' }, enemies: [{ core: 20 }, { core: 20 }] });
     setTarget(c, 1);
     runTurn(c);
     expect(lost(c, 0)).toBe(0);
@@ -223,8 +221,7 @@ describe('Rust and sabotage', () => {
   });
 
   it('a Rust Mite names an occupied target cell when it picks its sabotage', () => {
-    const c = combatWith({ board: { B2: 'spur', C2: 'spur' }, enemies: ['rust-mite'] });
-    c.enemies[0].step = 2;
+    const c = combatWith({ board: { B2: 'spur', C2: 'spur' }, enemies: [{ core: 20, parts: [{ id: 'gland', hp: 3, act: 'rust' }] }] });
     for (let i = 0; i < 20; i++) {
       chooseIntent(c, 0);
       expect(c.enemies[0].intent.kind).toBe('sabotage');
@@ -233,17 +230,18 @@ describe('Rust and sabotage', () => {
   });
 
   it('executing the intent rusts the target for the next turn', () => {
-    const c = combatWith({ board: { B2: 'spur', C2: 'spur' }, enemies: ['rust-mite'] });
-    c.enemies[0].hp = c.enemies[0].maxHp = 99;
-    c.enemies[0].intent = { kind: 'sabotage', sabotage: 'rust', target: cell('B2'), label: 'Rusts a part' };
+    const c = combatWith({ board: { B2: 'spur', C2: 'spur' }, enemies: [{ core: 99, parts: [{ id: 'gland', hp: 30, act: 'rust' }] }], order: ['e0.core'] });
+    c.enemies[0].intents[0].targets = [cell('B2')];
+    c.enemies[0].intents[0].target = cell('B2');
     runTurn(c);
     expect(c.board[cell('B2')]!.rusted).toBe(1);
     expect(previewTurn(c).damageByEnemy[0]).toBe(0);
   });
 
   it('a sabotage on an empty cell fizzles', () => {
-    const c = combatWith({ board: { B2: 'spur' }, enemies: ['rust-mite'] });
-    c.enemies[0].intent = { kind: 'sabotage', sabotage: 'rust', target: cell('D2'), label: 'Rusts a part' };
+    const c = combatWith({ board: { B2: 'spur' }, enemies: [{ core: 99, parts: [{ id: 'gland', hp: 30, act: 'rust' }] }], order: ['e0.core'] });
+    c.enemies[0].intents[0].targets = [cell('D2')];
+    c.enemies[0].intents[0].target = cell('D2');
     const r = runTurn(c);
     expect(c.board[cell('B2')]!.rusted).toBe(0);
     expect(r.events.some((e) => e.kind === 'sabotage' && e.note === 'fizzle')).toBe(true);

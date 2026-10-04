@@ -271,14 +271,14 @@ export function damageTarget(
   p.tookThisTurn += lost;
   if (opts.strikeEvent !== false) events.push({ kind: 'partHit', ...base, target: idx, part: partId, amount: lost, note });
   if (p.hp <= 0) {
-    const cancelled = breakPart(c, idx, p, events, base);
+    const cancelled = breakPartState(c, idx, p, events, base);
     return { lost, broke: true, died: false, cancelled };
   }
   return { lost, broke: false, died: false, cancelled: false };
 }
 
 /** A part reaches 0 HP: it never acts again, its intent is cancelled at once, its salvage is queued. Returns whether it had an intent. */
-export function breakPart(c: CombatState, idx: number, part: EnemyPartState, events: GameEvent[], base: EventBase = NO_BASE): boolean {
+export function breakPartState(c: CombatState, idx: number, part: EnemyPartState, events: GameEvent[], base: EventBase = NO_BASE): boolean {
   const e = c.enemies[idx];
   const f = frameOf(e) as FrameDef;
   const d = partDefOf(e, part.id);
@@ -304,6 +304,13 @@ export function breakPart(c: CombatState, idx: number, part: EnemyPartState, eve
   return had;
 }
 
+/** Break a part by id (what a hit does at 0 HP: salvage queued, intent cancelled, keystone logic). Returns whether it had an intent. */
+export function breakPart(c: CombatState, idx: number, partId: string, events: GameEvent[], base: EventBase = NO_BASE): boolean {
+  const e = c.enemies[idx];
+  const p = e ? partState(e, partId) : undefined;
+  return p && !p.broken ? breakPartState(c, idx, p, events, base) : false;
+}
+
 /** A standing part's intent goes away (broken or jammed); an enemy with no standing acting part shows its core action. */
 export function dropIntent(c: CombatState, idx: number, partId: string): void {
   const e = c.enemies[idx];
@@ -325,11 +332,23 @@ export function jamPart(c: CombatState, idx: number, partId: string): void {
 
 // ---------- v2: intents ----------
 
+/** Echo: your strongest part's last turn, clamped to 6..18 (content.md). */
+function echoAmount(c: CombatState): number {
+  return Math.min(18, Math.max(6, strongestContribution(c)));
+}
+
+/** Shell as a percentage of the player's Pressure (Pressure Dome). */
+function pctShell(c: CombatState, a: ActionDef): number {
+  return Math.floor((c.pressure * (a.pct ?? 0)) / 100);
+}
+
 /** A PartIntent for `actions` (effective numbers: Strength and escalation included), rolling Rust and Magnetize cells once. */
 function makeIntent(c: CombatState, e: EnemyState, partId: string, actions: ActionDef[], bonus: number | undefined, suffix: string | undefined, old?: PartIntent): PartIntent {
   const strength = e.statuses.strength ?? 0;
   const eff = actions.map((a, k): ActionDef => {
     const amt = a.amount ?? 0;
+    if (a.kind === 'echo') return { ...a, amount: echoAmount(c) };
+    if (a.kind === 'shell' && a.pct !== undefined) return { ...a, amount: pctShell(c, a) };
     if (a.kind === 'attack' || a.kind === 'pierce' || a.kind === 'siphon') return { ...a, amount: amt + strength + (k === 0 ? (bonus ?? 0) : 0) };
     if (k === 0 && bonus) return { ...a, amount: amt + bonus };
     return { ...a };
@@ -343,7 +362,8 @@ function makeIntent(c: CombatState, e: EnemyState, partId: string, actions: Acti
       it.targets = old.targets.slice();
     } else {
       const n = sab.kind === 'rust' ? Math.max(1, sab.count ?? sab.amount ?? 1) : 1;
-      it.targets = pickCells(c, n);
+      const strongest = partId === 'minute-needle' ? strongestCell(c) : -1; // the Minute Needle rusts your strongest part
+      it.targets = strongest >= 0 ? [strongest] : pickCells(c, n);
     }
     it.target = it.targets[0];
   }
@@ -370,7 +390,10 @@ export function computeIntents(c: CombatState, idx: number, keep: PartIntent[] =
     const cad = d.cadence;
     const bonus = escalationBonus(d, p.acted);
     if (isCountdown(cad)) {
-      out.push(makeIntent(c, e, p.id, actionsFor(d, turn), bonus, ` in ${p.countdown ?? cad.countdown}`, old(p.id)));
+      const left = p.countdown ?? cad.countdown;
+      const it = makeIntent(c, e, p.id, actionsFor(d, turn), bonus, ` in ${left}`, old(p.id));
+      if (left > 1) it.kind = 'charge'; // the clock icon until it acts next turn
+      out.push(it);
     } else if (isBuildUp(cad)) {
       const g = p.gauge ?? 0;
       if (g + cad.buildUp >= cad.to) out.push(makeIntent(c, e, p.id, actionsFor(d, turn), bonus, undefined, old(p.id)));
@@ -820,10 +843,8 @@ function performAction(
   const hitCount = a.hits && a.hits > 1 ? a.hits : 1;
   switch (a.kind) {
     case 'attack':
-    case 'siphon':
-    case 'echo': {
-      const base = a.kind === 'echo' ? Math.max(amt, strongestContribution(c)) : amt;
-      let dmg = base + strength;
+    case 'siphon': {
+      let dmg = amt + strength;
       if (dazed) dmg = Math.floor(dmg * 0.75);
       let drained = 0;
       for (let h = 0; h < hitCount; h++) {
@@ -839,8 +860,9 @@ function performAction(
       onAttack(i, partId);
       return true;
     }
-    case 'pierce': {
-      let dmg = amt + strength;
+    case 'pierce':
+    case 'echo': {
+      let dmg = (a.kind === 'echo' ? echoAmount(c) : amt) + strength; // the Echo Mouth echoes as a Pierce
       if (dazed) dmg = Math.floor(dmg * 0.75);
       for (let h = 0; h < hitCount; h++) {
         const lost = Math.min(c.playerHp, dmg);
@@ -861,7 +883,7 @@ function performAction(
       return true;
     }
     case 'shell':
-      gainShell(c, i, amt, events);
+      gainShell(c, i, a.pct !== undefined ? pctShell(c, a) : amt, events);
       return true;
     case 'mend': {
       const who = a.target === 'allies' ? c.enemies.map((o, j) => (j !== i && o.hp > 0 ? j : -1)).filter((j) => j >= 0) : [i];
