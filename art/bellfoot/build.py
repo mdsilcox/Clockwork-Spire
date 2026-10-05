@@ -138,6 +138,10 @@ def street():
         sd.line([(0, y), (W, y)], fill=int(150 * (1 - y / wall.height) ** 1.6))
     dark = Image.new("RGBA", wall.size, (18, 12, 10, 255))
     wall = Image.composite(dark, wall, shade)
+    seam = Image.new("L", wall.size, 0)  # darken and soften the stretch where the texture copies meet (x about 1640)
+    ImageDraw.Draw(seam).rectangle([1580, 0, 1700, wall.height], fill=110)
+    seam = seam.filter(ImageFilter.GaussianBlur(40))
+    wall = Image.composite(Image.new("RGBA", wall.size, (16, 11, 9, 255)), wall, seam)
     img.paste(wall, (0, WALL))
     d = ImageDraw.Draw(img)
     # one continuous cornice at a constant height: a dark coping, a thin warm edge and a soft shadow under it
@@ -162,6 +166,11 @@ def street():
         ld.line([(0, y), (W, y)], fill=int(190 * max(0.0, 1 - y / 70) ** 0.8))
     cob = Image.composite(soft, cob, lane)
     cob = Image.composite(Image.new("RGBA", cob.size, (22, 15, 11, 255)), cob, lane.point(lambda v: v // 3))
+    near = Image.new("L", cob.size, 0)  # about 10 percent less contrast around the lamp bases
+    nd = ImageDraw.Draw(near)
+    for lx in (360, 1000, 1320, 1590):
+        nd.ellipse([lx - 110, 0, lx + 110, 150], fill=130)
+    cob = Image.composite(soft, cob, near.filter(ImageFilter.GaussianBlur(30)))
     img.paste(cob, (0, GROUND))
     d.rectangle([0, GROUND - 4, W, GROUND + 2], fill=(20, 14, 10, 255))
     # places, back to front by x: (name, anchor x, height, crop box or None, mirror)
@@ -190,6 +199,22 @@ def street():
         if name in DUSK:
             im = tint(im, DUSK[name], 1.0)
         im = fit_h(im, h)
+        if name == "workshop":  # tone the pale brick band at the roof line down about 15 percent
+            band = im.crop((0, 8, im.width, 55))
+            im.paste(tint(band, (0.85, 0.85, 0.85), 1.0), (0, 8))
+        if name in ("gate", "archivist", "clocktower"):
+            # feather the top 12 px and set the front into a dark gradient against the sky
+            ramp = Image.new("L", im.size, 255)
+            rd = ImageDraw.Draw(ramp)
+            for y in range(12):
+                rd.line([(0, y), (im.width, y)], fill=int(255 * (y / 12) ** 1.4))
+            im.putalpha(ImageChops.multiply(im.getchannel("A"), ramp))
+            glow = Image.new("RGBA", (im.width + 20, 70), (0, 0, 0, 0))
+            gd = ImageDraw.Draw(glow)
+            for y in range(70):
+                gd.line([(0, y), (glow.width, y)], fill=(12, 8, 7, int(95 * (y / 69) ** 1.6)))
+            glow = glow.filter(ImageFilter.GaussianBlur(18))
+            img.alpha_composite(glow, (x - glow.width // 2, GROUND + 4 - im.height - 52))
         # a darker band on the wall behind the front, so it sits in the street instead of on it
         bw, bh = im.width + 90, im.height + 50
         band = Image.new("RGBA", (bw + 80, bh + 80), (0, 0, 0, 0))
