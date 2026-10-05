@@ -27,6 +27,7 @@ async function look(page: Page, testid?: string): Promise<void> {
 test('the first launch tutorial is clean', async ({ page }) => {
   const bad = watchAll(page);
   await page.goto('/');
+  await press(page, page.getByTestId('climb')); // B10d: a fresh profile boots to the title; its first Climb starts the tutorial
   await expect.poll(() => call<number>(page, 'g.tutorial()')).toBeGreaterThan(0);
   await look(page);
   expect(bad).toEqual([]);

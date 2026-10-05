@@ -260,6 +260,9 @@ test('the tutorial writes nothing: not to the saves, and a practice fight in pro
     g.climb('tinker');
   });
   await page.reload();
+  // a reload resumes a climb in progress (long-standing behavior); go to the title from the map
+  await press(page, page.getByTestId('run-menu'));
+  await press(page, page.getByTestId('run-to-title'));
   await expect(page.getByTestId('title')).toBeVisible();
   await press(page, page.getByTestId('practice'));
   await expect(page.getByTestId('combat')).toBeVisible();
@@ -267,10 +270,12 @@ test('the tutorial writes nothing: not to the saves, and a practice fight in pro
   await press(page, page.getByTestId('menu'));
   await press(page, page.getByTestId('menu-title'));
   await expect(page.getByTestId('continue')).toBeVisible();
+  // the test's own speed preference is a saved setting: write it before the snapshot, so only the tutorial's writes can differ
+  await page.evaluate(() => (window as unknown as { __game: { setSpeed(s: string): void } }).__game.setSpeed('skip'));
+  await page.waitForTimeout(400);
   const dbBefore = await dumpDb(page);
 
   await press(page, page.getByTestId('tutorial'));
-  await page.evaluate(() => (window as unknown as { __game: { setSpeed(s: string): void } }).__game.setSpeed('skip'));
   await advanceTo(page, 6);
   await press(page, page.getByTestId('salvage-keep-0'));
   await page.waitForTimeout(600); // any autosave would have fired by now
