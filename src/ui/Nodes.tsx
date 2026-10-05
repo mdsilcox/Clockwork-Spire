@@ -240,7 +240,7 @@ export function SalvageScreen() {
     <Shell run={run} title="Salvage" art={<SpoilsArt />}>
       <section class="rewardbox salvagebox" data-testid="salvage-tray" aria-label="Salvage tray">
         <p class="bigline" data-testid="salvage-cogs">
-          +{p.cogs} {unit}
+          +{p.cogs} {unit} from the fight
         </p>
         {p.blueprint && (
           <p class="banner-line" data-testid="blueprint-banner">
@@ -308,7 +308,7 @@ export function SalvageScreen() {
         )}
         <div class="nodeactions salvage-foot">
           <span class="salvage-pay" data-testid="salvage-pay">
-            Done adds +{pay} {unit}
+            {needTrinket ? 'Take or skip a trinket first.' : pay > 0 ? `Scrapping the rest adds +${pay} ${unit}` : 'Nothing left to scrap'}
           </span>
           <button class="primary" data-testid="salvage-done" disabled={needTrinket} onClick={finish}>
             Done
@@ -328,6 +328,12 @@ const PICK_TITLE: Record<string, string> = {
   transform: 'Change which part?',
   sell: 'Sell which part?',
 };
+
+/** Why a greyed event choice is greyed, read from its own text. */
+function whyNot(detail: string): string {
+  const m = /(?:Pay|Lose) (\d+) Scrap/.exec(detail);
+  return m ? `You need ${m[1]} Scrap.` : 'You have no part to give.';
+}
 
 export function EventScreen() {
   const run = runView.value;
@@ -375,6 +381,7 @@ export function EventScreen() {
                 <button key={i} class="choice" data-testid="event-choice" disabled={!ok} onClick={() => chooseEvent(i)}>
                   <b>{c.label}</b>
                   <span>{c.detail}</span>
+                  {!ok && <span class="whynot">{whyNot(c.detail)}</span>}
                 </button>
               );
             })}

@@ -1,4 +1,4 @@
-// B8 acceptance (browser): the act screen, visibility, saving mid-act, the workbench and traders, painted-enemy frame
+﻿// B8 acceptance (browser): the act screen, visibility, saving mid-act, the workbench and traders, painted-enemy frame
 // time (docs/acceptance.md CL7, CL8 E without the Lamplighter, CL11, SV3 to SV5 E, AR4). Runs on the desktop (1280x800)
 // and phone (667x375 touch) projects, except AR4 (phone only). Written by the orchestrator's test-porter in the B8.0
 // contract step; the climb-ui and rig-hub lanes build the screens and hooks below. Lanes may adapt a test to the code
@@ -223,6 +223,7 @@ test('CL7: the bell shows only at the warden\'s door, with its payout; ringing i
   await expect(bell).toContainText('36');
   await expect(bell).toContainText('12');
   await press(page, bell);
+  await press(page, page.getByTestId('bell-confirm'));
   await expect(page.getByTestId('combat')).toBeVisible();
   const s = await rs(page);
   expect(s.scrap).toBe(46);
@@ -372,6 +373,7 @@ test('SV5 (E): the workbench upgrades a Rare for 40 Scrap and removes parts for 
   expect((await rs(page)).bin.find((p) => p.uid === rare)?.plus).toBe(true);
   await select(page, page.getByTestId(`wb-part-${spare1}`));
   await select(page, page.getByTestId('wb-remove'));
+  await select(page, page.getByTestId('wb-remove-confirm'));
   await expect.poll(async () => (await rs(page)).scrap).toBe(135);
   expect((await rs(page)).bin.some((p) => p.uid === spare1)).toBe(false);
   await select(page, page.getByTestId('wb-leave'));
@@ -381,6 +383,7 @@ test('SV5 (E): the workbench upgrades a Rare for 40 Scrap and removes parts for 
   await expect(page.getByTestId('workbench')).toBeVisible();
   await select(page, page.getByTestId(`wb-part-${spare2}`));
   await select(page, page.getByTestId('wb-remove'));
+  await select(page, page.getByTestId('wb-remove-confirm'));
   await expect.poll(async () => (await rs(page)).scrap).toBe(95);
   expect((await rs(page)).stats.removals).toBe(2);
   await noSidewaysScroll(page);

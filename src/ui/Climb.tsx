@@ -8,6 +8,7 @@ import {
   benchUpgrade,
   cancelDoor,
   doorPrompt,
+  lastRestHeal,
   fuseOffer,
   leaveRoom,
   moveRoom,
@@ -240,6 +241,7 @@ export function ActScreen() {
   const boardRef = useRef<HTMLDivElement>(null);
   const w = walk.value;
   const [arrived, setArrived] = useState(false);
+  const [bellSure, setBellSure] = useState(false);
   useEffect(() => {
     setArrived(false);
     if (!w) return;
@@ -301,7 +303,7 @@ export function ActScreen() {
                     <span>
                       <b>{eliteName(e.defId)}</b>
                       <span class="sub">
-                        Floor {(at?.floor ?? 0) + 1}, next floor {(nx?.floor ?? 0) + 1}
+                        On floor {(at?.floor ?? 0) + 1}. Next hour it moves to the ringed room{nx && nx.floor !== at?.floor ? ` on floor ${nx.floor + 1}` : ''}.
                       </span>
                     </span>
                   </li>
@@ -310,19 +312,31 @@ export function ActScreen() {
             </ul>
           )}
           {atDoor && (
-            <button
-              class="primary bellbtn"
-              data-testid="bell"
-              onClick={() => {
-                unlockAudio();
-                ringBell();
-              }}
-            >
-              <b>Ring the bell</b>
-              <span>
-                {bellScrap} Scrap, {bellBrass} Brass{prepared > 0 ? `, Prepared +${prepared}` : ''}
-              </span>
-            </button>
+            <div class="bellbox">
+              <button class="primary bellbtn" data-testid="bell" aria-expanded={bellSure} onClick={() => setBellSure(!bellSure)}>
+                <b>Ring the bell</b>
+                <span>
+                  {bellScrap} Scrap, {bellBrass} Brass{prepared > 0 ? `, Prepared +${prepared}` : ''}
+                </span>
+              </button>
+              {prepared > 0 && <span class="acthint">Prepared +{prepared}: {prepared} extra {prepared === 1 ? 'placement' : 'placements'} on your first turn against the warden.</span>}
+              {bellSure && (
+                <div class="bellsure" data-testid="bell-sure">
+                  <span class="acthint">This starts the warden fight now. Your {left} spare {left === 1 ? 'hour' : 'hours'} pay out.</span>
+                  <button
+                    class="primary"
+                    data-testid="bell-confirm"
+                    onClick={() => {
+                      unlockAudio();
+                      setBellSure(false);
+                      ringBell();
+                    }}
+                  >
+                    Yes, ring it
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           {!atDoor && hour === 0 && <p class="acthint">Tap a lit room to walk there. Each step takes an hour.</p>}
         </aside>
@@ -455,13 +469,25 @@ function PartChip({ p, selected, onClick, testid }: { p: PartInstance; selected:
   );
 }
 
+function known(id: string): boolean {
+  try {
+    partDef(id);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function sortedBin(bin: PartInstance[]): PartInstance[] {
-  return bin.slice().sort((a, b) => partName(a.defId, a.plus).localeCompare(partName(b.defId, b.plus)) || a.uid - b.uid);
+  return bin
+    .filter((b) => known(b.defId))
+    .slice().sort((a, b) => partName(a.defId, a.plus).localeCompare(partName(b.defId, b.plus)) || a.uid - b.uid);
 }
 
 export function WorkbenchScreen() {
   const run = runView.value;
   const [sel, setSel] = useState<number[]>([]);
+  const [sureRemove, setSureRemove] = useState(false);
   const offer = fuseOffer.value;
   if (!run || run.pending?.kind !== 'workbench') return null;
   const p = run.pending;
@@ -471,6 +497,7 @@ export function WorkbenchScreen() {
   const one = chosen.length === 1 ? chosen[0] : null;
   const toggle = (uid: number): void => {
     fuseOffer.value = null;
+    setSureRemove(false);
     setSel(sel.includes(uid) ? sel.filter((u) => u !== uid) : [...sel, uid].slice(-2));
   };
   const upCost = one ? (UPGRADE_SCRAP[partDef(one.defId).rarity] ?? 0) : 0;
@@ -509,16 +536,38 @@ export function WorkbenchScreen() {
             <button class="secondary" data-testid="wb-upgrade" disabled={!one || one.plus || p.usedUpgrade || scrap < upCost} onClick={() => one && done(benchUpgrade(one.uid))}>
               Upgrade{one && !one.plus ? ` (${upCost} Scrap)` : ''}
             </button>
-            <button class="secondary" data-testid="wb-remove" disabled={!one || p.usedRemove || scrap < rmCost} onClick={() => one && done(benchRemove(one.uid))}>
+            <button class="secondary" data-testid="wb-remove" disabled={!one || p.usedRemove || scrap < rmCost} onClick={() => setSureRemove(true)}>
               Remove ({rmCost} Scrap)
             </button>
             <button class="secondary" data-testid="wb-fuse" disabled={chosen.length !== 2 || p.usedFuse} onClick={() => benchFuse(chosen[0].uid, chosen[1].uid)}>
               Fuse two (free)
             </button>
+            {sureRemove && one && (
+              <div class="removesure" data-testid="wb-remove-sure" role="alertdialog">
+                <span>
+                  Remove {partName(one.defId, one.plus)} for good? It costs {rmCost} Scrap. The next removal costs {rmCost + 15}.
+                </span>
+                <button
+                  class="primary"
+                  data-testid="wb-remove-confirm"
+                  onClick={() => {
+                    setSureRemove(false);
+                    done(benchRemove(one.uid));
+                  }}
+                >
+                  Remove it
+                </button>
+                <button class="ghostbtn" onClick={() => setSureRemove(false)}>
+                  Keep it
+                </button>
+              </div>
+            )}
             <button class="primary" data-testid="wb-leave" onClick={() => leaveRoom()}>
               Leave
             </button>
           </div>
+          {chosen.length !== 2 && !p.usedFuse && <p class="phint">Fusing needs two parts picked.</p>}
+          {p.usedFuse && <p class="phint">You already fused here.</p>}
         </div>
       </section>
       {showOffer && (
@@ -563,6 +612,8 @@ export function TraderScreen() {
   const canOffer = !!sel && sel.kind !== 'oil' && !sel.sold;
   const cost = item !== null ? tradeCost(run, item, canOffer ? offerUid : null) : 0;
   const bin = sortedBin(run.bin);
+  const handed = bin.find((x) => x.uid === offerUid);
+  const handName = handed ? partName(handed.defId, handed.plus) : 'a part';
   const buy = (): void => {
     if (item === null) return;
     if (traderBuy(item, canOffer ? offerUid : null)) {
@@ -593,7 +644,7 @@ export function TraderScreen() {
                   {it.kind === 'trinket' && <TrinketIcon name={n.name} size={26} />}
                   <span class="sname">{n.name}</span>
                   <span class="stext">{it.sold ? 'Sold' : n.text}</span>
-                  <span class="sval">{it.kind === 'oil' ? `${it.value} Scrap` : `worth ${it.value}`}</span>
+                  <span class="sval">worth {it.value}</span>
                 </button>
               );
             })}
@@ -613,7 +664,7 @@ export function TraderScreen() {
           </span>
           {sel && !sel.sold ? (
             <span class="costline">
-              You pay <b data-testid="trade-cost">{cost}</b>
+              {offerUid !== null && canOffer ? `Handing over ${handName}. ` : ''}You pay <b data-testid="trade-cost">{cost}</b>
               <span class="unit"> Scrap</span>
             </span>
           ) : (
@@ -681,7 +732,7 @@ export function OilRoomScreen() {
               <button class="choice" data-testid="oil-rest" disabled={heal <= 0 || left < 1} onClick={() => oilRest()}>
                 <b>Rest: +1 hour</b>
                 <span data-testid="oil-rest-text">
-                  {heal <= 0 ? 'Already at full HP.' : `Heal ${Math.floor(run.maxHp * 0.3)} HP (30% of your max). You are at ${run.hp} of ${run.maxHp}. Elites step.`}
+                  {heal <= 0 ? 'Already at full HP.' : `Heal ${Math.floor(run.maxHp * 0.3)} HP (30% of your max). You are at ${run.hp} of ${run.maxHp}. The hour passes, and the elites move.`}
                 </span>
               </button>
               <button class="choice" data-testid="oil-polish" onClick={() => oilPolish()}>
@@ -694,7 +745,7 @@ export function OilRoomScreen() {
           </>
         ) : (
           <p class="evresult" data-testid="oil-done">
-            Smooth and quiet. You feel ready.
+            Smooth and quiet. You feel ready.{lastRestHeal.value > 0 && room?.used ? ` Healed ${lastRestHeal.value} HP, now ${run.hp} of ${run.maxHp}.` : ''}
           </p>
         )}
         <div class="nodeactions">

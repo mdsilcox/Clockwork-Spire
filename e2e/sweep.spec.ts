@@ -111,6 +111,7 @@ test('every screen is clean', async ({ page }, info) => {
   await call(page, 'g.cheat.fixtureSection({ at: "r8", hour: 6 })');
   await look(page, 'bell');
   await press(page, page.getByTestId('bell'));
+  await press(page, page.getByTestId('bell-confirm'));
   await look(page, 'boss-intro');
   await press(page, page.getByTestId('boss-intro-go'));
   await call(page, 'g.cheat.winFight()');

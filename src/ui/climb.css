@@ -1,4 +1,4 @@
-/* The climb (B8): the act screen and the room screens. */
+﻿/* The climb (B8): the act screen and the room screens. */
 .actscreen {
   height: 100%;
   display: grid;
@@ -491,7 +491,7 @@
   display: grid;
   place-items: center;
   padding: 10px;
-  background: rgba(15, 10, 6, 0.88);
+  background: #17110c;
 }
 
 .doorbox {
@@ -501,4 +501,38 @@
 
 .actscreen {
   position: relative;
+}
+
+.salvagebox {
+  padding-bottom: 84px;
+}
+
+.tradegrid {
+  padding-bottom: 16px;
+}
+
+.pillbtn {
+  min-height: 40px;
+}
+
+.whynot {
+  display: block;
+  color: var(--hurt);
+  font-size: 12px;
+}
+
+.removesure,
+.bellsure,
+.bellbox {
+  display: grid;
+  gap: 6px;
+}
+
+.removesure {
+  grid-column: 1 / -1;
+  padding: 6px;
+  border: 2px solid var(--hurt);
+  border-radius: 8px;
+  background: #2a1810;
+  font-size: 12px;
 }

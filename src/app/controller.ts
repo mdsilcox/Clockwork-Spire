@@ -281,7 +281,10 @@ function maybeBossIntro(): void {
   });
   if (!boss) return;
   const def = enemyDef(boss.defId);
-  bossIntro.value = { name: def.name, act: liveRun.act, line: BOSS_LINES[def.id] ?? 'The way up is blocked.' };
+  const line = liveRun.overwound
+    ? `Midnight strikes. ${def.name} comes for you, Overwound: Strength 3 and Shell 10 to start.`
+    : (BOSS_LINES[def.id] ?? 'The way up is blocked.');
+  bossIntro.value = { name: def.name, act: liveRun.act, line };
 }
 
 /** After any change to the run: show it, keep the combat in step, and save. */
@@ -632,7 +635,14 @@ export const goNode = (id: string): boolean => runAction((r) => core.enterNode(r
 export const rewardPart = (i: number | null): boolean => runAction((r) => core.takeRewardPart(r, i)) ?? false;
 export const salvageDone = (keep: number[]): boolean => runAction((r) => takeSalvage(r, keep)) ?? false;
 export const rewardTrinket = (i: number | null): boolean => runAction((r) => core.takeRewardTrinket(r, i)) ?? false;
-export const chooseEvent = (i: number): string | null => runAction((r) => core.chooseEvent(r, i)) ?? null;
+export const chooseEvent = (i: number): string | null =>
+  runAction((r) => {
+    const hp0 = r.hp;
+    const out = core.chooseEvent(r, i);
+    const pe = r.pending;
+    if (pe && pe.kind === 'event' && pe.result) pe.result = pe.result.replace(/Healed \d+ HP\.?/, () => (r.hp > hp0 ? `Healed ${r.hp - hp0} HP.` : 'You are already at full HP.'));
+    return out;
+  }) ?? null;
 export const pickEventPart = (uid: number): boolean => runAction((r) => core.eventPickPart(r, uid)) ?? false;
 export const shopBuy = (i: number): boolean => runAction((r) => core.shopBuy(r, i)) ?? false;
 export const shopRemove = (uid: number): boolean => runAction((r) => core.shopRemove(r, uid)) ?? false;
@@ -731,7 +741,15 @@ export const benchFusePick = (a: number, b: number, pick: number): boolean =>
     return ok;
   }) ?? false;
 export const traderBuy = (index: number, offerUid: number | null): boolean => runAction((r) => rooms.barter(r, index, offerUid)) ?? false;
-export const oilRest = (): boolean => runAction((r) => rooms.rest(r)) ?? false;
+/** HP the last rest restored, for the oil screen's line. */
+export const lastRestHeal = signal(0);
+export const oilRest = (): boolean =>
+  runAction((r) => {
+    const hp0 = r.hp;
+    const ok = rooms.rest(r);
+    if (ok) lastRestHeal.value = r.hp - hp0;
+    return ok;
+  }) ?? false;
 export const oilPolish = (): boolean => runAction((r) => rooms.polish(r)) ?? false;
 
 /** The Scrap you would pay for a trader's item now (rules 4.5): its value less the offered part's, or value + 25% alone. */
