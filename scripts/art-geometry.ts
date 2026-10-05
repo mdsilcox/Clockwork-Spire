@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import type { CharacterDef } from '../src/art/types';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const ids = ['cog-rat', 'rust-mite', 'brass-beetle', 'oil-slick', 'spring-imp', 'gearhound', 'tinpot-general', 'tinker', 'sprocket'];
+const ids = ['cog-rat', 'rust-mite', 'brass-beetle', 'oil-slick', 'spring-imp', 'gearhound', 'tinpot-general', 'foreman', 'boilermaker', 'clockmaker', 'tinker', 'sprocket'];
 
 const lines: string[] = [];
 for (const id of ids) {

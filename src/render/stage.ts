@@ -8,7 +8,7 @@ import { drawEcho, drawEnemy, drawMainspring, drawPart, drawShell, drawStatuses,
 import type { EnemyLook, Vis } from './draw';
 import { TAU, gearPath } from './kit';
 import { partAnchors, rigAnchorsEpoch, setRigSource } from './anchors';
-import { cellRect, computeLayout, enemyBar, enemyBody, enemySlots, machineGeometry, RING_MIN_H } from './layout';
+import { cellRect, computeLayout, enemyBar, enemyBody, enemySlots, enemyArea, RING_MIN_H } from './layout';
 import type { Layout, Rect } from './layout';
 import { sharedRigHub } from './rig';
 import type { RigHandle, RigRect } from './rig';
@@ -86,6 +86,8 @@ interface Rig {
   broken: string;
   /** Mood cued by the replay and not yet applied. */
   cue: string;
+  /** Recording hook: a forced death stays (the enemy is still alive). */
+  forced?: boolean;
 }
 /** A rig whose painting has not come up after this long is dropped and tried again. */
 const RIG_RETRY_S = 8;
@@ -150,6 +152,8 @@ export class Stage {
   private paintedKey = '';
   /** Characters whose painting did not load (the code-drawn enemy shows and the markers go back to the ring). */
   private failed = new Set<string>();
+  /** Every mood each enemy's rig was set to since this stage began, in order (the e2e hooks read it). */
+  private moodLog: string[][] = [];
   /** The paintings are a WebGL layer between this canvas and a second 2D canvas that carries what must show on top of them. */
   private glLayer: HTMLCanvasElement | null = null;
   private top: HTMLCanvasElement | null = null;
@@ -373,9 +377,25 @@ export class Stage {
   // ---------- painted enemies (the RigHub, D-033) ----------
 
   /** The replay says enemy `i` attacked, was hit or buffed: the rig plays that mood at the next frame. */
+  /** The moods enemy `i`'s rig has played, and the one it plays now ('' for a code-drawn enemy). */
+  rigMoods(i: number): string[] {
+    return (this.moodLog[i] ?? []).slice();
+  }
+
+  /** Recording hook: play a mood on enemy `i`'s rig at the next frame, whatever the fight is doing. */
+  forceRig(i: number, mood: string): void {
+    this.cueRig(i, mood);
+    const r = this.rigs[i];
+    if (r) r.forced = mood === 'death';
+  }
+
+  rigMood(i: number): string {
+    return this.rigs[i]?.mood ?? '';
+  }
+
   private cueRig(i: number, mood: string): void {
     const r = this.rigs[i];
-    if (r) r.cue = mood;
+    if (r && r.def.moods[mood]) r.cue = mood;
   }
 
   /**
@@ -403,7 +423,7 @@ export class Stage {
   private rigRect(i: number, def: Geometry): RigRect {
     const slot = this.slotList()[i];
     const e = this.after?.enemies[i] ?? this.state?.enemies[i];
-    const b = e && (e.parts?.length ?? 0) > 0 ? machineGeometry(slot, e.parts.length).area : enemyBody(slot, 0);
+    const b = enemyArea(slot, e?.parts?.length ?? 0);
     const WW = def.size[0] + 2 * def.pad[0];
     const WH = def.size[1] + 2 * def.pad[1];
     // fit the painting itself, not its pad, to the body: a little wider than it, never taller
@@ -446,6 +466,11 @@ export class Stage {
       if (!r) {
         r = { h: this.hub.add(def, rect), def, mood: 'idle', until: 0, since: now, broken: '', cue: '' };
         this.rigs[i] = r;
+        // a warden that is already in a later phase starts with that phase's look (its painting, its light)
+        const ph = e.phase ?? 0;
+        r.h.setPhase(ph);
+        if (def.texture.layers?.phase2) r.h.setLayer('phase2', ph >= 1 ? 1 : 0);
+        (this.moodLog[i] = this.moodLog[i] ?? []).push('idle');
       }
       r.h.setRect(rect);
       const look = this.looks[i];
@@ -453,19 +478,22 @@ export class Stage {
       let want = r.mood;
       if (hp <= 0 && look && look.dead > 0) want = 'death';
       else {
-        if (r.mood === 'death') want = 'idle'; // revived (a summon dropped in)
+        if (r.mood === 'death' && !r.forced) want = 'idle'; // revived (a summon dropped in)
         if (r.cue && def.moods[r.cue]) {
           // a new hit restarts the flinch only once the last one is mostly over
-          if (!(r.cue === 'hurt' && r.mood === 'hurt' && now < r.until - (def.durations?.hurt ?? 1.5) * 0.6)) {
+          const flinching = r.cue === 'hurt' && r.mood === 'hurt' && now < r.until - (def.durations?.hurt ?? 1.5) * 0.6;
+          const busy = r.cue === 'hurt' && (r.mood === 'phase' || r.mood === 'rewind') && now < r.until; // a phase change is not interrupted by a flinch
+          if (!flinching && !busy) {
             want = r.cue;
             r.until = now + (def.durations?.[r.cue] ?? 1.5);
           }
-        } else if ((r.mood === 'attack' || r.mood === 'hurt' || r.mood === 'buff') && now >= r.until) want = 'idle';
+        } else if (r.mood !== 'idle' && r.mood !== 'death' && now >= r.until) want = 'idle';
       }
       r.cue = '';
       if (want !== r.mood) {
         r.mood = want;
         r.h.setMood(want);
+        (this.moodLog[i] = this.moodLog[i] ?? []).push(want);
       }
       const broken = (e.parts ?? [])
         .filter((p) => (this.view ? this.view.partBroken[`e${i}.${p.id}`] : p.hp <= 0))
@@ -858,6 +886,7 @@ export class Stage {
         break;
       }
       case 'phase': {
+        if (ti >= 0) this.cueRig(ti, 'phase');
         if (look) {
           look.phase = e.amount ?? look.phase + 1;
           look.morph = 1;
@@ -874,6 +903,7 @@ export class Stage {
         break;
       }
       case 'rewind': {
+        this.cueRig(ti >= 0 ? ti : (this.state?.enemies.findIndex((x) => x.defId === 'clockmaker') ?? -1), 'rewind');
         // a clock hand sweeps the board backwards, the lifted part spins backwards and flies to the draw pile
         if (this.now - this.sweepT0 > 1.4) {
           this.sweepT0 = this.now;

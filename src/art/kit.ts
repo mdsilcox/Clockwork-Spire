@@ -70,5 +70,6 @@ export function makeView(def: Pick<CharacterDef, 'weights' | 'deform'>, mood: st
     image: null,
     sprites: {},
     layers: {},
+    phase: 0,
   };
 }

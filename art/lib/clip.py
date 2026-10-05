@@ -13,12 +13,13 @@ ap.add_argument("out")
 ap.add_argument("--fps", type=int, default=15)
 ap.add_argument("--width", type=int, default=480)
 ap.add_argument("--moods", default="")
+ap.add_argument("--step", type=int, default=0, help="use every Nth frame (default: 30 / fps, for 30 fps recordings)")
 a = ap.parse_args()
 root = Path(a.frames)
 moods = a.moods.split(",") if a.moods else sorted(p.name for p in root.iterdir() if p.is_dir())
 out = []
 for m in moods:
-    files = sorted((root / m).glob("*.png"))[::max(1, 30 // a.fps)]
+    files = sorted((root / m).glob("*.png"))[::(a.step or max(1, 30 // a.fps))]
     for f in files:
         im = Image.open(f).convert("RGB")
         h = round(im.height * a.width / im.width)

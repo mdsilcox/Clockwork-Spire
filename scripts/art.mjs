@@ -25,6 +25,10 @@ const ASSETS = [
   { id: 'spring-imp', act: 1 },
   { id: 'gearhound', act: 1 },
   { id: 'tinpot-general', act: 1, extra: { hat: 'hat', blade: 'blade' } },
+  // wardens (B9a): one file per painting at 0.78 (699x899), a 250 KB budget each; the Foreman's second painting is a stacked layer
+  { id: 'foreman', act: 1, warden: true, scale: 0.78, extra: { 'cut-phase2': 'cut-phase2' } },
+  { id: 'boilermaker', act: 2, warden: true, scale: 0.78 },
+  { id: 'clockmaker', act: 3, warden: true, scale: 0.78 },
   { id: 'tinker', act: 0, scale: 0.7 },
   { id: 'sprocket', act: 0, scale: 0.7, extra: { 'cut-happy': 'cut-happy' } },
 ];
@@ -79,7 +83,7 @@ const entries = [];
 for (const a of ASSETS) {
   const files = a.files.map((f) => {
     const bytes = statSync(join(root, 'public', f.dst)).size;
-    const max = a.boss ? WARDEN_MAX : REGULAR_MAX;
+    const max = a.warden ? WARDEN_MAX : REGULAR_MAX;
     if (bytes > max) throw new Error(`art: ${f.dst} is ${bytes} bytes, over the ${max} budget`);
     total += bytes;
     return { path: f.dst, bytes };

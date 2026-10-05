@@ -21,3 +21,7 @@ Round 3 (shared effect look):
 - Hurt: hit flash 0.25 for 3 frames plus the burst at the gauge, then lean back 8 degrees, slide 26 px right, head snap, arms jerk out, settle by 0.7 s. Phase has no body flash (the burst star carries the hit).
 - Attack: squash of 3.5% held for 4 frames (1.06 to 1.19 s) at the impact.
 - Idle breathing raised (0.028 plus a small vertical swell).
+
+
+## B9a: in the game (RigHub)
+`src/art/boilermaker.ts`: anchors are the content.md part ids (queen-crown, -scepter, -gauge, -furnace, -staff, -ember, -cinder). New: a `death` mood (a last burst from the gauge and crown, she folds forward, the plates cool: `P.tint` dims and cools the painting) and no self-breaking gauge (the game says what is broken). `phase` is used for both phase changes. `clip.webp` re-recorded from the game.

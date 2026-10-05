@@ -11,3 +11,7 @@ Broken: notches (r about 45 to 60 px) with ember rim and 5 px ink cracks baked i
 Not done: no cream dust; the chain wires keep a faint pale edge from the cut; death is a bow and sink, not a true bent knee.
 
 Round 2: pad cut to 230 x 170 (stage aspect 1356 x 1492). Halo: clean.py now drops pale gray fill inside the chain loops and around the hanging gears, and mattes remaining edge pixels toward ink. Death: deep bow (head 48 degrees), lean 16, legs shortened by 52% so he folds down onto his knees, coat hem pools wider, arms hang, dials stop at six; light is a low flat warm wash plus five short ink-edged rays low behind him. Phase looks: Tick is slightly warm, Tock mid blue, Midnight strongly cold (SVG color matrix).
+
+
+## B9a: in the game (RigHub)
+`src/art/clockmaker.ts`: the phase look comes from `view.phase` (0-based; the phase mood shifts it at 1.3 s); the colder light is `P.tint` (a color matrix the hub applies in the shader, replacing the SVG filter). Death polish (A2 review): the head no longer sinks into the shoulder mass (bow 30 degrees, head lowered 6 px instead of 34) and the flat half disc with ink rays is a soft radial glow with three short faint rays. `clip.webp` re-recorded from the game (idle, attack, hurt, phase, rewind, death).

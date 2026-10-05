@@ -89,6 +89,14 @@ export function enemyBody(slot: Rect, parts = 0): Rect {
   return { x: slot.x + (slot.w - size) / 2, y: top + (bottom - top - size) / 2, w: size, h: size };
 }
 
+/** The whole room an enemy has: a painting is fitted into it (the sprite itself stays in the square `enemyBody`). */
+export function enemyArea(slot: Rect, parts = 0): Rect {
+  if (parts > 0) return machineGeometry(slot, parts).area;
+  if (isCompact(slot)) return enemyBody(slot, 0);
+  const { top, bottom } = bodyBand(slot);
+  return { x: slot.x + 2, y: top, w: slot.w - 4, h: bottom - top };
+}
+
 /** The HP bar rectangle: just above the name text. */
 export function enemyBar(slot: Rect, parts = 0): Rect {
   if (parts > 0) return machineGeometry(slot, parts).bar;
