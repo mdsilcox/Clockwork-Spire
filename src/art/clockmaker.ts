@@ -235,7 +235,7 @@ clockmaker.pose = function (L, t, dt, S, mood, api = makeView(clockmaker, mood, 
     P.br *= amp; P.elL *= amp; P.elR *= amp; P.sway *= amp; P.gearL *= amp; pendA *= amp; P.head *= amp;
     P.shL = P.shL * amp - 12 * still; P.shR = P.shR * amp + 12 * still;
     const bow = ease(clamp((c - 1.0) / 1.8));
-    P.head += 26 * bow; P.headLift = -6 * bow; P.lean = 7 * bow; P.pool = ease(clamp((c - 1.8) / 1.6));
+    P.head += 14 * bow; P.headX = 26 * bow; P.headLift = -6 * bow; P.lean = 5 * bow; P.pool = ease(clamp((c - 1.8) / 1.6));
     P.kneel = 0.52 * ease(clamp((c - 1.4) / 1.9));
     P.warm = ease(clamp((c - 0.3) / 2.6));
     P.droop = ease(clamp((c - 0.45) / 0.45));
