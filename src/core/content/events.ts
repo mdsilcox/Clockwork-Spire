@@ -8,6 +8,7 @@ export interface EventChoice {
   label: string; // button text, e.g. "Reach in"
   detail: string; // the cost and effect in plain words, e.g. "Lose 6 HP. Gain Sprocket's Collar Tag."
   available?(run: RunState): boolean; // false greys the button (e.g. not enough Scrap)
+  unavailable?: string; // why it is greyed, when the cost in `detail` doesn't say
 }
 
 export interface EventDef {
@@ -230,7 +231,7 @@ const list: EventDef[] = [
     choices: [
       { label: 'Buy a blueprint', detail: 'Pay 60 Scrap. Gain a blueprint.', available: scrap(60) },
       { label: 'Share his lamp a while', detail: 'Heal 6 HP.' },
-      { label: 'Fix the lift', detail: 'Give him a Cams and levers part. The lift runs again, and he moves down to Bellfoot after the run.', available: (run) => hasCam(run) && notLiving('lamplighter')(run) },
+      { label: 'Fix the lift', detail: 'Give him one of your cams or levers. The lift runs again, and he moves down to Bellfoot after the run.', unavailable: 'You have no cam or lever to give him.', available: (run) => hasCam(run) && notLiving('lamplighter')(run) },
     ],
   },
   {
@@ -287,7 +288,7 @@ const list: EventDef[] = [
     title: 'The Vault Wheel',
     lines: ['A wheel on a vault door, big as a cartwheel, with a keyhole at its hub.', 'Whatever sleeps inside is sleeping heavily.'],
     choices: [
-      { label: 'Turn it with a Spire Key', detail: 'Use a Spire Key. The vault opens and the guardian is not woken.', available: (run) => (run.keys ?? 0) >= 1 },
+      { label: 'Turn it with a Spire Key', detail: 'Use a Spire Key. The vault opens and the guardian is not woken.', unavailable: 'You have no Spire Key.', available: (run) => (run.keys ?? 0) >= 1 },
       { label: 'Pick the lock', detail: 'Pay 25 Scrap and 1 hour. The vault opens.', available: scrap(25) },
       { label: 'Walk on', detail: 'Nothing happens.' },
     ],

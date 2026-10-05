@@ -408,7 +408,7 @@ export const EFFECTS: Record<string, Effect[]> = {
     {
       need: 'remove',
       family: 'cam',
-      prompt: 'Choose a Cams and levers part to give him.',
+      prompt: 'Choose a cam or lever to give him.',
       run: (r, p) => {
         removePart(r, p!.uid);
         moveResident(r, 'lamplighter');

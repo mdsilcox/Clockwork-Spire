@@ -366,7 +366,8 @@ const PICK_TITLE: Record<string, string> = {
 };
 
 /** Why a greyed event choice is greyed, read from its own text. */
-function whyNot(detail: string): string {
+function whyNot(detail: string, own?: string): string {
+  if (own) return own;
   const m = /(?:Pay|Lose) (\d+) Scrap/.exec(detail);
   return m ? `You need ${m[1]} Scrap.` : 'You have no part to give.';
 }
@@ -417,7 +418,7 @@ export function EventScreen() {
                 <button key={i} class="choice" data-testid="event-choice" disabled={!ok} onClick={() => chooseEvent(i)}>
                   <b>{c.label}</b>
                   <span>{c.detail}</span>
-                  {!ok && <span class="whynot">{whyNot(c.detail)}</span>}
+                  {!ok && <span class="whynot">{whyNot(c.detail, c.unavailable)}</span>}
                 </button>
               );
             })}
