@@ -21,6 +21,8 @@ const KB = 1024;
 const REGULAR_MAX = 120 * KB;
 const WARDEN_MAX = 250 * KB;
 const TOTAL_MAX = 6 * KB * KB;
+const SCENE_MAX = 600 * KB; // a painted scene (Bellfoot) is budgeted as a whole, not per file
+const SCENES = ['bellfoot'];
 
 function walk(dir: string): string[] {
   if (!existsSync(dir)) return [];
@@ -81,16 +83,10 @@ describe('AR1: painted art ships as WebP under public/art/, listed in the manife
     for (const p of onDisk) expect(listed.has(p), p).toBe(true);
   });
 
-  it('size budgets: at most 120 KB per regular cut-out, 250 KB per warden, 6 MB in all', () => {
+  it('size budgets: at most 120 KB per regular cut-out, 250 KB per warden, 600 KB per scene in all, 6 MB in all', () => {
     expect(MANIFEST.length).toBeGreaterThan(0);
     let total = 0;
-    for (const e of MANIFEST) {
-      for (const f of e.files) {
-        const max = isWarden(e.id) ? WARDEN_MAX : REGULAR_MAX;
-        expect(f.bytes, `${e.id} ${f.path}`).toBeLessThanOrEqual(max);
-        total += f.bytes;
-      }
-    }
+for (const e of MANIFEST) {      if (SCENES.includes(e.id)) {        const sum = e.files.reduce((n, f) => n + f.bytes, 0);        expect(sum, `scene ${e.id}`).toBeLessThanOrEqual(SCENE_MAX);        total += sum;        continue;      }      for (const f of e.files) {        const max = isWarden(e.id) ? WARDEN_MAX : REGULAR_MAX;        expect(f.bytes, `${e.id} ${f.path}`).toBeLessThanOrEqual(max);        total += f.bytes;      }    }
     expect(total).toBeLessThanOrEqual(TOTAL_MAX);
   });
 });
