@@ -136,7 +136,7 @@ function earn(p: Profile, ...ids: string[]): Profile {
   }
   return p;
 }
-/** A profile with a spread of unlocks: Rares sapper and core-drill; Masterwork parts skewframe and resonance-rod; Masterwork
+/** A profile with a spread of unlocks: Rares sapper and core-drill; Masterwork parts skewframe, resonance-rod and night-watchman (h-whole-clock breaks every Clockmaker part, so m-break-all is earned with it); Masterwork
  * trinkets two-left-hands, foresight-dial and overrun-coupler; Legendaries sprockets-blanket (part) and sprockets-whistle (trinket). */
 function richProfile(): Profile {
   return earn(newProfile('rich', T), 'm-act2-breaker', 'm-fuse', 'm-quick-foreman', 'm-burst', 'm-bell3', 'm-three-elites', 'm-drill', 'h-flawless', 'h-whole-clock');
@@ -426,7 +426,7 @@ describe('the one pool: eligible, rollTier, canTakeLegendary', () => {
   it('an earned unlock opens exactly its item, by tier, family and kind; held trinkets are not offered again', () => {
     const p = richProfile();
     const run = runFor(p);
-    expect(eligible(p, run, { kind: 'part', tier: 'masterwork' }).sort()).toEqual(['resonance-rod', 'skewframe']);
+    expect(eligible(p, run, { kind: 'part', tier: 'masterwork' }).sort()).toEqual(['night-watchman', 'resonance-rod', 'skewframe']);
     expect(eligible(p, run, { kind: 'part', tier: 'masterwork', family: 'gear' })).toEqual(['skewframe']);
     expect(eligible(p, run, { kind: 'part', tier: 'rare' }).sort()).toEqual(['core-drill', 'sapper']);
     expect(eligible(p, run, { kind: 'trinket', tier: 'masterwork' }).sort()).toEqual(['foresight-dial', 'overrun-coupler', 'two-left-hands']);
@@ -504,7 +504,7 @@ describe('every source goes through the pool (one test per source)', () => {
           expect(tierOf(it.id as string), it.id).not.toBe('legendary');
           if (tierOf(it.id as string) === 'masterwork') {
             masterAct3++;
-            expect(['skewframe', 'resonance-rod']).toContain(it.id);
+            expect(['skewframe', 'resonance-rod', 'night-watchman']).toContain(it.id);
           }
         }
         if (it.kind === 'trinket') {

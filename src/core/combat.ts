@@ -10,6 +10,7 @@ import { defaultOrder, defaultOrderFor, syncTargetIdx } from './frames';
 import { PARTS } from './content/parts';
 import { trinketDef } from './content/trinkets';
 import { anyAlive, hasTrinket, MAX_TICKS, runEnemyAttackHooks, runMachine, runTurnStartHooks } from './machine';
+import { noteFacts } from './record';
 import { initStreams, shuffle } from './rng';
 
 export { chooseIntent };
@@ -287,6 +288,7 @@ export function runTurn(c: CombatState): TurnResult {
   if (c.outcome === 'ongoing' && !c.watchUsed && hasTrinket(c, 'inventors-watch')) c.watchSnapshot = watchShot(c);
   const r = runTurnInner(c);
   accumulatePlan(c, r.events);
+  noteFacts(c, r.events); // B9b: achievement facts and the Tow Hook (record.ts)
   return r;
 }
 

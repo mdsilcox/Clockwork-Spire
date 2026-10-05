@@ -5,6 +5,7 @@ import { STORY_NOTES } from './content/story';
 import { ACHIEVEMENTS } from './content/achievements';
 import { TRINKETS } from './content/trinkets';
 import { checkAchievements } from './achievements';
+import { achievementUnlocks } from './pool';
 import { UPGRADES } from './content/upgrades';
 import { split } from './rng';
 import { mainPlan, memoryPlan } from './record';
@@ -79,7 +80,8 @@ export function runConfigFor(profile: Profile, seed: number, chassis: string): R
     handSize: lv('toolbelt') >= 1 ? 4 : 3,
     upgradedStarters: lv('bearings'),
     trinkets: lv('charm') >= 1 ? [commonTrinketFor(seed)] : [],
-    unlockedParts: profile.blueprints.slice(),
+    unlockedParts: [...new Set([...profile.blueprints, ...achievementUnlocks(profile).parts])],
+    unlockedTrinkets: achievementUnlocks(profile).trinkets,
     rewardChoices: lv('notes') >= 1 ? 4 : 3,
     extraEliteBlueprint: lv('notes') >= 2,
     secondWind: lv('secondwind') >= 1,
