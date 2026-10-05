@@ -53,7 +53,9 @@
 
 .towerlevels {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(6, auto);
+  grid-auto-flow: column;
   gap: 4px 12px;
 }
 
@@ -121,4 +123,26 @@
 .gatepanel .modetag {
   font-size: 13px;
   margin: 0 0 8px;
+}
+
+/* a long beat line wraps inside the stage instead of at half its width */
+.phasebanner {
+  width: max-content;
+}
+
+/* Overwind 9: the extra warden part wears a small badge */
+.ow-badge {
+  position: absolute;
+  right: -6px;
+  top: -6px;
+  min-width: 18px;
+  padding: 0 3px;
+  border-radius: 9px;
+  background: var(--copper);
+  color: #1b1008;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
 }

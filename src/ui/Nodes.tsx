@@ -5,7 +5,8 @@ import { shopBuy, chooseEvent, forge, leave, oil, pickEventPart, rewardPart, rew
 import { EVENTS } from '../core/content/events';
 import { PARTS, partDef, partName, partText } from '../core/content/parts';
 import { trinketDef } from '../core/content/trinkets';
-import { salvagePayout } from '../core/salvage';
+import { salvagePayout, SCRAP_PER_SCRAPPED } from '../core/salvage';
+import { salvageKeepLimit, scrapPerScrapped } from '../core/difficulty';
 import type { PartInstance, RunState } from '../core/types';
 import { FAMILY_COLOR, FAMILY_LABEL } from '../render/palette';
 import { PartCard } from './PartCard';
@@ -258,15 +259,25 @@ function knownPart(id: string): { name: string; text: string } | null {
 export function SalvageScreen() {
   const run = runView.value;
   const [keep, setKeep] = useState<number[]>([]);
+  const [refused, setRefused] = useState(false);
   if (!run || run.pending?.kind !== 'salvage') return null;
   const unit = run?.section ? 'Scrap' : 'Cogs';
   const p = run.pending;
   const needTrinket = p.trinkets.length > 0 && !p.trinketTaken;
-  const toggle = (n: number): void => setKeep(keep.includes(n) ? keep.filter((k) => k !== n) : [...keep, n]);
+  const limit = salvageKeepLimit(run);
+  const ordinary = (k: number): boolean => !p.items[k]?.scrapper;
+  const each = scrapPerScrapped(run, SCRAP_PER_SCRAPPED);
+  const toggle = (n: number): void => {
+    setRefused(false);
+    if (keep.includes(n)) return setKeep(keep.filter((k) => k !== n));
+    // Overwind 7: keeping another ordinary part lets the first one go
+    const rest = limit !== Infinity && ordinary(n) ? keep.filter((k) => !ordinary(k)) : keep;
+    setKeep([...rest, n]);
+  };
   const scrapped = p.items.filter((it, n) => it.locked || !keep.includes(n));
-  const pay = salvagePayout(p.items, keep, p.wrecked ?? 0).scrap;
+  const pay = salvagePayout(p.items, keep, p.wrecked ?? 0, each).scrap;
   const finish = (): void => {
-    if (!salvageDone(keep)) return;
+    if (!salvageDone(keep)) return setRefused(true);
     if (runView.value?.phase === 'reward') leave();
   };
   return (
@@ -282,7 +293,7 @@ export function SalvageScreen() {
         )}
         {p.items.length > 0 ? (
           <>
-            <p class="salvage-note">Keep any of these parts for your bin. What you leave is scrapped for {unit}.</p>
+            <p class="salvage-note">Keep any of these parts for your bin. What you leave is scrapped for {each} {unit} each.{limit !== Infinity ? ' Overwind 7: you may keep only one.' : ''}</p>
             <div class="salvage-list">
               {p.items.map((it, n) => {
                 const key = it.salvage === 'spire-key';
@@ -346,6 +357,11 @@ export function SalvageScreen() {
           <span class="salvage-pay" data-testid="salvage-pay">
             {needTrinket ? 'Take or skip a trinket first.' : pay > 0 ? `Scrapping the rest adds +${pay} ${unit}` : 'Nothing left to scrap'}
           </span>
+          {refused && (
+            <span class="salvage-pay" role="alert" data-testid="salvage-refused">
+              That tray could not be settled. Check what you are keeping.
+            </span>
+          )}
           <button class="primary" data-testid="salvage-done" disabled={needTrinket} onClick={finish}>
             Done
           </button>

@@ -53,6 +53,20 @@ export function ClockTower({ p }: { p: Profile }) {
 
       <h3 class="towerh">Overwind</h3>
       {open === 0 && <p class="towerline">Overwind opens after a Journeyman win. A win on Apprentice does not open it.</p>}
+      {level > 0 && (
+        <div class="towertwists" data-testid="overwind-twists">
+          <p class="towerline">
+            Overwind {level} applies these, and pays {level * OVERWIND_BRASS_PER_LEVEL}% more Brass:
+          </p>
+          <ul>
+            {OVERWIND_TWISTS.filter((t) => t.level <= level).map((t) => (
+              <li key={t.level} data-testid={`overwind-twist-${t.level}`}>
+                <b>{t.name}.</b> {t.text}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div class="towerlevels" role="group" aria-label="Overwind level">
         {Array.from({ length: 11 }, (_, n) => {
           const reason = n === 0 ? null : overwindLock(p, n);
@@ -80,20 +94,6 @@ export function ClockTower({ p }: { p: Profile }) {
           );
         })}
       </div>
-      {level > 0 && (
-        <div class="towertwists" data-testid="overwind-twists">
-          <p class="towerline">
-            Overwind {level} applies these, and pays {level * OVERWIND_BRASS_PER_LEVEL}% more Brass:
-          </p>
-          <ul>
-            {OVERWIND_TWISTS.filter((t) => t.level <= level).map((t) => (
-              <li key={t.level} data-testid={`overwind-twist-${t.level}`}>
-                <b>{t.name}.</b> {t.text}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </section>
   );
 }

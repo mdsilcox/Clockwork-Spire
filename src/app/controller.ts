@@ -217,6 +217,8 @@ function onEvent(e: GameEvent, sp: Speed): void {
   if (e.kind === 'sabotage' && e.note === 'jam') {
     const who = e.target !== undefined && live?.enemies[e.target] ? enemyDef(live.enemies[e.target].defId).name : 'The enemy';
     showBanner(`${who} jammed your Mainspring: ${live?.ticksThisTurn ?? 2} ticks next turn.`, 'rewind');
+  } else if (e.kind === 'corrode' && e.note === 'thirteenth') {
+    showBanner('The thirteenth hour strips your Plating.', 'rewind');
   } else if (e.kind === 'phase') {
     showBanner(e.note ?? 'He changes.', 'phase');
     const defId = e.target !== undefined ? live?.enemies[e.target]?.defId : undefined;
@@ -1155,8 +1157,10 @@ export function tutorialStep(): number {
 export function place(handIndex: number, target: number | string): boolean {
   if (!live || isBusy()) return false;
   const idx = typeof target === 'string' ? cellIndex(target) : target;
+  const cold = (live.overwind ?? 0) >= 4 && !live.flags?.coldJoints;
   const ok = placePart(live, handIndex, idx);
   if (ok) {
+    if (cold && live.flags?.coldJoints) showBanner('Cold Joints: your first part is Rusted until your next turn.', 'rewind');
     publish();
     persist();
     advanceTutorial(false);

@@ -801,7 +801,7 @@ function frameTurn(c: CombatState, i: number, events: GameEvent[], onAttack: Att
   e.mem.drained = 0;
   if (f.extraPhase && c.overwind !== undefined && c.overwind >= 10 && e.phase === (f.phases?.length ?? 0) && c.plating > 0) {
     // B10b, the Thirteenth Hour: Plating is lost at the start of each of his turns, before his Rewind and his attacks
-    events.push({ kind: 'corrode', tick: 0, step: 0, target: i, part: 'core', amount: c.plating });
+    events.push({ kind: 'corrode', tick: 0, step: 0, target: i, part: 'core', amount: c.plating, note: 'thirteenth' });
     c.plating = 0;
   }
   if (e.phaseActionPending) {
