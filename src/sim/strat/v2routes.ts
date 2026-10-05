@@ -6,9 +6,14 @@
 // The combat bot is the v2 expert with a narrower beam (a climb is about 60 turns; the full beam is for the fight report).
 import { defaultRunConfig } from '../../core/run';
 import { mainPlan } from '../../core/record';
+import { ACHIEVEMENTS } from '../../core/content/achievements';
+import { earnAchievement } from '../../core/achievements';
+import { newProfile, runConfigFor } from '../../core/meta';
+import type { Profile } from '../../core/types';
 import { playClimb } from './climb';
+import { DRAFT } from './runbot';
 import type { RoutePolicy } from './climb';
-import { makeExpert2 } from './v2combat';
+import { makeExpert2, turtle2 } from './v2combat';
 
 export type RoutePolicyV2 = RoutePolicy;
 
@@ -35,13 +40,47 @@ export interface RouteRun {
   won: boolean;
   act: number;
   illegal: string[];
+  /** Part offers (trader, fuse, salvage, reward) with whether each was taken, and the trinkets held at the end. */
+  offers: { partId: string; taken: boolean }[];
+  trinkets: string[];
+  /** The parts in the bin at the end. */
+  bin: string[];
 }
 
+export interface RouteRunOpts {
+  /** A profile with every available achievement earned: every reachable Masterwork and both Sprocket items are in the pool. */
+  rarity?: boolean;
+}
+
+/** A fresh profile with every available achievement earned (the B9b.5 input). */
+export function allEarnedProfile(): Profile {
+  const at = '1970-01-01T00:00:00Z';
+  const profile = newProfile('sim', at);
+  for (const a of ACHIEVEMENTS) earnAchievement(profile, a.id, at);
+  return profile;
+}
+
+const PLATER_COMBAT = turtle2;
+
 /** One Journeyman climb (no meta progression); the run seed and the bot seed come from (seed, index) only. */
-export function routeRun(policy: RoutePolicyV2, seed: number, index: number): RouteRun {
-  const cfg = { ...defaultRunConfig(seed * 100003 + index), legacyMap: false };
-  const r = playClimb(cfg, seed * 31 + index, policy, ROUTE_COMBAT);
-  return { plan: mainPlan(r.run.stats.plan), won: r.won, act: r.act, illegal: r.illegal };
+export function routeRun(policy: RoutePolicyV2, seed: number, index: number, opts: RouteRunOpts = {}): RouteRun {
+  const sd = seed * 100003 + index;
+  const cfg = opts.rarity ? runConfigFor(allEarnedProfile(), sd, 'tinker') : { ...defaultRunConfig(sd), legacyMap: false };
+  DRAFT.plating = policy === 'plater' ? 2 : 0;
+  try {
+    const r = playClimb(cfg, seed * 31 + index, policy, policy === 'plater' ? PLATER_COMBAT : ROUTE_COMBAT);
+    return {
+      plan: mainPlan(r.run.stats.plan),
+      won: r.won,
+      act: r.act,
+      illegal: r.illegal,
+      offers: r.run.stats.offers.map((o) => ({ partId: o.partId, taken: o.taken })),
+      trinkets: r.run.trinkets.slice(),
+      bin: r.run.bin.map((p) => p.defId),
+    };
+  } finally {
+    DRAFT.plating = 0;
+  }
 }
 
 export function summarize(policy: RoutePolicyV2, rows: RouteRun[]): RouteStatsV2 {

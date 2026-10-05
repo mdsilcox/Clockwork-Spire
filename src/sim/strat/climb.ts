@@ -2,7 +2,7 @@
 // bell) through the real run API. The decisions come from decide.ts (shared with the in-game autoplay); this file only
 // carries them out on the core. Combat is the v2 expert for every route policy.
 // Deterministic: no clock, no Math.random.
-import { abandonRun, leaveNode, newRun, takeRewardPart, takeRewardTrinket, chooseEvent, eventPickPart } from '../../core/run';
+import { abandonRun, leaveNode, newRun, takeLegendary, takeRewardPart, takeRewardTrinket, chooseEvent, eventPickPart } from '../../core/run';
 import { barter, fuse, polish, rest, workbenchRemove, workbenchUpgrade } from '../../core/rooms';
 import { moveTo, pickLock, ringBell, useKey } from '../../core/section';
 import { takeSalvage } from '../../core/salvage';
@@ -39,6 +39,8 @@ export function execute(run: RunState, a: Action, m: BotMemory): boolean {
       return check(m, 'takeRewardTrinket', takeRewardTrinket(run, a.index));
     case 'rewardPart':
       return check(m, 'takeRewardPart', takeRewardPart(run, a.index));
+    case 'legendary':
+      return check(m, 'takeLegendary', takeLegendary(run, a.id));
     case 'choose':
       return check(m, 'chooseEvent', chooseEvent(run, a.index) !== null);
     case 'pickPart':

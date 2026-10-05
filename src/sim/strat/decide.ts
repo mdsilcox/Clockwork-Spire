@@ -11,7 +11,8 @@ import { eventChoice } from '../runbot';
 import type { BotMemory } from '../runbot';
 import { eventPartUid, keep, salvageKeep, strongest, takeBar, trinketValue, value, weakest } from './runbot';
 
-export type RoutePolicy = 'expert' | 'rusher' | 'grinder';
+/** 'plater' routes like the expert and drafts Plating parts (it plays turtle combat: see v2routes.ts). */
+export type RoutePolicy = 'expert' | 'rusher' | 'grinder' | 'plater';
 
 export type Action =
   | { t: 'move'; to: string }
@@ -22,6 +23,7 @@ export type Action =
   | { t: 'salvage'; keep: number[] }
   | { t: 'trinket'; index: number }
   | { t: 'rewardPart'; index: number | null }
+  | { t: 'legendary'; id: string }
   | { t: 'choose'; index: number }
   | { t: 'pickPart'; uid: number }
   | { t: 'upgrade'; uid: number }
@@ -289,6 +291,18 @@ function decideReward(run: RunState): Action {
     if (p.trinkets.length > 0 && !p.trinketTaken) return { t: 'trinket', index: bestTrinket(run, p.trinkets) };
     return { t: 'leave' };
   }
+  if (p && p.kind === 'legendary') {
+    let id = p.options[0];
+    let bestV = -Infinity;
+    for (const o of p.options) {
+      const v = PARTS[o] ? value(run, o) : trinketValue(run, o);
+      if (v > bestV) {
+        bestV = v;
+        id = o;
+      }
+    }
+    return { t: 'legendary', id };
+  }
   if (p && p.kind === 'reward') {
     if (p.parts.length > 0 && !p.partTaken) {
       let idx: number | null = null;
@@ -334,7 +348,7 @@ function decideEvent(run: RunState, m: BotMemory): Action {
 
 /** The next action for a climb run that is not in combat. `restBelow` is the HP fraction under which an oil station rests. */
 export function decide(run: RunState, route: RoutePolicy, m: BotMemory): Action {
-  const restBelow = route === 'expert' ? 0.85 : route === 'grinder' ? 0.5 : 0;
+  const restBelow = route === 'expert' || route === 'plater' ? 0.85 : route === 'grinder' ? 0.5 : 0;
   switch (run.phase) {
     case 'section':
       return route === 'rusher' ? routeRusher(run) : route === 'grinder' ? routeGrinder(run) : routeExpert(run);

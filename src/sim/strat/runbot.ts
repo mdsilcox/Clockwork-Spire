@@ -38,19 +38,23 @@ const BASE: Record<string, number> = {
   // chime
   // v2 parts (content.md): machine breakers
   auger: 2.6, 'core-drill': 3, 'pry-bar': 3, wedge: 2, sapper: 3, 'cold-chisel': 3, 'mending-spool': 2.2, 'soothing-valve': 1.8, sunder: 3.2,
+  // B9b Masterwork and Legendary parts (hand-valued from content.md; the same numbers for every bot)
+  skewframe: 3.5, 'mirror-gear': 3, 'twin-mainspring': 3.5, 'free-pawl': 3, 'night-watchman': 3.2, 'resonance-rod': 3, 'hour-hand': 3, 'ballast-lance': 3.2,
+  'cascade-piston': 3.4, 'conductors-baton': 2.5, 'perpetual-engine': 4.5, 'bottled-dusk': 4, 'sun-orb-core': 3.5, 'apprentices-hands': 3.5, 'sprockets-blanket': 3.5,
   chime: 1.2, 'bell-hammer': 2, 'oil-can': 1.2, 'tuning-fork': 1.5, 'alarm-clock': 2, gong: 1.5, lamp: 1.5,
 };
 
 const PKG: Record<string, Pkg> = {
   boiler: 'steam', piston: 'steam', whistle: 'steam', 'safety-valve': 'steam', firebox: 'steam', kettle: 'steam', condenser: 'steam', 'steam-hammer': 'steam', governor: 'steam',
   coil: 'spring', leaf: 'spring', torsion: 'spring', trap: 'spring', recoil: 'spring', volute: 'spring', hairspring: 'spring', 'trip-hammer': 'spring', 'cam-follower': 'spring',
-  cam: 'cam', 'triple-cam': 'cam', lever: 'cam', tappet: 'cam', toggle: 'cam', 'pry-bar': 'cam', wedge: 'cam', sapper: 'cam',
+  cam: 'cam', 'triple-cam': 'cam', lever: 'cam', tappet: 'cam', toggle: 'cam', 'pry-bar': 'cam', wedge: 'cam', sapper: 'cam', 'night-watchman': 'cam', 'resonance-rod': 'cam', 'free-pawl': 'spring', 'sprockets-blanket': 'spring', 'cascade-piston': 'steam', 'sun-orb-core': 'steam',
 };
 
 const TRINKET_BASE: Record<string, number> = {
   oilcloth: 3, 'copper-wire': 2, 'lucky-bolt': 1, whetstone: 2.5, 'tin-cup': 2, bellows: 1.5, 'pressure-gauge': 1, 'brass-knuckles': 2.5,
   'grease-pot': 1, 'magnet-ward': 0.5, 'feather-duster': 1.5, 'blueprint-scrap': 1, 'pocket-watch': 1.5, spectacles: 3, 'extra-pocket': 2,
   'cracked-lens': 1, 'soot-mask': 1, counterweight: 2, 'steam-locket': 1, hourglass: 2.5, 'gilded-cog': 2, 'sprocket-tag': 1.5,
+  'overrun-coupler': 3, 'foresight-dial': 2.5, 'two-left-hands': 3, 'tow-hook': 2.5, 'inventors-watch': 4, 'sprockets-whistle': 4,
   'clockwork-heart': 3, 'spare-spring': 3.5, 'mainspring-key': 2.5, 'ember-coal': 1, 'echo-chamber': 3.5, 'brass-heart': 3,
 };
 
@@ -71,13 +75,17 @@ function leadingPkg(bin: PartInstance[]): Pkg {
   return best;
 }
 
+/** Drafting bias of the plating plan (the 'plater' route): added to the value of every Plating part. Set around a run by the caller. */
+export const DRAFT = { plating: 0 };
+const PLATE_PARTS = new Set(['escapement', 'leaf', 'anchor', 'toggle', 'cam-follower', 'balance-wheel', 'safety-valve', 'condenser', 'volute', 'recoil', 'sprockets-blanket', 'ballast-lance', 'resonance-rod']);
+
 const committed = (run: RunState): boolean => run.act > 1 || run.floor >= 4;
 
 /** How much a part is worth taking into this bin. */
 export function value(run: RunState, defId: string): number {
   const d = PARTS[defId];
   if (!d) return 0;
-  let v = BASE[defId] ?? 1;
+  let v = (BASE[defId] ?? 1) + (PLATE_PARTS.has(defId) ? DRAFT.plating : 0);
   const pkg = pkgOf(defId);
   const lead = leadingPkg(run.bin);
   const same = run.bin.filter((p) => pkgOf(p.defId) === pkg && p.defId !== defId).length;

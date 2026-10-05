@@ -8,7 +8,7 @@ import { newMemory } from '../sim/runbot';
 import { decide } from '../sim/strat/decide';
 import type { Action } from '../sim/strat/decide';
 import { makeExpert2 } from '../sim/strat/v2combat';
-import { benchFuse, benchFusePick, benchRemove, benchUpgrade, currentOrder, leaveRoom, moveRoom, oilPolish, oilRest, pickLock, ringBell, toggleTarget, traderBuy, useKey } from './controller';
+import { benchFuse, benchFusePick, benchRemove, benchUpgrade, currentOrder, leaveRoom, moveRoom, oilPolish, oilRest, pickLock, ringBell, takeLegendary, toggleTarget, traderBuy, useKey } from './controller';
 import type { BotMemory } from '../sim/runbot';
 
 /** The controller actions autoplay may use (the same ones the screens call). */
@@ -116,6 +116,8 @@ function perform(ctl: AutoCtl, a: Action): boolean {
       return ctl.rewardTrinket(a.index);
     case 'rewardPart':
       return ctl.reward(a.index);
+    case 'legendary':
+      return takeLegendary(a.id);
     case 'choose':
       return ctl.choose(a.index) !== null;
     case 'pickPart':
