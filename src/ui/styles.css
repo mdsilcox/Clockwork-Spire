@@ -3432,3 +3432,27 @@ button:disabled {
     opacity: 1;
   }
 }
+
+/* the warden phase line stays narrow and clear of the Chain pill, with a 40 px tap area; the rewind line rides low on the board */
+.phasebanner.phase {
+  max-width: 40%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  top: 4px;
+  padding: 2px 10px;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+@media (max-height: 460px) {
+  .phasebanner.rewind {
+    left: 6px;
+    top: auto;
+    bottom: 6px;
+    transform: none;
+    max-width: 52%;
+    animation: none;
+  }
+}

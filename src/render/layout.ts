@@ -142,7 +142,9 @@ export function machineGeometry(slot: Rect, parts: number): MachineGeometry {
     const body = { x: slot.x + (slot.w - size) / 2, y: top + (bottom - top - size) / 2, w: size, h: size };
     return { mode: 'ring', body, area: { x: slot.x + 2, y: top, w: slot.w - 4, h: Math.max(16, bottom - top) }, bar: { x: slot.x + (slot.w - w) / 2, y: slot.y + slot.h - textBlock(slot) - 5, w, h: 5 }, size: 44 };
   }
-  const barY = slot.y + slot.h - PHONE_TEXT_H - 7;
+  // a narrow slot with room to spare (two enemies side by side) reserves two lines for a long name (the Boilermaker Queen's)
+  const textH = slot.w < 200 && slot.h >= COMPACT_SLOT_H ? PHONE_TEXT_H + 13 : PHONE_TEXT_H;
+  const barY = slot.y + slot.h - textH - 7;
   const top = slot.y + 1;
   const room = Math.max(16, barY - 2 - top);
   const w = Math.min(slot.w * 0.8, 120);

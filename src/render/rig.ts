@@ -24,6 +24,8 @@ export interface RigHandle {
   /** Set the phase look at once (a fight that starts in phase 2); a phase change is played with the `phase` mood instead. */
   setPhase(phase: number): void;
   setRect(rect: RigRect): void;
+  /** Clip the rig's code effects (under and over) to a rectangle in stage CSS pixels, or null for none. */
+  setClip(rect: RigRect | null): void;
   /** An anchor's current position in stage CSS pixels: [x, y, radius], or null before the first frame. */
   anchor(id: string): [number, number, number] | null;
   /** True once the painting is on the GPU and the context is live: only then does the hub draw this rig. */
@@ -227,6 +229,12 @@ class Handle implements RigHandle {
 
   setRect(rect: RigRect): void {
     this.rect = rect;
+  }
+
+  clip: RigRect | null = null;
+
+  setClip(rect: RigRect | null): void {
+    this.clip = rect;
   }
 
   anchor(id: string): [number, number, number] | null {
@@ -608,6 +616,11 @@ class Hub implements RigHub {
       const sy = q.h / (h.def.size[1] + 2 * PY);
       const sh = P.shake as number[] | null | undefined;
       c.save();
+      if (h.clip) {
+        c.beginPath();
+        c.rect(h.clip.x, h.clip.y, h.clip.w, h.clip.h);
+        c.clip();
+      }
       c.translate(q.x + (sh ? sh[0] : 0), q.y + (sh ? sh[1] : 0));
       c.scale(s, sy);
       c.translate(PX, PY);
