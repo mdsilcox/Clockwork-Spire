@@ -186,7 +186,7 @@ describe('AR2: each act 1 character loads as a rig with its moods and an anchor 
 const WARDEN_IDS = ['foreman', 'boilermaker', 'clockmaker'];
 const MEMORY_IDS = ['mem-drill', 'mem-governor', 'mem-valve', 'mem-chime'];
 
-describe.skip('AR2 (B9a): the wardens load as rigs with a phase mood and an anchor for every part of every phase', () => {
+describe('AR2 (B9a): the wardens load as rigs with a phase mood and an anchor for every part of every phase', () => {
   for (const id of WARDEN_IDS) {
     describe(id, () => {
       it('is in the manifest and has the moods idle, attack, hurt, death and phase, each different from idle, and pose() runs', async () => {
