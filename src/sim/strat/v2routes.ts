@@ -9,7 +9,7 @@ import { mainPlan } from '../../core/record';
 import { ACHIEVEMENTS } from '../../core/content/achievements';
 import { earnAchievement } from '../../core/achievements';
 import { newProfile, runConfigFor } from '../../core/meta';
-import type { Profile } from '../../core/types';
+import type { Profile, RunConfig } from '../../core/types';
 import { playClimb } from './climb';
 import { DRAFT } from './runbot';
 import type { RoutePolicy } from './climb';
@@ -43,7 +43,9 @@ export interface RouteRun {
   act: number;
   illegal: string[];
   /** Part offers (trader, fuse, salvage, reward) with whether each was taken, and the trinkets held at the end. */
-  offers: { partId: string; taken: boolean }[];
+  offers: { partId: string; taken: boolean; act: number }[];
+  /** Bosses beaten (an act-1 or act-2 offer is judged by that act's boss, an act-3 offer by the win). */
+  bossesBeaten: number;
   trinkets: string[];
   /** The parts in the bin at the end. */
   bin: string[];
@@ -54,6 +56,12 @@ export interface RouteRunOpts {
   rarity?: boolean;
   /** B10b: the difficulty mode (RunConfig.mode); missing: journeyman. */
   mode?: string;
+  /** B10c.0: a Plating drafting bias for any policy (the Plating viability check plays the expert's combat with this set). */
+  platingBias?: number;
+  /** B10c.0 lever probes: bench upgrade levels (id to level) and chassis, run through `runConfigFor` on a fresh profile; and a final patch on the RunConfig. */
+  upgrades?: Record<string, number>;
+  chassis?: string;
+  patch?: Partial<RunConfig>;
 }
 
 /** A fresh profile with every available achievement earned (the B9b.5 input). */
@@ -69,9 +77,15 @@ const PLATER_COMBAT = turtle2;
 /** One Journeyman climb (no meta progression); the run seed and the bot seed come from (seed, index) only. */
 export function routeRun(policy: RoutePolicyV2, seed: number, index: number, opts: RouteRunOpts = {}): RouteRun {
   const sd = seed * 100003 + index;
-  const cfg = opts.rarity ? runConfigFor(allEarnedProfile(), sd, 'tinker') : { ...defaultRunConfig(sd), legacyMap: false };
+  let cfg: RunConfig;
+  if (opts.rarity || opts.upgrades || opts.chassis) {
+    const profile = opts.rarity ? allEarnedProfile() : newProfile('sim', '1970-01-01T00:00:00Z');
+    if (opts.upgrades) Object.assign(profile.upgrades, opts.upgrades);
+    cfg = runConfigFor(profile, sd, opts.chassis ?? 'tinker');
+  } else cfg = { ...defaultRunConfig(sd), legacyMap: false };
+  if (opts.patch) Object.assign(cfg, opts.patch);
   if (opts.mode !== undefined) cfg.mode = opts.mode; // B10b
-  DRAFT.plating = policy === 'plater' ? 2 : 0;
+  DRAFT.plating = opts.platingBias ?? (policy === 'plater' ? 2 : 0);
   try {
     const r = playClimb(cfg, seed * 31 + index, policy, policy === 'plater' ? PLATER_COMBAT : ROUTE_COMBAT);
     return {
@@ -79,7 +93,8 @@ export function routeRun(policy: RoutePolicyV2, seed: number, index: number, opt
       won: r.won,
       act: r.act,
       illegal: r.illegal,
-      offers: r.run.stats.offers.map((o) => ({ partId: o.partId, taken: o.taken })),
+      offers: r.run.stats.offers.map((o) => ({ partId: o.partId, taken: o.taken, act: o.act })),
+      bossesBeaten: r.run.stats.bossesBeaten,
       trinkets: r.run.trinkets.slice(),
       bin: r.run.bin.map((p) => p.defId),
     };

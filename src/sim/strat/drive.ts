@@ -85,7 +85,8 @@ export function playCombat(run: RunState, m: BotMemory, combat: Policy, hooks?: 
       return;
     }
     if (c.outcome !== 'ongoing') break;
-    if (st.capped) break;
+    // B10c.0: a fight that hits the turn cap is played on (three rounds of the cap, then the run is abandoned), exactly as the
+    // in-game autoplay does (src/app/autoplay.ts: three failed calls). The old break gave up a stall that resolves after ~160 turns.
   }
   hooks?.onFight?.({ snap, stats: first as FightStats });
   abandonRun(run);

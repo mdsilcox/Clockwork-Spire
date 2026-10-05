@@ -7,12 +7,16 @@ import { barterPrice, fuseCandidates, PART_VALUE, removeCost, UPGRADE_SCRAP } fr
 import { elitesNext, hoursLeft } from '../../core/section';
 import { scrapOf } from '../../core/rewards';
 import type { Passage, Room, RunState } from '../../core/types';
+import type { Rarity } from '../../core/types';
+import { TRINKETS } from '../../core/content/trinkets';
 import { eventChoice } from '../runbot';
 import type { BotMemory } from '../runbot';
 import { eventPartUid, keep, salvageKeep, strongest, takeBar, trinketValue, value, weakest } from './runbot';
 
-/** 'plater' routes like the expert and drafts Plating parts (it plays turtle combat: see v2routes.ts). */
-export type RoutePolicy = 'expert' | 'rusher' | 'grinder' | 'plater';
+/** 'plater' routes like the expert and drafts Plating parts (it plays turtle combat: see v2routes.ts). 'greedy' (B10c.0) routes
+ * like the expert and the same combat, but drafts by rarity alone (always the highest-rarity offer, never refused) and never rests
+ * at oil: the casual-player proxy of BV1 and BV10. */
+export type RoutePolicy = 'expert' | 'rusher' | 'grinder' | 'plater' | 'greedy';
 
 export type Action =
   | { t: 'move'; to: string }
@@ -194,6 +198,25 @@ function routeExpert(run: RunState): Action {
   return walkToward(run, s.door, false, hpFrac < 0.65) ?? ABANDON;
 }
 
+
+// ---------- the greedy drafter: rarity only ----------
+
+const RARITY_RANK: Record<string, number> = { common: 0, uncommon: 1, rare: 2, boss: 2, masterwork: 3, legendary: 4 };
+const rarityOfId = (id: string): number => {
+  const p = PARTS[id];
+  if (p) return RARITY_RANK[p.rarity as Rarity] ?? 0;
+  const t = TRINKETS[id];
+  return t ? (RARITY_RANK[t.rarity] ?? 0) : 0;
+};
+/** Index of the first highest-rarity id. */
+const topRarity = (ids: string[]): number => {
+  let best = 0;
+  ids.forEach((id, i) => {
+    if (rarityOfId(id) > rarityOfId(ids[best])) best = i;
+  });
+  return best;
+};
+
 // ---------- the room screens ----------
 
 function decideWorkbench(run: RunState, m: BotMemory): Action {
@@ -233,9 +256,20 @@ function decideWorkbench(run: RunState, m: BotMemory): Action {
   return { t: 'leave' };
 }
 
-function decideTrader(run: RunState): Action {
+function decideTrader(run: RunState, route: RoutePolicy): Action {
   const p = run.pending;
   if (!p || p.kind !== 'trader') return { t: 'leave' };
+  if (route === 'greedy') {
+    // the highest-rarity part or trinket the Scrap can pay for, paid in Scrap only
+    let pick = -1;
+    p.stock.forEach((it, i) => {
+      if (it.sold || (it.kind !== 'part' && it.kind !== 'trinket') || !it.id) return;
+      if (it.kind === 'trinket' && run.trinkets.includes(it.id)) return;
+      if (barterPrice(run, it, null) > scrapOf(run)) return;
+      if (pick < 0 || rarityOfId(it.id) > rarityOfId(p.stock[pick].id as string)) pick = i;
+    });
+    return pick < 0 ? { t: 'leave' } : { t: 'barter', index: pick, offer: null };
+  }
   const w = weakest(run);
   let best = -1;
   let bestOffer: number | null = null;
@@ -284,14 +318,16 @@ function decideOil(run: RunState, restBelow: number): Action {
   return { t: 'leave' };
 }
 
-function decideReward(run: RunState): Action {
+function decideReward(run: RunState, route: RoutePolicy): Action {
   const p = run.pending;
+  const greedy = route === 'greedy';
   if (p && p.kind === 'salvage') {
-    if (!p.done) return { t: 'salvage', keep: salvageKeep(run) };
-    if (p.trinkets.length > 0 && !p.trinketTaken) return { t: 'trinket', index: bestTrinket(run, p.trinkets) };
+    if (!p.done) return { t: 'salvage', keep: greedy ? greedySalvage(run) : salvageKeep(run) };
+    if (p.trinkets.length > 0 && !p.trinketTaken) return { t: 'trinket', index: greedy ? topRarity(p.trinkets) : bestTrinket(run, p.trinkets) };
     return { t: 'leave' };
   }
   if (p && p.kind === 'legendary') {
+    if (greedy) return { t: 'legendary', id: p.options[topRarity(p.options)] };
     let id = p.options[0];
     let bestV = -Infinity;
     for (const o of p.options) {
@@ -304,6 +340,7 @@ function decideReward(run: RunState): Action {
     return { t: 'legendary', id };
   }
   if (p && p.kind === 'reward') {
+    if (greedy && p.parts.length > 0 && !p.partTaken) return { t: 'rewardPart', index: topRarity(p.parts) };
     if (p.parts.length > 0 && !p.partTaken) {
       let idx: number | null = null;
       let bestV = -Infinity;
@@ -320,6 +357,15 @@ function decideReward(run: RunState): Action {
     if (p.trinkets.length > 0 && !p.trinketTaken) return { t: 'trinket', index: bestTrinket(run, p.trinkets) };
   }
   return { t: 'leave' };
+}
+
+/** Salvage for the greedy drafter: every unlocked item of the tray's highest rarity (and the Spire key). */
+function greedySalvage(run: RunState): number[] {
+  const p = run.pending;
+  if (!p || p.kind !== 'salvage') return [];
+  const open = p.items.map((it, i) => ({ it, i })).filter((x) => !x.it.locked);
+  const top = Math.max(-1, ...open.filter((x) => x.it.salvage !== 'spire-key').map((x) => rarityOfId(x.it.salvage)));
+  return open.filter((x) => x.it.salvage === 'spire-key' || rarityOfId(x.it.salvage) === top).map((x) => x.i);
 }
 
 function bestTrinket(run: RunState, ids: string[]): number {
@@ -348,18 +394,18 @@ function decideEvent(run: RunState, m: BotMemory): Action {
 
 /** The next action for a climb run that is not in combat. `restBelow` is the HP fraction under which an oil station rests. */
 export function decide(run: RunState, route: RoutePolicy, m: BotMemory): Action {
-  const restBelow = route === 'expert' || route === 'plater' ? 0.85 : route === 'grinder' ? 0.5 : 0;
+  const restBelow = route === 'expert' || route === 'plater' ? 0.85 : route === 'grinder' ? 0.5 : 0; // greedy and rusher never rest
   switch (run.phase) {
     case 'section':
-      return route === 'rusher' ? routeRusher(run) : route === 'grinder' ? routeGrinder(run) : routeExpert(run);
+      return route === 'rusher' ? routeRusher(run) : route === 'grinder' ? routeGrinder(run) : routeExpert(run); // greedy routes like the expert
     case 'reward':
-      return decideReward(run);
+      return decideReward(run, route);
     case 'event':
       return decideEvent(run, m);
     case 'workbench':
       return decideWorkbench(run, m);
     case 'trader':
-      return decideTrader(run);
+      return decideTrader(run, route);
     case 'oil':
       return decideOil(run, restBelow);
     default:

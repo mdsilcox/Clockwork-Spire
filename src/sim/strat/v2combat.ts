@@ -12,6 +12,7 @@ import { chooseTurn } from '../bot';
 import type { BotTurn } from '../bot';
 import { chargeOnBoard, stratStats, allSwapPairs, replacePenalty } from './common';
 import { runMachine } from '../../core/machine';
+import { beforeEnemyTurn } from '../../core/itemhooks';
 
 export type V2Policy = (c: CombatState) => BotTurn;
 
@@ -121,6 +122,7 @@ function ran2(c: CombatState, hpW: number): Ran2 {
   stratStats.previews += 1;
   const sim = cloneCombat(c);
   const pre = runMachine(sim, []);
+  beforeEnemyTurn(sim, []); // B10c.0: a powered Night Watchman fires before the enemies act (runTurn does the same), so the score counts its Strike
   let dealt = 0;
   let kills = 0;
   let killedIncoming = 0;

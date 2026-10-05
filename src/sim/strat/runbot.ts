@@ -77,7 +77,7 @@ function leadingPkg(bin: PartInstance[]): Pkg {
 
 /** Drafting bias of the plating plan (the 'plater' route): added to the value of every Plating part. Set around a run by the caller. */
 export const DRAFT = { plating: 0 };
-const PLATE_PARTS = new Set(['escapement', 'leaf', 'anchor', 'toggle', 'cam-follower', 'balance-wheel', 'safety-valve', 'condenser', 'volute', 'recoil', 'sprockets-blanket', 'ballast-lance', 'resonance-rod']);
+export const PLATE_PARTS = new Set(['escapement', 'leaf', 'anchor', 'toggle', 'cam-follower', 'balance-wheel', 'safety-valve', 'condenser', 'volute', 'recoil', 'sprockets-blanket', 'ballast-lance', 'resonance-rod']);
 
 const committed = (run: RunState): boolean => run.act > 1 || run.floor >= 4;
 
@@ -97,6 +97,15 @@ export function value(run: RunState, defId: string): number {
   if (defId === 'piston' || defId === 'steam-hammer' || defId === 'governor' || defId === 'safety-valve' || defId === 'condenser' || defId === 'whistle') {
     const boil = run.bin.filter((p) => p.defId === 'boiler' || p.defId === 'firebox' || p.defId === 'kettle').length;
     v += 0.5 * Math.min(3, boil) - (boil === 0 ? 0.8 : 0);
+  }
+  // B10c.0: Masterworks that pay only with the right bin around them
+  if (defId === 'free-pawl') {
+    const springs = run.bin.filter((p) => PARTS[p.defId]?.family === 'spring').length;
+    v += springs >= 4 ? 1 : springs >= 2 ? 0.2 : -1; // it frees the Springs next to it; with none it does nothing
+  }
+  if (defId === 'cascade-piston') {
+    const boil = run.bin.filter((p) => p.defId === 'boiler' || p.defId === 'firebox' || p.defId === 'kettle').length;
+    v += boil >= 2 ? 1 : boil === 1 ? 0 : -1.2; // Strike 12 needs 3 Pressure; without it, Strike 3
   }
   const dup = run.bin.filter((p) => p.defId === defId).length;
   if (dup >= 4) v -= 2;

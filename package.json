@@ -13,6 +13,7 @@
     "test:e2e": "playwright test",
     "test:offline": "playwright test -c playwright.offline.config.ts",
     "test:career": "playwright test -c playwright.career.config.ts",
+    "test:curve": "node -e \"process.env.CURVE='1';process.exit(require('child_process').spawnSync('npx vitest run tests/sim/v2-curve.test.ts',{stdio:'inherit',shell:true,env:process.env}).status)\"",
     "sim": "tsx src/sim/cli.ts"
   },
   "dependencies": {

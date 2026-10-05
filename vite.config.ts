@@ -38,7 +38,7 @@ export default defineConfig({
   server: { port: 5173 },
   test: {
     include: ['tests/**/*.test.ts'],
-    exclude: ['tests/pending/**', 'node_modules/**'],
+    exclude: ['tests/pending/**', 'node_modules/**', ...(process.env.CURVE ? [] : ['tests/sim/v2-curve.test.ts'])], // v2-curve is heavy: only `npm run test:curve` (sets CURVE) runs it
     environment: 'node',
   },
 });
