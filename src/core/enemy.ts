@@ -941,3 +941,15 @@ function performAction(
   }
   return true;
 }
+
+/**
+ * B9b.0 STUB (turn-tools lane, B9b.2): what enemy `enemyIndex`'s standing parts will do on its `turnsAhead`-th next turn
+ * (1 = its next turn, the current intents; 2 = the one after, for the Foresight Dial). Computed from the part cadences
+ * (a Jam shows, a broken part is gone, random targets are not named); pure; recomputed on every call, never cached.
+ */
+export function previewIntents(c: CombatState, enemyIndex: number, turnsAhead: number): PartIntent[] {
+  void c;
+  void enemyIndex;
+  void turnsAhead;
+  throw new Error('B9b: previewIntents not implemented');
+}
