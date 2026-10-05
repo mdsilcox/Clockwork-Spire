@@ -1,0 +1,21 @@
+# B10d The front door: shared brief (draft for the critic)
+
+The owner opened v2 and saw v1: a fresh profile still meets v1's first-launch tutorial (the code-drawn "Tutorial Automaton", no enemy parts, no target order), v1's text title screen and v1's slot screen; v2 begins only after a save is chosen. The painted title was signed off in D4 (`art/title/`, repainted 2x) but was scheduled for B11. This small phase pulls the front door forward (D-048 when logged): the painted title (acceptance AR3), a v2 tutorial, and a first-launch path into Bellfoot. It runs beside B10c (which edits only balance numbers and the simulator), sharing no files with it.
+
+## Semantics (decided; don't re-decide)
+- **The title** (AR3): the D4 title painting (`art/title/source@2x.png` and its rig, `title.html` shows the approved motion) becomes the title screen: the tower and town at dusk, with code ambience (steam from the chimneys, lamp flicker) as in the approved clip; the buttons are Continue (when a save exists), New climb, and Settings, with the existing secondary actions (Practice fight, Sandbox, How to play, Glossary, the tutorial) in a smaller row; the tower is never covered by the buttons at 667x375 or 1280x800 (buttons sit in the lower band or to one side). The painting ships as WebP within the AR1 budget (at most 600 KB, as a scene), listed in the manifest. The title's music stays the existing track.
+- **The v2 tutorial** replaces v1's coach (`src/ui/Coach.tsx`, the `tutorial-automaton` enemy) with a short guided fight against a v2 frame enemy (a training rig with a core and two parts, one of them a keystone-free Plate): it teaches, one step at a time, placing a part beside the Mainspring, Run, then tapping the enemy's parts to set the target order, breaking a part to cancel its intent, and the salvage tray (keep or scrap). It ends by walking into Bellfoot with one line from Sprocket. Skippable at any step; replayable from the title's "Start the tutorial". Text short, warm, curious, a little melancholy; American English, no em dashes. v1's tutorial e2e (`e2e/tutorial.spec.ts`) is rewritten to v2, never deleted silently.
+- **First launch**: a fresh profile goes tutorial, then the slot and name prompt, then Bellfoot (no detour through the title); the title shows on every later launch. Existing saves are untouched.
+- **Out of scope**: the slot screen's look (B11), the act scenes and part sprites (B11), balance (B10c).
+
+## Steps and lanes (two lanes, no shared files; max three at once with B10c)
+| Step | Owner | Owns | Turns green |
+|---|---|---|---|
+| **B10d.0 Contract** | orchestrator | this brief; the training rig's frame data in `content/enemies.ts` (a new `training-rig` entry beside `tutorial-automaton`, which stays until the tutorial lane retires it); the first-launch route named in `controller.ts` (a marked block); real failing tests: `e2e/v2-title.spec.ts` (AR3 at both sizes) and `e2e/v2-tutorial.spec.ts` (the steps above, skip and replay, first launch into Bellfoot), D-048 | the suite runs; new tests red |
+| **B10d.1 title** | Sonnet | `src/ui/Title.tsx`, a new `title.css`, `art/title/**` build into `public/art/title/**`, `src/art/manifest.ts` entry, `scripts/art.mjs` if needed, `e2e/v2-title.spec.ts` | AR3 |
+| **B10d.2 tutorial** | Sonnet | `src/ui/Coach.tsx` (or a new `Tutorial.tsx`), the training rig, retiring `tutorial-automaton`, the first-launch route block, `e2e/v2-tutorial.spec.ts`, `e2e/tutorial.spec.ts` rewritten, `e2e/helpers.ts` `skipFirstLaunch` if the flow changes | the tutorial and first launch |
+| **B10d.3 review** | browser-checker, art-reviewer (the title) | a fresh profile end to end at 667x375 and 1280x800 | |
+| **B10d.4 gate** | orchestrator + a fresh critic | full suite, `review/B10d/gate-round-1.md`, merge to main after B10c's merge or before it, whichever is ready first | |
+
+## Rules for every lane
+As before: worktrees, never stash, checkout, reset or restore outside yours; commit only in yours; ports: title 5411, tutorial 5412; American English, no em dashes; `data-testid`, 40 px taps, 12 px text, no sideways scroll at 667x375; never append to `styles.css`. Report what's green, what isn't, and anything the other lane must know.
