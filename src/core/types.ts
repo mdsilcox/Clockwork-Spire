@@ -272,6 +272,55 @@ export interface TurnResult {
 
 export type NodeType = 'fight' | 'elite' | 'event' | 'forge' | 'oil' | 'shop' | 'boss';
 
+// ---------- v2 the climb (B8 CONTRACT; docs/rules.md 4.1 to 4.7, docs/briefs/B8-the-climb.md) ----------
+// Additive: these sit beside v1's map, nodeId, floor and cogs until the B8 gate removes the old flow.
+
+export type RoomKind = 'fight' | 'workbench' | 'oil' | 'trader' | 'event' | 'vault' | 'entry' | 'door';
+
+export interface Room {
+  id: string; // 'r0'... (entry is r0)
+  floor: number; // 0 = bottom
+  slot: number; // position along the floor, left to right
+  kind: RoomKind;
+  encounter?: string[]; // fight rooms: enemy ids (rolled at generation, `map` stream)
+  eventId?: string; // event rooms
+  guardian?: string; // vault rooms: the elite guarding it
+  visited: boolean;
+  cleared: boolean; // a fight won, an event resolved, a vault taken
+  revealed: boolean; // its kind is shown (visited or next to a visited room)
+  used?: boolean; // an oil station used, a workbench visited this time
+}
+
+export interface Passage {
+  a: string;
+  b: string;
+  kind: 'floor' | 'stairs' | 'duct' | 'lift';
+  locked?: boolean; // a locked door: a Spire Key or picking the lock (rules 4.6)
+  shortcut?: boolean; // a landmark shortcut (B10)
+}
+
+export interface ActSection {
+  act: 1 | 2 | 3;
+  rooms: Room[];
+  passages: Passage[];
+  entry: string;
+  door: string; // the warden's door
+}
+
+export interface RoamingElite {
+  defId: string;
+  patrol: string[]; // a loop of 3 to 5 room ids
+  at: number; // index into patrol
+  defeated: boolean;
+}
+
+export interface TradeItem {
+  kind: 'part' | 'trinket' | 'oil';
+  id?: string;
+  value: number; // in Scrap (rules 4.5)
+  sold: boolean;
+}
+
 export interface MapNode {
   id: string; // `${act}-${floor}-${lane}`
   floor: number; // 1..13 (13 = boss)
@@ -294,6 +343,9 @@ export interface ShopItem {
 }
 
 export type Pending =
+  | { kind: 'trader'; stock: TradeItem[] } // B8
+  | { kind: 'workbench'; usedUpgrade: boolean; usedRemove: boolean; usedFuse: boolean; fuse?: { a: number; b: number; candidates: string[] } } // B8
+  | { kind: 'door'; passage: number } // B8: index into section.passages
   | { kind: 'salvage'; items: SalvageItem[]; wrecked?: number; cogs: number; trinkets: string[]; blueprint?: string; extraBlueprint?: string; trinketTaken: boolean; done: boolean } // B7: replaces 'reward' after fights (Cogs stand in for Scrap until B8)
   | { kind: 'reward'; cogs: number; parts: string[]; trinkets: string[]; blueprint?: string; extraBlueprint?: string; partTaken: boolean; trinketTaken: boolean }
   | { kind: 'event'; eventId: string; result?: string; needsPart?: 'remove' | 'upgrade' | 'duplicate' | 'transform' | 'sell'; choice?: number; partFilter?: Family } // choice, partFilter ADDED in B3
@@ -344,13 +396,23 @@ export interface RunState {
   trinkets: string[];
   map: ActMap;
   nodeId: string | null;
-  phase: 'map' | 'combat' | 'reward' | 'event' | 'shop' | 'forge' | 'oil' | 'victory' | 'defeat';
+  phase: 'map' | 'combat' | 'reward' | 'event' | 'shop' | 'forge' | 'oil' | 'victory' | 'defeat' | 'section' | 'workbench' | 'trader' | 'door'; // B8: the last four are the climb's
   combat: CombatState | null;
   pending: Pending | null;
   recentEncounters: string[]; // last 3 encounter keys, to avoid repeats
   stats: RunStats;
   flags: Record<string, boolean>; // secondWindUsed, firstEliteThisAct..., event once-flags
   killedBy?: string;
+  // B8 the climb (optional while v1's flow still exists; new runs set them all):
+  section?: ActSection;
+  roomId?: string;
+  hour?: number;
+  hours?: number; // hours per act for this run's mode (Journeyman 12)
+  elites?: RoamingElite[];
+  scrap?: number; // replaces cogs
+  keys?: number; // Spire Keys held
+  prepared?: number; // extra placements on the warden's first turn (the bell)
+  overwound?: boolean; // the warden caught you at midnight
 }
 
 export interface RunRecord {

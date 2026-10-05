@@ -206,3 +206,45 @@ export function combatWith(o: CombatWithOpts = {}): CombatState {
   if (o.order) setOrder(c, o.order as TargetRef[]);
   return c;
 }
+
+// ---------- B8: a fixed section for tests and the act screen (B8 CONTRACT) ----------
+import type { ActSection, RoamingElite } from './types';
+
+/** A small hand-made section: 9 rooms on 4 floors, one loop, a locked passage, a patrolling elite.
+ *  r0 entry (floor 0) - r1 fight - r2 oil; r1 up to r3 workbench, r2 up to r4 trader; r3 - r4 (loop);
+ *  r3 up to r5 event, r4 up to r6 fight (locked passage r4-r6); r5 - r6; r5 up to r7 vault; r6 up to r8 door. */
+export function sectionFixture(): { section: ActSection; elites: RoamingElite[] } {
+  const room = (id: string, floor: number, slot: number, kind: ActSection['rooms'][number]['kind'], extra: Partial<ActSection['rooms'][number]> = {}) => ({
+    id, floor, slot, kind, visited: false, cleared: false, revealed: false, ...extra,
+  });
+  const section: ActSection = {
+    act: 1,
+    entry: 'r0',
+    door: 'r8',
+    rooms: [
+      room('r0', 0, 0, 'entry'),
+      room('r1', 0, 1, 'fight', { encounter: ['cog-rat'] }),
+      room('r2', 0, 2, 'oil'),
+      room('r3', 1, 0, 'workbench'),
+      room('r4', 1, 1, 'trader'),
+      room('r5', 2, 0, 'event', { eventId: 'teacup' }),
+      room('r6', 2, 1, 'fight', { encounter: ['brass-beetle'] }),
+      room('r7', 3, 0, 'vault', { guardian: 'gearhound' }),
+      room('r8', 3, 1, 'door'),
+    ],
+    passages: [
+      { a: 'r0', b: 'r1', kind: 'floor' },
+      { a: 'r1', b: 'r2', kind: 'floor' },
+      { a: 'r1', b: 'r3', kind: 'stairs' },
+      { a: 'r2', b: 'r4', kind: 'duct' },
+      { a: 'r3', b: 'r4', kind: 'floor' },
+      { a: 'r3', b: 'r5', kind: 'stairs' },
+      { a: 'r4', b: 'r6', kind: 'lift', locked: true },
+      { a: 'r5', b: 'r6', kind: 'floor' },
+      { a: 'r5', b: 'r7', kind: 'stairs', locked: true },
+      { a: 'r6', b: 'r8', kind: 'stairs' },
+    ],
+  };
+  const elites: RoamingElite[] = [{ defId: 'tinpot-general', patrol: ['r3', 'r4', 'r6', 'r5'], at: 0, defeated: false }];
+  return { section, elites };
+}

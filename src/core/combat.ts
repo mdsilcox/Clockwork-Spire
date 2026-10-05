@@ -30,6 +30,10 @@ export interface CreateCombatOpts {
   pressure?: number;
   /** Chassis id: Tinker refunds the first replace, Stoker starts with 6 Pressure, Horologist's first turn has +1 tick. */
   chassis?: string;
+  /** B8: the warden came at midnight: it starts with Strength 3 and Shell 10 (rules 4.2). */
+  overwound?: boolean;
+  /** B8: rang the bell early: this many extra placements on turn 1 (at most 2). */
+  prepared?: number;
 }
 
 export function createCombat(o: CreateCombatOpts): CombatState {
