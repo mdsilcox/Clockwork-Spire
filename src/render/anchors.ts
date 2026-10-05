@@ -43,13 +43,17 @@ interface P {
   y: number;
 }
 
+/** Parts with no anchor of their own yet (B11 paints them) sit where a sibling does: the Thirteenth Hour's keystones. */
+const ANCHOR_ALIAS: Record<string, string> = { 'clock-thirteenth-chime': 'clock-bell', 'clock-hourless-dial': 'clock-wheel' };
+const ALIAS_OF = (id: string): string => ANCHOR_ALIAS[id] ?? id;
+
 /** Where a painting's anchors fall on the stage (rest pose). */
 function paintedTargets(rig: RigPlacement, ids: string[]): P[] {
   const { def, rect } = rig;
   const WW = def.size[0] + 2 * def.pad[0];
   const WH = def.size[1] + 2 * def.pad[1];
   return ids.map((id) => {
-    const a = def.anchors[id] ?? def.anchors.core;
+    const a = def.anchors[id] ?? def.anchors[ALIAS_OF(id)] ?? def.anchors.core;
     return { x: rect.x + ((a[0] + def.pad[0]) / WW) * rect.w, y: rect.y + ((a[1] + def.pad[1]) / WH) * rect.h };
   });
 }

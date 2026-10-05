@@ -1,0 +1,124 @@
+/* The clock tower door (B10b): modes and Overwind levels. Taps are 40 px; nothing scrolls sideways. */
+.towerpanel .towerh {
+  margin: 6px 0 4px;
+  font-size: 14px;
+  color: var(--brass);
+}
+
+.towermodes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 6px;
+}
+
+.towercell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.towerbtn {
+  min-height: 40px;
+  min-width: 40px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 2px solid var(--brass-dark);
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.towerbtn.on {
+  background: linear-gradient(#e6bd62, #b98a32);
+  color: #2a1c08;
+  border-color: var(--brass);
+}
+
+.towerbtn:disabled {
+  opacity: 0.55;
+}
+
+.towerlock {
+  font-size: 12px;
+  color: var(--ink-soft);
+  line-height: 1.25;
+}
+
+.towerline {
+  margin: 4px 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.towerlevels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 4px 12px;
+}
+
+.towerlevel {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: center;
+}
+
+.towerlevel .towerbtn {
+  grid-row: 1 / span 2;
+  padding: 0;
+}
+
+.towerlevel:not(.shut) .towername,
+.towerlevel.shut .towername {
+  align-self: end;
+}
+
+.towerlevel:not(.shut) .towername {
+  grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.towerlevel .towername {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.towerlevel .towerlock {
+  grid-column: 2;
+}
+
+.towerlevel.shut .towername {
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.towertwists ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.towertwists li {
+  margin-bottom: 3px;
+}
+
+/* the mode on the gate and on the run bar */
+.modetag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 12px;
+  border: 1px solid var(--brass-dark);
+  background: var(--tile);
+  color: var(--brass);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.gatepanel .modetag {
+  font-size: 13px;
+  margin: 0 0 8px;
+}

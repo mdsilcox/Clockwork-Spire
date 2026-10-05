@@ -1,5 +1,6 @@
 // Plain-words text for enemy parts: what an action does and when a part acts (tooltips and labels).
 import { enemyDef } from '../core/content/enemies';
+import { allPartDefs } from '../core/framelib';
 import type { ActionDef, Cadence, CombatState, PartIntent, TurnPreview } from '../core/types';
 import type { EnemyPartDef } from '../core/defs';
 
@@ -7,7 +8,7 @@ import type { EnemyPartDef } from '../core/defs';
 export function enemyPartDef(defId: string, partId: string): EnemyPartDef | undefined {
   const fr = enemyDef(defId).frame;
   if (!fr) return undefined;
-  return [...fr.parts, ...(fr.phases ?? []).flatMap((ph) => ph.parts)].find((p) => p.id === partId);
+  return [...fr.parts, ...allPartDefs(fr)].find((p) => p.id === partId);
 }
 
 const times = (a: ActionDef): string => ((a.hits ?? 1) > 1 ? `, ${a.hits} times` : '');

@@ -647,9 +647,9 @@ describe('finishRun records what Bellfoot remembers, in the one write', () => {
 describe('the five achievements Bellfoot opens, one test each', () => {
   const ids = ['e-resident', 'e-lore', 'm-residents', 'm-lift', 'm-beacon'];
 
-  it('are available now; the six Overwind and Master ones still wait for B10b', () => {
+  it('are available now; since B10b the six Overwind and Master ones are too (all 33)', () => {
     for (const id of ids) expect(ACHIEVEMENTS.find((a) => a.id === id)?.available, id).toBe(true);
-    expect(ACHIEVEMENTS.filter((a) => !a.available).map((a) => a.id).sort()).toEqual(['h-clockwork', 'h-master', 'h-master-bare', 'h-ow10', 'h-ow5', 'h-ow8']);
+    expect(ACHIEVEMENTS.filter((a) => !a.available).map((a) => a.id).sort()).toEqual([]);
   });
 
   it('e-resident: when finishRun adds a resident', () => {

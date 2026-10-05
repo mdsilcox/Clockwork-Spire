@@ -153,6 +153,8 @@ export interface FrameDef {
   startSummons?: string[];
   /** B9a: the Clockmaker's memory: the part he adds at combat start for the player's main plan (not a keystone, never retracted). */
   memoryParts?: Record<Plan, EnemyPartDef>;
+  /** B10b: the Clockmaker's fourth phase, the Thirteenth Hour; it exists only with Overwind 10 (phasesOf in framelib). */
+  extraPhase?: WardenPhaseDef;
 }
 
 export interface EnemyDef {

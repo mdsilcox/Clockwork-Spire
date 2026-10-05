@@ -257,10 +257,9 @@ export function startAct(run: RunState, act: 1 | 2 | 3): void {
   run.section = section;
   run.elites = elites;
   run.hour = 0;
-  // the lit beacon: act 3 has 1 extra hour (the base is kept so starting act 3 twice does not add twice)
-  const base = run.flags.beaconHour && run.hours !== undefined ? run.hours - 1 : (run.hours ?? DEFAULT_HOURS);
+  // the lit beacon: act 3 has 1 extra hour; the hours come from the mode each act (nothing compounds across acts)
   run.flags.beaconHour = !!patch?.beacon && act === 3;
-  run.hours = hoursFor(run, base + (run.flags.beaconHour ? 1 : 0)); // B10b hook (modes-overwind)
+  run.hours = hoursFor(run, run.flags.beaconHour); // B10b hook (modes-overwind)
   run.scrap = run.scrap ?? run.config.cogs;
   run.keys = run.keys ?? 0;
   run.prepared = undefined;

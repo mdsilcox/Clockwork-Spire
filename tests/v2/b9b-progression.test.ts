@@ -160,7 +160,8 @@ describe('AD1: the catalog of 33 achievements', () => {
   ];
   // B10a opened e-resident, e-lore, m-residents, m-lift and m-beacon (tests/v2/b10a-memory.test.ts); six wait for B10b.
   const BELLFOOT = ['e-resident', 'e-lore', 'm-residents', 'm-lift', 'm-beacon'];
-  const UNAVAILABLE = ['h-master', 'h-clockwork', 'h-ow5', 'h-ow8', 'h-ow10', 'h-master-bare'];
+  const UNAVAILABLE: string[] = []; // none since B10b: the six hard ones (Master, Clockwork, Overwind 5, 8, 10, Master bare) are available too
+  const B10B = ['h-master', 'h-clockwork', 'h-ow5', 'h-ow8', 'h-ow10', 'h-master-bare'];
 
   it('has the 33 ids of content.md section 7: 5 easy, 20 medium, 8 hard, 4 hidden', () => {
     expect(ACHIEVEMENTS.map((a) => a.id).sort()).toEqual([...IDS].sort());
@@ -174,9 +175,9 @@ describe('AD1: the catalog of 33 achievements', () => {
   });
 
   it('22 are available at this gate and the 11 that open with Bellfoot are not, as listed', () => {
-    expect(ACHIEVEMENTS.filter((a) => a.available).length).toBe(22 + BELLFOOT.length); // 22 at the B9b gate, 27 with Bellfoot's five
+    expect(ACHIEVEMENTS.filter((a) => a.available).length).toBe(22 + BELLFOOT.length + B10B.length); // 22 at the B9b gate, 27 with Bellfoot's five, 33 with B10b's six
     expect(ACHIEVEMENTS.filter((a) => !a.available).map((a) => a.id).sort()).toEqual([...UNAVAILABLE].sort());
-    expect(Object.keys(FACTS).sort()).toEqual(IDS.filter((i) => !UNAVAILABLE.includes(i) && !BELLFOOT.includes(i)).sort()); // this file covers the 22 of the B9b gate
+    expect(Object.keys(FACTS).sort()).toEqual(IDS.filter((i) => !UNAVAILABLE.includes(i) && !BELLFOOT.includes(i) && !B10B.includes(i)).sort()); // this file covers the 22 of the B9b gate
   });
 
   it('every Masterwork and Legendary part and trinket is unlocked by exactly one achievement, the one its def names', () => {

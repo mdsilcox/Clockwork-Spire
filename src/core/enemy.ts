@@ -6,6 +6,7 @@ import type { ActionDef, CombatState, EnemyPartState, EnemyState, GameEvent, Int
 import type { EnemyPartDef, FrameDef } from './defs';
 import { enemyDef } from './content/enemies';
 import { enemyAmount, scaleEnemy } from './difficulty';
+import { THIRTEENTH_CORE } from './content/overwind';
 import { setOrder } from './frames';
 import {
   actionLabel,
@@ -19,6 +20,7 @@ import {
   listIntentKind,
   partDefOf,
   partState,
+  phasesOf,
   standingActing,
   standingPassive,
 } from './framelib';
@@ -246,8 +248,9 @@ export function damageTarget(
     let cap = -1;
     let took = 0;
     if (isCore) {
-      if (f.phases && e.phase === f.phases.length - 1 && !e.sealed) {
-        cap = Math.ceil(e.maxHp / 3);
+      const phs = phasesOf(f, c.overwind);
+      if (phs.length > 0 && e.phase === phs.length - 1 && !e.sealed) {
+        cap = f.extraPhase && phs.length > (f.phases?.length ?? 0) && e.phase === phs.length - 1 ? THIRTEENTH_CORE.bracedTo : Math.ceil(e.maxHp / 3);
         took = e.coreTookThisTurn;
       }
     } else if (part && partDefOf(e, partId)?.keystone) {
@@ -270,6 +273,12 @@ export function damageTarget(
     e.hp -= lost;
     e.coreTookThisTurn += lost;
     if (opts.strikeEvent !== false) events.push({ kind: 'strike', ...base, target: idx, part: 'core', amount: lost, note });
+    if (e.hp <= 0 && lost > 0 && f.extraPhase && phasesOf(f, c.overwind).length > (f.phases?.length ?? 0) && e.phase === (f.phases?.length ?? 0) - 1) {
+      // B10b, the Thirteenth Hour: Midnight's core does not die. The phase change runs as if its last keystone broke.
+      e.mem.phaseLocked = 1;
+      setIntents(e, []);
+      return { lost, broke: true, died: false, cancelled: false, overkill: amt - lost };
+    }
     if (e.hp <= 0 && lost > 0) {
       c.wrecked += e.parts.filter((p) => !p.broken).length;
       events.push({ kind: 'enemyDied', ...base, target: idx });
@@ -305,10 +314,11 @@ export function breakPartState(c: CombatState, idx: number, part: EnemyPartState
   if (d?.salvage) c.broken.push({ enemy: idx, partId: part.id, salvage: d.salvage, rarity: d.rarity, locked: false });
   events.push({ kind: 'partBroken', ...base, target: idx, part: part.id, ...extra });
   const had = e.intents.some((i) => i.partId === part.id);
-  const ph = f.phases?.[e.phase];
+  const phs = phasesOf(f, c.overwind);
+  const ph = phs[e.phase];
   if (ph) {
     if (ph.keystones.includes(part.id) && ph.keystones.every((k) => partState(e, k)?.broken)) {
-      if (e.phase < (f.phases?.length ?? 0) - 1) {
+      if (e.phase < phs.length - 1) {
         e.mem.phaseLocked = 1; // the rest of this Run is lost; the phase changes after the machine (rules 4.8)
         setIntents(e, []);
         return had;
@@ -396,7 +406,7 @@ export function computeIntents(c: CombatState, idx: number, keep: PartIntent[] =
   const old = (id: string) => keep.find((i) => i.partId === id);
   if (e.mem.phaseLocked) return [];
   if (e.phaseActionPending) {
-    const a = f.phases?.[e.phase]?.action;
+    const a = phasesOf(f, c.overwind)[e.phase]?.action;
     return a ? [makeIntent(c, e, 'core', [a], undefined, undefined, old('core'))] : [];
   }
   if (standingActing(e).length === 0) return [makeIntent(c, e, 'core', [f.coreAction], undefined, undefined, old('core'))];
@@ -701,7 +711,7 @@ type AttackHook = (enemyIdx: number, partId?: string) => void;
 function advancePhase(c: CombatState, idx: number, events: GameEvent[]): void {
   const e = c.enemies[idx];
   const f = frameOf(e) as FrameDef;
-  const phases = f.phases ?? [];
+  const phases = phasesOf(f, c.overwind);
   delete e.mem.phaseLocked;
   e.phase += 1;
   const ph = phases[e.phase];
@@ -712,10 +722,16 @@ function advancePhase(c: CombatState, idx: number, events: GameEvent[]): void {
   });
   for (const d of ph.parts) if (!partState(e, d.id)) e.parts.push(initPart(d));
   e.sealed = !ph.coreExposed;
+  if (f.extraPhase && e.phase === (f.phases?.length ?? 0)) {
+    // the Thirteenth Hour: the core is back at 40 HP behind its two keystones
+    e.hp = THIRTEENTH_CORE.hp;
+    e.maxHp = THIRTEENTH_CORE.hp;
+  }
   e.phaseActionPending = true;
   e.coreTookThisTurn = 0;
   const beat = typeof ph.beat === 'string' ? ph.beat : partState(e, ph.beat.ifBroken)?.broken ? ph.beat.text : ph.beat.otherwise;
   events.push({ kind: 'phase', tick: 0, step: 0, target: idx, amount: e.phase, note: beat });
+  if (f.extraPhase && e.phase === (f.phases?.length ?? 0)) events.push({ kind: 'enemyHeal', tick: 0, step: 0, target: idx, amount: e.hp, note: 'phase' }); // the replay shows the core back at 40
   setIntents(e, computeIntents(c, idx));
 }
 
@@ -723,7 +739,7 @@ function advancePhase(c: CombatState, idx: number, events: GameEvent[]): void {
 export function afterPlayerTurn(c: CombatState, events: GameEvent[]): void {
   for (let i = 0; i < c.enemies.length; i++) {
     const e = c.enemies[i];
-    if (e.hp <= 0 || !frameOf(e)) continue;
+    if ((e.hp <= 0 && !e.mem.phaseLocked) || !frameOf(e)) continue;
     for (const p of e.parts) {
       if (p.broken) continue;
       const pas = partDefOf(e, p.id)?.passive;
@@ -783,9 +799,14 @@ function frameTurn(c: CombatState, i: number, events: GameEvent[], onAttack: Att
   const f = frameOf(e) as FrameDef;
   e.shell = 0;
   e.mem.drained = 0;
+  if (f.extraPhase && c.overwind !== undefined && c.overwind >= 10 && e.phase === (f.phases?.length ?? 0) && c.plating > 0) {
+    // B10b, the Thirteenth Hour: Plating is lost at the start of each of his turns, before his Rewind and his attacks
+    events.push({ kind: 'corrode', tick: 0, step: 0, target: i, part: 'core', amount: c.plating });
+    c.plating = 0;
+  }
   if (e.phaseActionPending) {
     e.phaseActionPending = false;
-    const a = f.phases?.[e.phase]?.action;
+    const a = phasesOf(f, c.overwind)[e.phase]?.action;
     if (a) {
       events.push({ kind: 'phaseAction', tick: 0, step: 0, target: i, note: a.kind });
       if (!performAction(c, i, 'core', a, 0, events, onAttack, e.intents[0])) return false;

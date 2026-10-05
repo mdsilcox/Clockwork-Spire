@@ -65,7 +65,7 @@ export function tagItem(events: GameEvent[], from: number, item: string, kinds: 
 }
 
 export function anyAlive(c: CombatState): boolean {
-  return c.enemies.some((e) => e.hp > 0);
+  return c.enemies.some((e) => e.hp > 0 || !!e.mem.phaseLocked); // a core at 0 with a phase change pending (the Thirteenth Hour) is still alive
 }
 
 /** The enemy the next Strike goes to (the enemy of the current target); -1 if none. */

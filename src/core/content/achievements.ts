@@ -1,5 +1,5 @@
-// The 33 achievements (docs/content.md section 7). 22 are `available` at the B9b gate; 11 open with Bellfoot in B10 (they are
-// shown locked with "Opens with Bellfoot" and never earned). Each Masterwork and Legendary part and trinket is unlocked by exactly
+// The 33 achievements (docs/content.md section 7), all available since B10b (Bellfoot's came in B10a, the six hard ones in B10b).
+// Each Masterwork and Legendary part and trinket is unlocked by exactly
 // one achievement (the item def names it in `unlock`). Rewards with no system yet (journal pages, collars, landmarks, Overwind
 // levels, the Scrapper) are recorded in `profile.rewards` and listed on the trophy shelf; B10 applies them.
 import type { AchievementDef } from '../defs';
@@ -12,8 +12,6 @@ const a = (
   reward: AchievementDef['reward'],
   o: { hidden?: boolean; available?: boolean } = {},
 ): AchievementDef => ({ id, name, tier, text, reward, hidden: o.hidden ?? false, available: o.available ?? true });
-
-const later = { available: false };
 
 export const ACHIEVEMENTS: AchievementDef[] = [
   a('e-first-win', 'The Last Evening', 'easy', 'Win a run on any mode.', { journal: 'Dawn, at last' }),
@@ -43,13 +41,13 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   a('m-wrecker', 'Scrap Merchant', 'medium', 'Win 25 fights by killing a core with 2 or more of its parts still standing (any runs).', { trinkets: ['tow-hook'] }),
   a('m-three-elites', 'Hunter', 'medium', 'Defeat an elite in each act of one run.', { trinkets: ['foresight-dial'] }),
 
-  a('h-master', 'Master of Hours', 'hard', 'Win a run on Master.', { parts: ['apprentices-hands'], overwind: 5 }, later),
-  a('h-clockwork', 'Clockwork', 'hard', 'Win a run on Clockwork.', { parts: ['bottled-dusk'], overwind: 7 }, later),
+  a('h-master', 'Master of Hours', 'hard', 'Win a run on Master.', { parts: ['apprentices-hands'], overwind: 5 }),
+  a('h-clockwork', 'Clockwork', 'hard', 'Win a run on Clockwork.', { parts: ['bottled-dusk'], overwind: 7 }),
   a('h-flawless', 'Not a Scratch', 'hard', 'Defeat any warden without taking damage during that fight.', { parts: ['sprockets-blanket'] }),
-  a('h-ow5', 'Wound Tight', 'hard', 'Win a run at Overwind 5.', { parts: ['perpetual-engine'], overwind: 9 }, later),
-  a('h-ow8', 'Wound Tighter', 'hard', 'Win a run at Overwind 8.', { overwind: 10 }, later),
-  a('h-ow10', 'The Thirteenth Hour', 'hard', 'Win a run at Overwind 10.', { parts: ['sun-orb-core'] }, { hidden: true, available: false }),
-  a('h-master-bare', 'Bare and Bold', 'hard', 'Win a run on Master gaining under 150 Plating in total.', { trinkets: ['inventors-watch'] }, later),
+  a('h-ow5', 'Wound Tight', 'hard', 'Win a run at Overwind 5.', { parts: ['perpetual-engine'], overwind: 9 }),
+  a('h-ow8', 'Wound Tighter', 'hard', 'Win a run at Overwind 8.', { overwind: 10 }),
+  a('h-ow10', 'The Thirteenth Hour', 'hard', 'Win a run at Overwind 10.', { parts: ['sun-orb-core'] }, { hidden: true }),
+  a('h-master-bare', 'Bare and Bold', 'hard', 'Win a run on Master gaining under 150 Plating in total.', { trinkets: ['inventors-watch'] }),
   a('h-whole-clock', 'Every Last Gear', 'hard', 'In your winning fight, break every part of the Clockmaker, the memory part included.', { trinkets: ['sprockets-whistle'] }, { hidden: true }),
 ];
 
