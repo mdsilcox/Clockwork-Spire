@@ -3,10 +3,10 @@
 import { describe, it } from 'vitest';
 
 describe('v2 11. Wardens and phases (rules 4.7 to 4.9)', () => {
-  it.todo('WP2 [U, E] Given the last keystone of a phase breaks; when the turn resolves; then the phase action (summon, heal or Rewind) happens once and was shown first; the phase line and phase mood play');
-  it.todo('WP3 [U] Given each warden; when read its def; then Foreman 2+ phases, Queen 2+, Clockmaker 3; each phase adds a mechanic the previous one lacks');
-  it.todo('WP4 [U] Given the Clockmaker with the Tick Spring standing; last turn the Coil (fed by the Idler) dealt the most; then the Tick Spring broken; when his turn starts; then Coil and Idler return to the draw pile, charge 0; he heals half their damage (v1 C6, kept); after the Spring breaks, no Rewind for the rest of the phase');
-  it.todo('WP5 [U] Given Tock / Midnight; when his turn starts; then Pressure resets / two combinations rewound and the Mainspring Jammed on alternate turns (v1 C8, C9, kept)');
-  it.todo('WP6 [U, E] Given the profile\'s last three runs mainly Plating; when the Clockmaker fight starts; then he has the Pierce drill part; the archivist\'s note before the run named it');
+  // WP2: real tests in tests/v2/b9-wardens.test.ts (B9a).
+  // WP3: real tests in tests/v2/b9-wardens.test.ts (B9a).
+  // WP4: real tests in tests/v2/b9-wardens.test.ts (B9a).
+  // WP5: real tests in tests/v2/b9-wardens.test.ts (B9a).
+  // WP6: real tests in tests/v2/b9-wardens.test.ts and e2e/v2-memory.spec.ts (B9a).
   it.todo('WP7 [E, C] Given the Queen\'s phase change on screen; when it plays; then the `phase` mood runs on her rig and the broken gauge stays shown broken');
 });

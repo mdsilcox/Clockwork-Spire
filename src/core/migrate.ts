@@ -16,6 +16,7 @@ export interface MigrationResult {
  * credited its Brass (in the same write). A version 2 slot is returned unchanged. */
 export function migrateSlot(stored: unknown): MigrationResult {
   const input = stored as SaveSlot;
+  if (input.profile && !input.profile.planHistory) input.profile.planHistory = []; // B9a: any version
   if ((input.version ?? 1) >= SAVE_VERSION) return { slot: input, notice: null };
   const slot = structuredClone(input);
   const profile = slot.profile;

@@ -1,6 +1,6 @@
 // B3 acceptance tests (docs/acceptance.md). Written before the build; never weaken an assertion.
 import { describe, expect, it } from 'vitest';
-import { combatWith, cell } from '../../src/core/testkit';
+import { cell } from '../../src/core/testkit';
 import { createCombat, placePart, runTurn } from '../../src/core/combat';
 import { initStreams } from '../../src/core/rng';
 import { takeSalvage } from '../../src/core/salvage';
@@ -253,59 +253,7 @@ describe('B3 content', () => {
   });
 });
 
-describe('B3 the Clockmaker', () => {
-  it('C6: phase 1 rewinds the strongest part and the part that fed it, and heals half its damage', () => {
-    const c = combatWith({ board: { B2: 'idler', C2: 'coil' }, enemies: ['clockmaker'], hp: 999 });
-    const e = c.enemies[0];
-    const before = e.hp;
-    const r = runTurn(c);
-    // the coil released Strike 10 + Boost 2 = 12 on tick 3
-    expect(r.preview.damageByEnemy[0]).toBe(12);
-    expect(c.board[cell('B2')]).toBeNull();
-    expect(c.board[cell('C2')]).toBeNull();
-    expect(r.events.filter((x) => x.kind === 'rewind').length).toBe(2);
-    expect(e.hp).toBe(before - 12 + 6);
-    const coilUid = Object.values(c.parts).find((p) => p.defId === 'coil')!.uid;
-    expect([...c.draw, ...c.hand]).toContain(coilUid);
-  });
-
-  it('C7: each phase has its own HP; beating phase 3 wins', () => {
-    const c = combatWith({ board: { B2: 'spur', C2: 'spur', B1: 'spur', B3: 'spur' }, enemies: ['clockmaker'], hp: 999 });
-    const e = c.enemies[0];
-    e.hp = 1;
-    runTurn(c);
-    expect(c.outcome).toBe('ongoing');
-    expect(e.phase).toBe(1);
-    expect(e.hp).toBe(e.maxHp);
-    e.hp = 1;
-    runTurn(c);
-    expect(e.phase).toBe(2);
-    expect(c.outcome).toBe('ongoing');
-    e.hp = 1;
-    // the rewind may have lifted parts: put a spur back next to the Mainspring
-    c.board[cell('B2')] = { uid: 99, defId: 'spur', plus: false, charge: 0, counter: 0, rusted: 0, magnetized: false, firedThisTurn: 0 };
-    c.parts[99] = { uid: 99, defId: 'spur', plus: false };
-    runTurn(c);
-    expect(c.outcome).toBe('won');
-  });
-
-  it('C8: phase 2 also resets Pressure to 0', () => {
-    const c = combatWith({ board: { B2: 'boiler', A1: 'spur' }, enemies: ['clockmaker'], hp: 999, pressure: 4 });
-    c.enemies[0].phase = 1;
-    runTurn(c);
-    expect(c.pressure).toBe(0);
-  });
-
-  it('C9: phase 3 rewinds two combinations and jams the Mainspring on alternate turns', () => {
-    const c = combatWith({ board: { B2: 'spur', A1: 'spur', A3: 'escapement', C2: 'spur' }, enemies: ['clockmaker'], hp: 999 });
-    c.enemies[0].phase = 2;
-    const placed = () => c.board.filter(Boolean).length;
-    const n = placed();
-    runTurn(c);
-    expect(placed()).toBeLessThanOrEqual(n - 2);
-    const ticks = [c.ticksThisTurn];
-    runTurn(c);
-    ticks.push(c.ticksThisTurn);
-    expect(ticks).toContain(2);
-  });
-});
+// RETIRED in B9a: C6 to C9 (the v1 Clockmaker's Rewind, per-phase HP, Tock's Pressure reset, Midnight's two rewinds and alternate
+// Jam) asserted the legacy phase machine. The Clockmaker is a frame with phases now; the same rules (v1 C6 to C9 kept) are
+// tests/v2/b9-wardens.test.ts: WP4 (Rewind lifts the strongest combination and its feeder, heals half), WP5 (Tock resets
+// Pressure, the Hour Wheel lifts two, the Midnight Bell jams on even turns only) and WP2 (the phase actions).

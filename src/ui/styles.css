@@ -3388,3 +3388,11 @@ button:disabled {
   background: var(--lamp);
   box-shadow: 0 0 6px rgba(255, 210, 122, 0.8);
 }
+
+.archivist-line {
+  flex: 1 1 200px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-style: italic;
+}

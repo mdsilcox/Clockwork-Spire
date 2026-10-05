@@ -7,7 +7,8 @@ import { enemyDef } from '../core/content/enemies';
 import { partName } from '../core/content/parts';
 import { UPGRADES, UPGRADE_ORDER } from '../core/content/upgrades';
 import * as meta from '../core/meta';
-import type { Profile } from '../core/types';
+import { memoryPlan } from '../core/record';
+import type { Plan, Profile } from '../core/types';
 import { unlockAudio } from '../audio/synth';
 import { dayLabel, fmt } from './format';
 import { PartCard } from './PartCard';
@@ -31,6 +32,21 @@ const LINE: Record<string, string> = {
   pet: 'Boof!',
   idle: '',
 };
+
+/** What the archivist says about the Clockmaker's memory (B9a, rules 5.4): the plan he remembers and the part he has for it. */
+const MEMORY_NOTE: Record<Plan, { plan: string; part: string }> = {
+  plating: { plan: 'Plating', part: 'a drill' },
+  burst: { plan: 'burst', part: 'a governor cap' },
+  pressure: { plan: 'Pressure', part: 'a drain valve' },
+  statuses: { plan: 'statuses', part: 'a purge chime' },
+};
+
+export function archivistLine(p: Profile): string | null {
+  const plan = memoryPlan(p.planHistory);
+  if (!plan) return null;
+  const n = MEMORY_NOTE[plan];
+  return `The archivist says: he remembers your ${n.plan}. He has ${n.part} now.`;
+}
 
 function safe<T>(fn: () => T, fallback: T): T {
   try {
@@ -355,6 +371,11 @@ export function WorkshopScreen() {
               >
                 Climb the Spire{pick !== 'tinker' ? ` as ${CHASSIS[pick].name}` : ''}
               </button>
+            )}
+            {archivistLine(p) && (
+              <p class="archivist-line" data-testid="archivist-line">
+                {archivistLine(p)}
+              </p>
             )}
             <span class="doorhint">Chassis: {CHASSIS[pick].name}</span>
           </footer>

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { cell } from '../../src/core/board';
 import { createCombat, runTurn } from '../../src/core/combat';
 import { ENCOUNTERS, bandForFloor, encounterPool } from '../../src/core/content/encounters';
-import { ENEMIES, enemyDef } from '../../src/core/content/enemies';
+import { ENEMIES } from '../../src/core/content/enemies';
 import { MAX_ENEMIES, summonEnemy } from '../../src/core/enemy';
 import { runMachine } from '../../src/core/machine';
 import { setOrder } from '../../src/core/frames';
@@ -219,43 +219,10 @@ describe('enemy behaviors', () => {
     expect(c.enemies[1].statuses.strength).toBe(8);
   });
 
-  it('Foreman summons a Cog Rat at half HP, once', () => {
-    const c = combatWith({ enemies: ['foreman'], hp: 999 });
-    c.enemies[0].hp = 70;
-    const r = runTurn(c);
-    expect(kinds(r.events, 'summon')[0]).toMatchObject({ target: 1, note: 'cog-rat' });
-    expect(c.enemies.map((e) => e.defId)).toEqual(['foreman', 'cog-rat']);
-    runTurn(c);
-    expect(c.enemies).toHaveLength(2);
-  });
-
-  it('Boilermaker Queen: builds heat, unleashes Attack 40 at 20, summons a Steam Wraith at half HP', () => {
-    const c = combatWith({ enemies: ['boilermaker'], hp: 999 });
-    let unleashed = 0;
-    for (let t = 0; t < 8; t++) {
-      if (c.enemies[0].intent.label.startsWith('Unleashes')) {
-        unleashed = c.enemies[0].intent.amount!;
-        const before = c.playerHp;
-        runTurn(c);
-        expect(before - c.playerHp).toBe(40);
-        expect(c.enemies[0].mem.heat).toBe(0);
-        break;
-      }
-      runTurn(c);
-    }
-    expect(unleashed).toBe(40);
-    c.enemies[0].hp = 100;
-    runTurn(c);
-    expect(c.enemies.some((e) => e.defId === 'steam-wraith')).toBe(true);
-  });
-
-  it('the Queen turns Pressure Drain into heat', () => {
-    const c = combatWith({ enemies: ['boilermaker'], hp: 999, pressure: 6 });
-    runTurn(c); // Attack 22, heat 6
-    runTurn(c); // heat 12, Drains 6
-    expect(c.pressure).toBe(0);
-    expect(c.enemies[0].mem.heat).toBe(18);
-  });
+  // RETIRED in B9a (legacy warden behavior): 'Foreman summons a Cog Rat at half HP', 'Boilermaker Queen: builds heat, Attack 40
+  // and a Wraith at half HP' and 'the Queen turns Pressure Drain into heat'. The wardens are frame machines now; the same ideas
+  // (a summon at the phase change, the Queen's Gauge build-up fed by Drain, the Mend) are tested in tests/v2/b9-wardens.test.ts
+  // (WP2, the Gauge and Mend tests) and tests/v2/b7-machines.test.ts (build-up with Drain).
 
   it('caps enemies at 4', () => {
     const c = combatWith({ enemies: ['rust-mite', 'rust-mite', 'rust-mite'] });
@@ -265,44 +232,9 @@ describe('enemy behaviors', () => {
   });
 });
 
-describe('the Clockmaker', () => {
-  it('has three phases of 110 / 130 / 150; reaching 0 starts the next with full HP and clears statuses', () => {
-    const c = combatWith({ board: { B2: 'spur' }, enemies: ['clockmaker'], hp: 999 });
-    const e = c.enemies[0];
-    expect(e.maxHp).toBe(110);
-    e.hp = 1;
-    e.statuses.scald = 5;
-    const r = runTurn(c);
-    expect(c.outcome).toBe('ongoing');
-    expect(kinds(r.events, 'phase')[0]).toMatchObject({ target: 0, amount: 1 });
-    expect(kinds(r.events, 'phase')[0].note?.length).toBeGreaterThan(0);
-    expect(kinds(r.events, 'enemyDied')).toHaveLength(0);
-    expect(e.phase).toBe(1);
-    expect(e.hp).toBeLessThanOrEqual(130);
-    expect(e.maxHp).toBe(130);
-    expect(e.statuses.scald).toBeUndefined();
-  });
-
-  it('attacks rise with the phases, and phase 3 ends the fight', () => {
-    const amount = (phase: number) => {
-      const c = combatWith({ enemies: ['clockmaker'], hp: 999 });
-      const e = c.enemies[0];
-      e.phase = phase;
-      e.step = 0;
-      const d = enemyDef('clockmaker').phases![phase];
-      e.hp = d.hp;
-      e.maxHp = d.hp;
-      const i = enemyDef('clockmaker').phases![phase].pattern![0];
-      return i.amount;
-    };
-    expect([0, 1, 2].map(amount)).toEqual([20, 26, 32]);
-    const c = combatWith({ board: { B2: 'spur' }, enemies: ['clockmaker'], hp: 999 });
-    c.enemies[0].phase = 2;
-    c.enemies[0].hp = 1;
-    runTurn(c);
-    expect(c.outcome).toBe('won');
-  });
-});
+// RETIRED in B9a (legacy Clockmaker): 'has three phases of 110 / 130 / 150 ...' and 'attacks rise with the phases, and phase 3 ends
+// the fight' asserted v1's per-phase HP and attack patterns. The Clockmaker is a braced frame machine with phases now:
+// tests/v2/b9-wardens.test.ts (WP3 defs, WP2 phase actions, WP4 and WP5 Rewind, Midnight) and WP1/WP8 in b7-machines.test.ts.
 
 describe('combat options', () => {
   const bin = Array.from({ length: 6 }, (_, i) => ({ uid: i + 1, defId: i % 2 ? 'spur' : 'escapement', plus: false }));

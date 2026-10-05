@@ -530,10 +530,8 @@ export function enemyTurn(c: CombatState, events: GameEvent[], onAttack: (enemyI
       continue;
     }
     e.shell = 0;
-    const phaseTurn = e.mem.phaseChanged === 1;
     delete e.mem.phaseShield;
     delete e.mem.phaseChanged;
-    if (def.rewinds && !phaseTurn) rewind(c, i, events);
     def.onTurn?.(c, i, events);
     if (def.summonAtHalf && !e.mem.halfSummoned && e.hp * 2 <= e.maxHp) {
       e.mem.halfSummoned = 1;
@@ -629,34 +627,11 @@ function scald(c: CombatState, e: EnemyState, i: number, events: GameEvent[]): v
   damageEnemy(c, i, s, events, NO_BASE, { ignoreShell: true, strikeEvent: false });
 }
 
-// ---------- The Clockmaker's Rewind (rules 4.4) ----------
+// ---------- Rewind (rules 4.9): a part action, `{ kind: 'rewind', amount }` ----------
 
 /** Cell holding the part with this uid, or -1. */
 function cellOfUid(c: CombatState, uid: number): number {
   return c.board.findIndex((p) => p !== null && p.uid === uid);
-}
-
-/**
- * Lift last turn's strongest combination (the part that contributed most plus the part that powered it) off the
- * board into the top of the draw pile; he heals half of the damage it dealt. Phase 2 also resets Pressure;
- * phase 3 lifts the two strongest distinct combinations. Parts that scored nothing are never lifted.
- */
-function rewind(c: CombatState, idx: number, events: GameEvent[]): void {
-  const e = c.enemies[idx];
-  if (e.phase === 1 && c.pressure !== 0) {
-    events.push({ kind: 'pressure', tick: 0, step: 0, amount: -c.pressure, note: 'rewind' });
-    c.pressure = 0;
-  }
-  liftCombos(c, idx, events, e.phase >= 2 ? 2 : 1);
-  // Phase 3 (Midnight): Jam the Mainspring on his 1st, 3rd, 5th... turn of the phase.
-  if (e.phase >= 2) {
-    const n = (e.mem.midnightTurns ?? 0) + 1;
-    e.mem.midnightTurns = n;
-    if (n % 2 === 1) {
-      c.jammed = 1;
-      events.push({ kind: 'sabotage', tick: 0, step: 0, target: idx, note: 'jam' });
-    }
-  }
 }
 
 /** Lift the `combos` strongest combinations off the board and heal the enemy by half the damage they dealt. */
@@ -712,11 +687,17 @@ function advancePhase(c: CombatState, idx: number, events: GameEvent[]): void {
   delete e.mem.phaseLocked;
   e.phase += 1;
   const ph = phases[e.phase];
+  // parts that last only until this phase retract: removed, not broken, no salvage (a broken one stays broken)
+  e.parts = e.parts.filter((p) => {
+    const last = partDefOf(e, p.id)?.lastPhase;
+    return p.broken || last === undefined || last >= e.phase + 1;
+  });
   for (const d of ph.parts) if (!partState(e, d.id)) e.parts.push(initPart(d));
   e.sealed = !ph.coreExposed;
   e.phaseActionPending = true;
   e.coreTookThisTurn = 0;
-  events.push({ kind: 'phase', tick: 0, step: 0, target: idx, amount: e.phase, note: typeof ph.beat === 'string' ? ph.beat : ph.beat.otherwise }); // B9a: wardens-core resolves ifBroken
+  const beat = typeof ph.beat === 'string' ? ph.beat : partState(e, ph.beat.ifBroken)?.broken ? ph.beat.text : ph.beat.otherwise;
+  events.push({ kind: 'phase', tick: 0, step: 0, target: idx, amount: e.phase, note: beat });
   setIntents(e, computeIntents(c, idx));
 }
 

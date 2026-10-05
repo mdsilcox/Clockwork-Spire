@@ -171,6 +171,9 @@ function revive(c: CombatState): void {
   }
 }
 
+/** Brass for each broken Clockmaker part (docs/content.md 3.6). */
+export const CLOCKMAKER_BRASS_PER_PART = 4;
+
 function syncBrass(run: RunState): void {
   run.stats.brassEarned = brassFor(run);
 }
@@ -250,9 +253,16 @@ export function settleCombat(run: RunState): boolean {
     }
   }
   if (kind === 'boss') {
-    const parts = offerParts(run, kind);
+    // B9a: the Clockmaker gives no part; each of his broken parts (the memory part too) pays Brass 4 instead.
+    // The Foreman and the Queen keep the Rare-first boss offer until B9b's pool rules.
+    const clock = c.enemies.filter((e) => e.defId === 'clockmaker');
+    const parts = clock.length > 0 ? [] : offerParts(run, kind);
+    if (clock.length > 0) {
+      const broken = clock.reduce((n, e) => n + e.parts.filter((p) => p.broken).length, 0);
+      run.stats.bonusBrass = (run.stats.bonusBrass ?? 0) + broken * CLOCKMAKER_BRASS_PER_PART;
+    }
     recordOffers(run, parts, 'reward');
-    run.pending = { kind: 'reward', cogs, parts, trinkets, blueprint, extraBlueprint, partTaken: false, trinketTaken: trinkets.length === 0 };
+    run.pending = { kind: 'reward', cogs, parts, trinkets, blueprint, extraBlueprint, partTaken: parts.length === 0, trinketTaken: trinkets.length === 0 };
   } else {
     // v2: the salvage tray replaces the part choice after fights and elites (rules 2.5); the bin grows by choice.
     run.pending = {

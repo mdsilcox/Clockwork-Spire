@@ -17,6 +17,7 @@ export function startCombat(run: RunState, enemies: string[], kind: CombatState[
     trinkets: run.trinkets,
     handSize,
     chassis: run.config.chassis,
+    memory: run.config.memory,
     ...extra,
   };
   run.combat = createCombat(opts);

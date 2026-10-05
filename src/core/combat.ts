@@ -1,10 +1,12 @@
 // Combat flow: create, place, swap, preview, run a whole turn. Functions mutate the CombatState in place.
 import { CELLS, MAINSPRING } from './types';
-import type { CombatState, EnemyState, GameEvent, PartInstance, TurnPreview, TurnResult } from './types';
+import type { CombatState, EnemyState, GameEvent, PartInstance, Plan, PlanStats, TurnPreview, TurnResult } from './types';
 import { inBoard } from './board';
 import { enemyDef } from './content/enemies';
 import { afterPlayerTurn, chooseIntent, enemyTurn, newEnemy, summonEnemy } from './enemy';
+import { initPart } from './framelib';
 import { defaultOrder, defaultOrderFor, syncTargetIdx } from './frames';
+import { PARTS } from './content/parts';
 import { trinketDef } from './content/trinkets';
 import { anyAlive, hasTrinket, MAX_TICKS, runEnemyAttackHooks, runMachine, runTurnStartHooks } from './machine';
 import { initStreams, shuffle } from './rng';
@@ -34,6 +36,8 @@ export interface CreateCombatOpts {
   overwound?: boolean;
   /** B8: rang the bell early: this many extra placements on turn 1 (at most 2). */
   prepared?: number;
+  /** B9a: the plan the Clockmaker remembers; he starts with the matching memory part (frame.memoryParts). */
+  memory?: Plan | null;
 }
 
 export function createCombat(o: CreateCombatOpts): CombatState {
@@ -80,6 +84,12 @@ export function createCombat(o: CreateCombatOpts): CombatState {
     flags: {},
   };
   for (const id of o.enemies) c.enemies.push(newEnemy(id));
+  if (o.memory) {
+    for (const e of c.enemies) {
+      const m = enemyDef(e.defId).frame?.memoryParts?.[o.memory];
+      if (m) e.parts.push(initPart(m));
+    }
+  }
   if (o.overwound) {
     for (const e of c.enemies) {
       e.statuses.strength = 3;
@@ -149,6 +159,7 @@ export function cloneCombat(c: CombatState): CombatState {
     lastTurnContrib: contrib,
     rng: { ...c.rng },
     outcome: c.outcome,
+    planAcc: c.planAcc ? { ...c.planAcc } : undefined,
     trinkets: c.trinkets.slice(),
     log: c.log.slice(),
     chassis: c.chassis,
@@ -208,7 +219,28 @@ export function previewTurn(c: CombatState): TurnPreview {
 
 // ---------- A whole turn ----------
 
+/** B9a: put this turn's events into the fight's plan stats (plating, burst, pressure, statuses; docs/briefs/B9a-wardens.md). */
+function accumulatePlan(c: CombatState, events: GameEvent[]): void {
+  const acc: PlanStats = (c.planAcc ??= { plating: 0, burst: 0, pressure: 0, statuses: 0 });
+  for (const ev of events) {
+    const n = ev.amount ?? 0;
+    if (n <= 0) continue;
+    if (ev.kind === 'plate') acc.plating += n;
+    else if (ev.kind === 'strike' || ev.kind === 'partHit') {
+      const def = ev.uid !== undefined ? c.parts[ev.uid]?.defId : undefined;
+      const steam = def ? PARTS[def]?.family === 'steam' : ev.tick === 0 && ev.uid === undefined; // overpressure damage (Steam Locket) has no part
+      acc[steam ? 'pressure' : 'burst'] += n;
+    } else if (ev.kind === 'statusTick' && ev.status === 'scald') acc.statuses += n;
+  }
+}
+
 export function runTurn(c: CombatState): TurnResult {
+  const r = runTurnInner(c);
+  accumulatePlan(c, r.events);
+  return r;
+}
+
+function runTurnInner(c: CombatState): TurnResult {
   const events: GameEvent[] = [];
   if (c.outcome !== 'ongoing') return { events, preview: previewTurn(c) };
 

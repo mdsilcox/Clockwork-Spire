@@ -1,5 +1,5 @@
 // Static definition types (parts, enemies). Definitions are code keyed by id; state lives in types.ts.
-import type { ActionDef, Cadence, CombatState, EnemyState, Family, GameEvent, Intent, PlacedPart, Rarity } from './types';
+import type { ActionDef, Cadence, CombatState, EnemyState, Family, GameEvent, Intent, PlacedPart, Plan, Rarity } from './types';
 import type { RngState } from './rng';
 
 /** What a part's hooks may do while the machine ticks (and at turn start / enemy attacks). Built by machine.ts. */
@@ -147,6 +147,8 @@ export interface FrameDef {
   bestiary: string;
   /** Enemies this one summons when combat starts (Tinpot General's horn is a part action instead). */
   startSummons?: string[];
+  /** B9a: the Clockmaker's memory: the part he adds at combat start for the player's main plan (not a keystone, never retracted). */
+  memoryParts?: Record<Plan, EnemyPartDef>;
 }
 
 export interface EnemyDef {
@@ -172,6 +174,4 @@ export interface EnemyDef {
   afterMachine?: (c: CombatState, idx: number, events: GameEvent[]) => void;
   /** Summons this def once when its HP drops to half or below (checked at the start of its turn). */
   summonAtHalf?: string;
-  /** Rewinds the player's strongest combination at the start of its turn (the Clockmaker, rules 4.4). */
-  rewinds?: boolean;
 }
