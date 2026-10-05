@@ -10,7 +10,10 @@ import { UPGRADES } from './content/upgrades';
 import { split } from './rng';
 import { mainPlan, memoryPlan } from './record';
 import { absoluteFloor, brassFor, runRecord } from './run';
-import type { Profile, RunConfig, RunRecord, RunState, SprocketMood } from './types';
+import { LANDMARKS } from './content/landmarks';
+import { RESIDENTS } from './content/residents';
+import { JOURNAL_BY_ID } from './content/story';
+import type { MapGenPatch, Profile, RunConfig, RunConfigPatch, RunRecord, RunState, SprocketMood } from './types';
 
 export const PROFILE_VERSION = 1;
 export const HISTORY_CAP = 100;
@@ -98,7 +101,32 @@ export function runConfigFor(profile: Profile, seed: number, chassis: string): R
 
 /** B10a hook (memory-core): the residents' effects (RunConfigPatch) and the landmarks' (MapGenPatch) go onto the config here
  * (`residentPatch`, `mapPatch`, `upgradedStarters`...). Pass-through until B10a.1. */
-function applyMemory(cfg: RunConfig, _profile: Profile): RunConfig {
+function applyMemory(cfg: RunConfig, profile: Profile): RunConfig {
+  const living = RESIDENTS.filter((r) => (profile.residents ?? []).includes(r.id));
+  const marks = LANDMARKS.filter((l) => (profile.landmarks ?? []).includes(l.id));
+  if (living.length === 0 && marks.length === 0) return cfg;
+  const sum = (f: (r: RunConfigPatch) => number | undefined): number => living.reduce((n, r) => n + (f(r.effect) ?? 0), 0);
+  const any = (f: (r: RunConfigPatch) => boolean | undefined): boolean => living.some((r) => !!f(r.effect));
+  if (living.length > 0) {
+    cfg.residentPatch = {
+      oilFlasks: sum((e) => e.oilFlasks) || undefined,
+      upgradedStarters: sum((e) => e.upgradedStarters) || undefined,
+      revealRooms: any((e) => e.revealRooms) || undefined,
+      extraTraders: sum((e) => e.extraTraders) || undefined,
+      loreAndBestiary: any((e) => e.loreAndBestiary) || undefined,
+    };
+    cfg.residents = living.map((r) => r.id);
+  }
+  const map: MapGenPatch = {};
+  for (const l of marks) {
+    if (l.effect.lift) map.lift = true;
+    if (l.effect.beacon) map.beacon = true;
+    if (l.effect.knownVaults) map.knownVaults = [...new Set([...(map.knownVaults ?? []), ...l.effect.knownVaults])];
+  }
+  if (any((e) => e.revealRooms)) map.revealRooms = true;
+  if (sum((e) => e.extraTraders) > 0) map.extraTraders = sum((e) => e.extraTraders);
+  if (living.length > 0) map.excludeEvents = living.map((r) => r.eventId);
+  cfg.mapPatch = map;
   return cfg;
 }
 
@@ -192,6 +220,8 @@ export function finishRun(
   profile.lastSprocketMood = mood;
   const main = mainPlan(run.stats.plan);
   if (main) profile.planHistory = [...(profile.planHistory ?? []), main].slice(-3);
+  // B10a: what Bellfoot remembers: the resident this run sent down, landmarks made, enemies met, lore heard
+  rememberRun(profile, run);
   // B9b: finishRun's fixed sequence: RunRecord and Brass -> planHistory -> achievements (unlocks and rewards) -> one save write
   const newAchievements = ACHIEVEMENTS.length > 0 ? checkAchievements(profile, run, record) : [];
   profile.finishedSeeds.push(seed);
@@ -199,6 +229,22 @@ export function finishRun(
 
   const newNotes = profile.storyFlags.filter((f) => !before.has(f) && STORY_NOTES.some((n) => n.id === f));
   return { record, mood, brass, newUnlocks, newNotes, newAchievements };
+}
+
+/** B10a: a run's memory goes into the profile in finishRun's one write (rules 5.4): the resident its event sent to Bellfoot
+ * (won, lost or abandoned), the landmarks it made (`flags['landmark:id']`), the enemies met (the bestiary), and the lore moments
+ * heard (progress keys `lore-*` for e-lore, plus their journal pages). */
+function rememberRun(profile: Profile, run: RunState): void {
+  const addTo = (list: string[], id: string): void => {
+    if (!list.includes(id)) list.push(id);
+  };
+  if (run.resident) addTo((profile.residents ??= []), run.resident);
+  for (const k of Object.keys(run.flags)) if (k.startsWith('landmark:') && run.flags[k]) addTo((profile.landmarks ??= []), k.slice('landmark:'.length));
+  for (const id of run.met ?? []) addTo((profile.bestiary ??= []), id);
+  for (const m of run.lore ?? []) {
+    profile.achievementProgress[`lore-${m}`] = 1;
+    if (JOURNAL_BY_ID[`lore-${m}`]) addTo((profile.journal ??= []), `lore-${m}`);
+  }
 }
 
 /** The Workshop notes unlocked so far, oldest first (wall order). */

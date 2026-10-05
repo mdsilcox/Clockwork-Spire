@@ -158,7 +158,9 @@ describe('AD1: the catalog of 33 achievements', () => {
     'm-act2-breaker', 'm-bell3', 'm-quick-foreman', 'm-break-all', 'm-residents', 'm-all-chassis', 'm-calm-steam', 'm-status', 'm-burst', 'm-bells', 'm-vaults', 'm-no-plating', 'm-lift', 'm-beacon', 'm-salvager', 'm-fuse', 'm-drill', 'm-shatter', 'm-wrecker', 'm-three-elites',
     'h-master', 'h-clockwork', 'h-flawless', 'h-ow5', 'h-ow8', 'h-ow10', 'h-master-bare', 'h-whole-clock',
   ];
-  const UNAVAILABLE = ['e-resident', 'e-lore', 'm-residents', 'm-lift', 'm-beacon', 'h-master', 'h-clockwork', 'h-ow5', 'h-ow8', 'h-ow10', 'h-master-bare'];
+  // B10a opened e-resident, e-lore, m-residents, m-lift and m-beacon (tests/v2/b10a-memory.test.ts); six wait for B10b.
+  const BELLFOOT = ['e-resident', 'e-lore', 'm-residents', 'm-lift', 'm-beacon'];
+  const UNAVAILABLE = ['h-master', 'h-clockwork', 'h-ow5', 'h-ow8', 'h-ow10', 'h-master-bare'];
 
   it('has the 33 ids of content.md section 7: 5 easy, 20 medium, 8 hard, 4 hidden', () => {
     expect(ACHIEVEMENTS.map((a) => a.id).sort()).toEqual([...IDS].sort());
@@ -172,9 +174,9 @@ describe('AD1: the catalog of 33 achievements', () => {
   });
 
   it('22 are available at this gate and the 11 that open with Bellfoot are not, as listed', () => {
-    expect(ACHIEVEMENTS.filter((a) => a.available).length).toBe(22);
+    expect(ACHIEVEMENTS.filter((a) => a.available).length).toBe(22 + BELLFOOT.length); // 22 at the B9b gate, 27 with Bellfoot's five
     expect(ACHIEVEMENTS.filter((a) => !a.available).map((a) => a.id).sort()).toEqual([...UNAVAILABLE].sort());
-    expect(Object.keys(FACTS).sort()).toEqual(IDS.filter((i) => !UNAVAILABLE.includes(i)).sort()); // this file covers every available one
+    expect(Object.keys(FACTS).sort()).toEqual(IDS.filter((i) => !UNAVAILABLE.includes(i) && !BELLFOOT.includes(i)).sort()); // this file covers the 22 of the B9b gate
   });
 
   it('every Masterwork and Legendary part and trinket is unlocked by exactly one achievement, the one its def names', () => {
@@ -371,11 +373,12 @@ describe('AD2: a feat met mid-run unlocks only when the run ends, in the same wr
     expect(Object.keys(p.achievements).sort()).toEqual(['e-first-win', 'm-burst']);
   });
 
-  it('the Scrapper stays off the chassis rack until B10 builds it, even after m-salvager', () => {
+  it('the Scrapper joins the chassis rack once m-salvager is earned (B10a built it; before that it was kept off)', () => {
     const p = earn(newProfile('t', T), 'm-salvager');
     expect(p.rewards.chassis).toContain('scrapper');
-    expect(chassisAvailable(p)).not.toContain('scrapper');
-    expect(Object.keys(CHASSIS)).not.toContain('scrapper');
+    expect(chassisAvailable(p)).toContain('scrapper');
+    expect(chassisAvailable(newProfile('u', T))).not.toContain('scrapper');
+    expect(Object.keys(CHASSIS)).toContain('scrapper');
   });
 
   it('a profile or run saved before B9b migrates: achievements, progress and rewards filled, run.legendary null', () => {

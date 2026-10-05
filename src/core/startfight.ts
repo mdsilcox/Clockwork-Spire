@@ -20,6 +20,8 @@ export function startCombat(run: RunState, enemies: string[], kind: CombatState[
     memory: run.config.memory,
     ...extra,
   };
+  const met = (run.met ??= []);
+  for (const id of enemies) if (!met.includes(id)) met.push(id); // B10a: the bestiary
   run.combat = createCombat(opts);
   run.phase = 'combat';
   return run.combat;

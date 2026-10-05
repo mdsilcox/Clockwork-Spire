@@ -1,6 +1,7 @@
 // Events (docs/content.md "Events"). B3 CONTRACT: the shape below is fixed; the run-core lane fills EVENTS
 // with all 22 events and implements the choice effects (applied through run.ts chooseEvent, see eventfx.ts).
 import type { RunState } from '../types';
+import { partDef } from './parts';
 import { scrapOf } from '../rewards';
 
 export interface EventChoice {
@@ -20,6 +21,10 @@ export interface EventDef {
 
 const scrap = (n: number) => (run: RunState) => scrapOf(run) >= n;
 const canLose = (run: RunState) => run.bin.length > 1;
+/** A resident's move choice: not offered once that resident lives in Bellfoot (`run.config.residents`). */
+const notLiving = (id: string) => (run: RunState) => !(run.config.residents ?? []).includes(id);
+/** The lamplighter's fix needs a Cams and levers part to give him. */
+const hasCam = (run: RunState) => run.bin.some((p) => partDef(p.defId).family === 'cam');
 
 const list: EventDef[] = [
   {
@@ -68,7 +73,7 @@ const list: EventDef[] = [
     choices: [
       { label: 'Buy oil', detail: 'Pay 30 Scrap. Heal 20 HP.', available: scrap(30) },
       { label: 'Sell a part', detail: 'Remove a part of your choice. Gain 25 Scrap.', available: canLose },
-      { label: 'Leave', detail: 'Nothing happens.' },
+      { label: 'Tell him about Bellfoot', detail: 'He moves down to Bellfoot after the run. Nothing else happens now.', available: notLiving('oil-merchant') },
     ],
   },
   {
@@ -150,6 +155,7 @@ const list: EventDef[] = [
     choices: [
       { label: 'Let them tinker', detail: 'Upgrade 2 random parts.' },
       { label: 'Show them how', detail: 'Upgrade a part of your choice. Lose 5 HP.' },
+      { label: 'Invite them to Bellfoot', detail: 'They move down to Bellfoot after the run. Nothing else happens now.', available: notLiving('apprentice') },
     ],
   },
   {
@@ -177,6 +183,7 @@ const list: EventDef[] = [
     choices: [
       { label: 'Help', detail: 'Transform a part of your choice into a random part of the same rarity.' },
       { label: 'Ask about the inventor', detail: 'Hear a little of the story. Gain 10 Brass.' },
+      { label: 'Ask him to come down to Bellfoot', detail: 'He moves down after the run and sits beside the archivist. Nothing else happens now.', available: notLiving('hour-ghost') },
     ],
   },
   {
@@ -217,11 +224,72 @@ const list: EventDef[] = [
   },
   {
     id: 'lamplighter',
+    act: 1,
     title: 'The Lamplighter',
     lines: ['An old lamplighter trims the wicks one by one.', '"The inventor sent me a few plans," he says. "I kept some."'],
     choices: [
       { label: 'Buy a blueprint', detail: 'Pay 60 Scrap. Gain a blueprint.', available: scrap(60) },
       { label: 'Share his lamp a while', detail: 'Heal 6 HP.' },
+      { label: 'Fix the lift', detail: 'Give him a Cams and levers part. The lift runs again, and he moves down to Bellfoot after the run.', available: (run) => hasCam(run) && notLiving('lamplighter')(run) },
+    ],
+  },
+  {
+    id: 'traders-cousin',
+    title: "The Trader's Cousin",
+    lines: ['A lost trader sits on a cart of oddities.', '"My cousin said the Spire had a market," he says. "It had one room."'],
+    choices: [
+      { label: 'Buy his map', detail: "Pay 20 Scrap. This act's layout is revealed.", available: scrap(20) },
+      { label: 'Tell him about Bellfoot', detail: 'He moves down to Bellfoot after the run. Nothing else happens now.', available: notLiving('traders-cousin') },
+    ],
+  },
+  {
+    id: 'stopped-clock',
+    act: 1,
+    title: 'Five Forty-Seven',
+    lines: ['Every clock in the Gearworks reads the same hour, and none are wound.', 'Under the biggest, something is scratched into the brass.'],
+    choices: [
+      { label: 'Read the inscription', detail: 'Hear a little of the story. Heal 6 HP.' },
+      { label: 'Take the cogs from its face', detail: 'Gain 25 Scrap.' },
+    ],
+  },
+  {
+    id: 'empty-chair',
+    act: 2,
+    title: 'The Empty Chair',
+    lines: ['A workshop chair pushed back from a desk. A half-eaten supper, a coat on the hook.', 'The tea is still faintly warm.'],
+    choices: [
+      { label: 'Sit a while', detail: 'Hear a little of the story. Heal 10 HP.' },
+      { label: 'Search the desk', detail: 'Gain 30 Scrap. One time in three, a blueprint.' },
+    ],
+  },
+  {
+    id: 'unsent-letter',
+    act: 3,
+    title: 'The Unsent Letter',
+    lines: ['A letter lies on the stair, addressed to Bellfoot.', 'The stamp is the old one. It was never sent.'],
+    choices: [
+      { label: 'Carry it down', detail: 'Hear a little of the story. Gain 15 Brass, and a journal page after the run.' },
+      { label: 'Read it aloud to Sprocket', detail: 'Heal 12 HP.' },
+    ],
+  },
+  {
+    id: 'beacon',
+    act: 3,
+    title: 'The Cold Beacon',
+    lines: ['The great lamp on the Belfry rim, unlit since the inventor left.', 'The wick is dry. The match is in your pocket.'],
+    choices: [
+      { label: 'Light it', detail: 'Lose 8 HP and 1 hour. From the next climb, act 3 shows every patrol and the warden door, and has 1 extra hour.' },
+      { label: 'Walk on', detail: 'Nothing happens.' },
+    ],
+  },
+  {
+    id: 'vault-wheel',
+    title: 'The Vault Wheel',
+    lines: ['A wheel on a vault door, big as a cartwheel, with a keyhole at its hub.', 'Whatever sleeps inside is sleeping heavily.'],
+    choices: [
+      { label: 'Turn it with a Spire Key', detail: 'Use a Spire Key. The vault opens and the guardian is not woken.', available: (run) => (run.keys ?? 0) >= 1 },
+      { label: 'Pick the lock', detail: 'Pay 25 Scrap and 1 hour. The vault opens.', available: scrap(25) },
+      { label: 'Walk on', detail: 'Nothing happens.' },
     ],
   },
 ];

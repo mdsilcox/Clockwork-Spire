@@ -68,7 +68,7 @@ test('AD2 (E): an unlocked achievement shows on the trophy shelf, earned, with i
 test('achievements that open with Bellfoot say so, and are never earned', async ({ page }) => {
   await workshop(page);
   await openPlace(page, 'trophies');
-  for (const id of ['e-resident', 'm-residents', 'h-master', 'h-ow10']) {
+  for (const id of ['h-master', 'h-clockwork', 'h-ow5', 'h-ow10']) { // B10a opened e-resident and m-residents
     const row = page.getByTestId(`trophy-${id}`);
     await expect(row).toHaveAttribute('data-available', 'false');
     await expect(row).toHaveAttribute('data-earned', 'false');

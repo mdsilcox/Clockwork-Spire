@@ -44,6 +44,22 @@ export function noteFacts(c: CombatState, events: GameEvent[]): void {
           c.broken.push({ enemy: ev.target, partId: best.id, salvage: best.salvage, rarity: best.rarity as never, locked: false });
         }
       }
+      if (e && c.chassis === 'scrapper' && !f.scrapUsed) {
+        // the Scrapper: once per combat, one wrecked part's salvage is offered: the highest rarity, ties leftmost (no keys, no armor)
+        let best: { id: string; salvage: string; rarity: string } | null = null;
+        for (const p of e.parts) {
+          if (p.broken) continue;
+          const d = partDefOf(e, p.id);
+          if (!d?.salvage || d.salvage === 'spire-key') continue;
+          if (!best || (RARITY_RANK[d.rarity] ?? 0) > (RARITY_RANK[best.rarity] ?? 0)) best = { id: p.id, salvage: d.salvage, rarity: d.rarity };
+        }
+        if (best) {
+          f.scrapUsed = 1;
+          (partState(e, best.id) as { broken: boolean }).broken = true;
+          c.wrecked = Math.max(0, (c.wrecked ?? 0) - 1);
+          c.broken.push({ enemy: ev.target, partId: best.id, salvage: best.salvage, rarity: best.rarity as never, locked: false, scrapper: true });
+        }
+      }
     }
   }
 }

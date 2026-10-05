@@ -107,9 +107,9 @@ export const MANIFEST: ManifestEntry[] = [
     id: 'bellfoot',
     act: 0,
     files: [
-      { path: 'art/bellfoot/sky.webp', bytes: 176486 },
-      { path: 'art/bellfoot/street.webp', bytes: 277168 },
-      { path: 'art/bellfoot/foreground.webp', bytes: 59510 },
+      { path: 'art/bellfoot/sky.webp', bytes: 167554 },
+      { path: 'art/bellfoot/street.webp', bytes: 274714 },
+      { path: 'art/bellfoot/foreground.webp', bytes: 56576 },
     ],
     source: 'art/bellfoot',
   },
