@@ -34,6 +34,79 @@ function camFire(ctx: TickCtx, p: PlacedPart, every: number, payoff: () => void)
   }
 }
 
+/** Mirror Gear: the first adjacent part (up, right, down, left) that isn't a Mirror Gear. */
+function mirrorSource(ctx: TickCtx): PartDef | null {
+  for (const n of neighbors(ctx.cell)) {
+    const q = ctx.c.board[n];
+    if (q && q.defId !== 'mirror-gear') return PARTS[q.defId] ?? null;
+  }
+  return null;
+}
+
+/** B9b: the effects of the 15 Masterwork and Legendary parts (docs/content.md section 2). Machine-level parts (Skewframe's
+ * diagonals, Twin Mainspring, Free Pawl, Resonance Rod, Hour Hand, Perpetual Engine, Bottled Dusk's Pressure, Night Watchman,
+ * Conductor's Baton's spread, Apprentice's Hands, Sprocket's Blanket) also have their rules in machine.ts and itemhooks.ts. */
+const ITEM_EFFECTS: Record<string, Partial<PartDef>> = {
+  skewframe: { diagonal: true, onFire: (ctx, p) => ctx.strike(v(p, 2, 4)) },
+  'mirror-gear': {
+    onFire: (ctx, p) => {
+      const src = mirrorSource(ctx);
+      if (src) {
+        const copy: PlacedPart = { ...p, plus: false }; // the copy is the plain part, on the Mirror Gear's own charge
+        src.onFire(ctx, copy);
+        p.charge = copy.charge;
+      }
+      if (p.plus) ctx.boostOut += 1;
+    },
+    holds: (ctx, p) => {
+      const src = mirrorSource(ctx);
+      return !!src?.holds && src.holds(ctx, { ...p, plus: false });
+    },
+  },
+  'twin-mainspring': {},
+  'free-pawl': {},
+  'night-watchman': {},
+  'resonance-rod': { onFire: (ctx, p) => ctx.plate(v(p, 1, 3)) },
+  'hour-hand': {
+    onFire: (ctx, p) => {
+      if (p.plus) ctx.plate(2);
+    },
+  },
+  'ballast-lance': {
+    onFire: (ctx, p) => {
+      if (!ctx.isLastTick()) return;
+      const half = p.plus ? Math.min(24, Math.ceil((ctx.c.plating * 3) / 4)) : Math.min(20, Math.ceil(ctx.c.plating / 2));
+      if (half > 0) ctx.strike(half);
+    },
+  },
+  'cascade-piston': {
+    onFire: (ctx, p) => {
+      if (ctx.spendPressure(3)) ctx.strikeCarrying(v(p, 12, 16));
+      else ctx.strike(3);
+    },
+  },
+  'conductors-baton': { onFire: (ctx, p) => ctx.strike(v(p, 2, 3)) },
+  'perpetual-engine': {
+    onFire: (ctx, p) => {
+      if (p.plus) ctx.plate(6);
+    },
+  },
+  'bottled-dusk': {
+    onFire: (ctx, p) => {
+      if (!ctx.oncePerTurn('bottled-dusk')) return;
+      for (let i = 0; i < v(p, 2, 3); i++) ctx.addTick();
+    },
+  },
+  'sun-orb-core': {
+    onFire: (ctx, p) => {
+      const extra = ctx.c.pressure - 10;
+      if (extra > 0 && ctx.spendPressure(extra)) ctx.sweep(extra * v(p, 2, 3));
+    },
+  },
+  'apprentices-hands': {},
+  'sprockets-blanket': { onFire: (ctx, p) => ctx.plate(v(p, 3, 5)) },
+};
+
 const list: PartDef[] = [
   // ---------- Gears ----------
   {
@@ -813,7 +886,8 @@ const list: PartDef[] = [
       unlock,
       text,
       textPlus,
-      onFire: () => {}, // B9b hook (items-engine)
+      ...ITEM_EFFECTS[id],
+      onFire: ITEM_EFFECTS[id]?.onFire ?? (() => {}),
     }),
   ),
 ];

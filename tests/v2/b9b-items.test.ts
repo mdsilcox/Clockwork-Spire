@@ -162,7 +162,7 @@ describe('items-engine: Masterwork parts', () => {
   it('Resonance Rod: Plate 1; the other two cells in its column fire with Echo (+: Plate 3)', () => {
     const a = scen({ board: { B2: 'resonance-rod', B1: 'spur', B3: 'spur', C2: 'spur' }, ticks: 1 });
     mach(a);
-    expect(coreLoss(a)).toBe(3 + 3 + 3 + 3); // B1 and B3 twice, C2 (not in the column) once
+    expect(coreLoss(a)).toBe(3 * 5); // B1 and B3 twice, C2 (not in the column) once: five Strikes of 3 (adapted: the file said 12, which miscounts)
     expect(a.plating).toBe(1);
     const b = scen({ board: { B2: 'resonance-rod+', B1: 'spur', B3: 'spur', C2: 'spur' }, ticks: 1 });
     mach(b);
@@ -176,7 +176,7 @@ describe('items-engine: Masterwork parts', () => {
     const left = scen({ board: { C2: 'hour-hand', B2: 'chronometer' }, ticks: 3 });
     mach(left);
     expect(coreLoss(left)).toBe(3 * 9);
-    const control = scen({ board: { B2: 'idler', C2: 'chronometer' }, ticks: 3 });
+    const control = scen({ board: { B2: 'escapement', C2: 'chronometer' }, ticks: 3 }); // adapted: an Idler would Boost the Chronometer by 2
     mach(control);
     expect(coreLoss(control)).toBe(9); // last tick only
     const plain = scen({ board: { B2: 'hour-hand', C2: 'chronometer' }, ticks: 3 });
@@ -263,7 +263,7 @@ describe('items-engine: Legendary parts', () => {
     mach(a);
     expect(coreLoss(a)).toBe(3 * 2 + 3); // the Spur fired on both ticks and once more
     expect(a.plating).toBe(3 * 2 + 3);
-    const control = scen({ board: { A1: 'spur', B2: 'idler', C2: 'escapement' }, ticks: 2 });
+    const control = scen({ board: { A1: 'spur', B2: 'spur', C2: 'escapement' }, ticks: 2 }); // adapted: an Idler would Boost the Escapement
     mach(control);
     expect(control.plating).toBe(6);
     const up = scen({ board: { A1: 'spur', B2: 'perpetual-engine+', C2: 'escapement' }, ticks: 2 });
