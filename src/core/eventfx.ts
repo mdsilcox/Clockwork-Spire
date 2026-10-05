@@ -3,6 +3,7 @@ import { int, next, pick } from './rng';
 import { partDef, partName } from './content/parts';
 import { trinketDef } from './content/trinkets';
 import { addBlueprint, addScrap, gainTrinket, heal, hurt, newPart, partPool, randomPart, randomTrinket, rollBlueprint } from './rewards';
+import { spendHour } from './section';
 import type { Family, PartInstance, Pending, RunState } from './types';
 
 type NeedKind = NonNullable<Extract<Pending, { kind: 'event' }>['needsPart']>;
@@ -66,6 +67,19 @@ const lose = (run: RunState, n: number) => {
 };
 
 const sprocketTag = (run: RunState): string => giveTrinket(run, 'sprocket-tag');
+
+/** B10a: a resident's move choice: they move to Bellfoot when the run ends (meta.ts finishRun). */
+const moveResident = (run: RunState, id: string): void => {
+  run.resident ??= id;
+};
+/** B10a: a lore moment heard (once per run): finishRun records it as progress and adds its journal page. */
+const hear = (run: RunState, moment: string): void => {
+  if (!run.lore.includes(moment)) run.lore.push(moment);
+};
+/** B10a: a landmark made in this run; finishRun adds it to the profile (`flags` stays boolean). */
+const markLandmark = (run: RunState, id: string): void => {
+  run.flags[`landmark:${id}`] = true;
+};
 
 export const EFFECTS: Record<string, Effect[]> = {
   'sprocket-blueprint': [
@@ -131,7 +145,12 @@ export const EFFECTS: Record<string, Effect[]> = {
         return `Sold ${pn(p!)} for 25 Scrap.`;
       },
     },
-    { run: () => 'The cart rattles away.' },
+    {
+      run: (r) => {
+        moveResident(r, 'oil-merchant');
+        return 'He is delighted. "A street with no one to sell to? Perfect." He moves down after the run.';
+      },
+    },
   ],
   automaton: [
     {
@@ -261,6 +280,12 @@ export const EFFECTS: Record<string, Effect[]> = {
         return `They nod and take notes. Upgraded ${pn(p!)}. Lost 5 HP.`;
       },
     },
+    {
+      run: (r) => {
+        moveResident(r, 'apprentice');
+        return 'They pack the screwdriver carefully. They will meet you in Bellfoot, after the run.';
+      },
+    },
   ],
   lantern: [
     {
@@ -312,7 +337,14 @@ export const EFFECTS: Record<string, Effect[]> = {
     {
       run: (r) => {
         r.stats.bonusBrass = (r.stats.bonusBrass ?? 0) + 10;
+        hear(r, 'hour-ghost');
         return 'It speaks of a lonely maker and a clock that would not stop. Gain 10 Brass.';
+      },
+    },
+    {
+      run: (r) => {
+        moveResident(r, 'hour-ghost');
+        return 'It nods slowly. "I would like to sit somewhere that has a chair." He moves down after the run.';
       },
     },
   ],
@@ -373,6 +405,107 @@ export const EFFECTS: Record<string, Effect[]> = {
         return 'He says little, and it is enough. Healed 6 HP.';
       },
     },
+    {
+      need: 'remove',
+      family: 'cam',
+      prompt: 'Choose a Cams and levers part to give him.',
+      run: (r, p) => {
+        removePart(r, p!.uid);
+        moveResident(r, 'lamplighter');
+        markLandmark(r, 'lift');
+        return `${pn(p!)} goes into the lift's works, and it shudders, catches and runs. He will light the way from Bellfoot after the run.`;
+      },
+    },
+  ],
+  'traders-cousin': [
+    {
+      run: (r) => {
+        lose(r, 20);
+        for (const room of r.section?.rooms ?? []) room.revealed = true;
+        return "His map is badly drawn and entirely correct. This act's layout is revealed. Paid 20 Scrap.";
+      },
+    },
+    {
+      run: (r) => {
+        moveResident(r, "traders-cousin");
+        return 'He looks around the empty corridor. "Customers? Down there?" He moves down after the run.';
+      },
+    },
+  ],
+  'stopped-clock': [
+    {
+      run: (r) => {
+        heal(r, 6);
+        hear(r, 'stopped-clock');
+        return 'Under the face, in a careful hand: "Wait for me." Healed 6 HP.';
+      },
+    },
+    {
+      run: (r) => {
+        addScrap(r, 25);
+        return 'The cogs come away easily. The clock does not mind. Gain 25 Scrap.';
+      },
+    },
+  ],
+  'empty-chair': [
+    {
+      run: (r) => {
+        heal(r, 10);
+        hear(r, 'empty-chair');
+        return 'The cushion still holds a shape. Somebody stood up from supper and never came back. Healed 10 HP.';
+      },
+    },
+    {
+      run: (r) => {
+        addScrap(r, 30);
+        if (next(r.rng, 'event') < 1 / 3) return `Behind the drawer, a folded sheet. ${gainBlueprint(r)} Gain 30 Scrap.`;
+        return 'Receipts, string, a dried-out pen. Gain 30 Scrap.';
+      },
+    },
+  ],
+  'unsent-letter': [
+    {
+      run: (r) => {
+        r.stats.bonusBrass = (r.stats.bonusBrass ?? 0) + 15;
+        hear(r, 'unsent-letter');
+        return 'You tuck it into your coat. Someone should read it where it was meant to go. Gain 15 Brass.';
+      },
+    },
+    {
+      run: (r) => {
+        heal(r, 12);
+        return 'Sprocket listens to the whole letter with his head on one side. Healed 12 HP.';
+      },
+    },
+  ],
+  beacon: [
+    {
+      run: (r) => {
+        hurt(r, 8);
+        spendHour(r);
+        markLandmark(r, 'beacon');
+        return 'The wick catches. For a moment the whole Belfry is gold. Lost 8 HP and 1 hour.';
+      },
+    },
+    { run: () => 'The lamp stays dark. Perhaps another evening.' },
+  ],
+  'vault-wheel': [
+    {
+      run: (r) => {
+        r.keys = Math.max(0, (r.keys ?? 0) - 1);
+        markLandmark(r, `vault-${r.act}`);
+        return 'The key turns, the wheel spins, and the door swings wide. The guardian does not stir.';
+      },
+    },
+    {
+      run: (r) => {
+        lose(r, 25);
+        spendHour(r);
+        markLandmark(r, `vault-${r.act}`);
+        return 'Patient work with a hairpin. The door swings wide. Paid 25 Scrap and 1 hour.';
+      },
+    },
+    { run: () => 'The wheel stays where it is.' },
   ],
 };
 

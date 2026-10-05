@@ -28,7 +28,7 @@ function eliteIds(act: 1 | 2 | 3): string[] {
   return ENCOUNTERS.filter((e) => e.act === act && e.tier === 'elite').map((e) => e.enemies[0]);
 }
 
-function attempt(rng: RngState, act: 1 | 2 | 3): { section: ActSection; elites: RoamingElite[] } | null {
+function attempt(rng: RngState, act: 1 | 2 | 3, opts: SectionOpts): { section: ActSection; elites: RoamingElite[] } | null {
   const R = (n: number): number => int(rng, 'map', n);
   const F = 5 + R(2);
   const nMin = Math.max(16, 3 * F);
@@ -44,6 +44,8 @@ function attempt(rng: RngState, act: 1 | 2 | 3): { section: ActSection; elites: 
   // room kinds (rules 4.4)
   const cap: Record<string, number> = { ...CAP, workbench: act === 3 ? 2 : 1 };
   const kc: Record<string, number> = { ...BASE, workbench: act === 3 ? 2 : 1 };
+  const known = (opts.knownVaults ?? []).includes(act); // an opened vault: this act always has its vault room
+  if (known) kc.vault = 1;
   let total = Object.values(kc).reduce((a, b) => a + b, 0);
   while (total < N - 2) {
     const open = Object.keys(kc).filter((k) => kc[k] < cap[k]);
@@ -106,6 +108,12 @@ function attempt(rng: RngState, act: 1 | 2 | 3): { section: ActSection; elites: 
       }
     }
   }
+  if (opts.lift && act === 1) {
+    // the repaired lift: entry to one floor-3 room (floor index 2), never the door or the vault, so never next to the door
+    const targets = rooms.filter((r) => r.floor === 2 && r !== door && r !== vault && !has(entry.id, r.id));
+    if (!targets.length) return null;
+    passages.push({ a: entry.id, b: targets[R(targets.length)].id, kind: 'lift' });
+  }
   if (passages.length - rooms.length + 1 < 2) return null;
 
   // kinds for the rest
@@ -139,6 +147,12 @@ function attempt(rng: RngState, act: 1 | 2 | 3): { section: ActSection; elites: 
     if (!far.length) return null;
     swapKinds(t, far[R(far.length)]);
   }
+  // the Trader's cousin: converts regular fight rooms into traders, never one beside the entry (the opening fight)
+  for (let i = 0; i < (opts.extraTraders ?? 0); i++) {
+    const cands = rest.filter((r) => r.kind === 'fight' && !next.has(r.id));
+    if (!cands.length) return null;
+    cands[R(cands.length)].kind = 'trader';
+  }
   const usedEnc: string[] = [];
   const poolFor = (band: 'easy' | 'middle' | 'deep') => ENCOUNTERS.filter((e) => e.act === act && e.band === band && e.tier !== 'elite' && e.tier !== 'boss');
   for (const r of rooms) {
@@ -150,18 +164,27 @@ function attempt(rng: RngState, act: 1 | 2 | 3): { section: ActSection; elites: 
     usedEnc.push(e.enemies.join(','));
     r.encounter = e.enemies.slice();
   }
+  // events a landmark or a resident has already made are not placed again
+  const excluded = [...(opts.excludeEvents ?? []), ...(known ? ['vault-wheel'] : []), ...(opts.beacon && act === 3 ? ['beacon'] : []), ...(opts.lift && act === 1 ? ['lamplighter'] : [])];
   const events = shuffle(
     rng,
     'map',
     Object.values(EVENTS)
       .filter((e) => !e.act || e.act === act)
       .map((e) => e.id),
-  );
+  ).filter((id) => !excluded.includes(id)); // after the shuffle, so a resident living in Bellfoot moves no random draws
   let ev = 0;
   for (const r of rooms) if (r.kind === 'event') r.eventId = events[ev++ % events.length];
 
   const pool = eliteIds(act);
-  if (vault) vault.guardian = pick(rng, 'map', pool);
+  if (vault) {
+    if (known) {
+      // an opened vault: a known room whose guardian is a regular fight from the act's pool (it still pays its loot)
+      const regulars = [...new Set(ENCOUNTERS.filter((e) => e.act === act && e.tier !== 'elite' && e.tier !== 'boss').flatMap((e) => e.enemies))];
+      vault.guardian = pick(rng, 'map', regulars);
+      vault.revealed = true;
+    } else vault.guardian = pick(rng, 'map', pool);
+  }
 
   // patrols: simple cycles of 3 to 5 rooms along open passages, away from the entry, the door and the vault
   const banned = new Set<string | undefined>([entry.id, door.id, vault?.id]);
@@ -190,6 +213,12 @@ function attempt(rng: RngState, act: 1 | 2 | 3): { section: ActSection; elites: 
     elites.push({ defId, patrol: patrol.slice(), at: R(patrol.length), defeated: false });
   });
 
+  // reveals: the Lamplighter shows every room's kind; the beacon shows act 3's door and every elite's whole patrol
+  if (opts.revealRooms) for (const r of rooms) r.revealed = true;
+  if (opts.beacon && act === 3) {
+    door.revealed = true;
+    for (const e of elites) for (const id of e.patrol) (rooms.find((r) => r.id === id) as Room).revealed = true;
+  }
   return { section: { act, rooms, passages, entry: entry.id, door: door.id }, elites };
 }
 
@@ -197,9 +226,8 @@ function attempt(rng: RngState, act: 1 | 2 | 3): { section: ActSection; elites: 
  * the warden's door at the top, shortest entry-to-door path at most MAX_SHORTEST_PATH moves, room counts per rules 4.4,
  * fight encounters rolled from the act's pools by floor depth. */
 export function generateSection(rng: RngState, act: 1 | 2 | 3, opts: SectionOpts = {}): { section: ActSection; elites: RoamingElite[] } {
-  void opts; // B10a hook (memory-core): lift, known vaults, beacon, reveal, extra traders
   for (let i = 0; i < 200; i++) {
-    const r = attempt(rng, act);
+    const r = attempt(rng, act, opts);
     if (r) return r;
   }
   throw new Error(`generateSection: no valid layout for act ${act}`);
@@ -222,12 +250,16 @@ function enter(run: RunState, id: string): void {
 /** Start the act's climb on a run: section, elites, hour 0, hours from the run's mode, the player at the entry
  * (revealed with its neighbors). Called by newRun for act 1 and after each warden for the next act. */
 export function startAct(run: RunState, act: 1 | 2 | 3): void {
-  const { section, elites } = generateSection(run.rng, act, run.config.mapPatch);
+  const patch = run.config.mapPatch;
+  const { section, elites } = generateSection(run.rng, act, patch);
   run.act = act;
   run.section = section;
   run.elites = elites;
   run.hour = 0;
-  run.hours = run.hours ?? DEFAULT_HOURS;
+  // the lit beacon: act 3 has 1 extra hour (the base is kept so starting act 3 twice does not add twice)
+  const base = run.flags.beaconHour && run.hours !== undefined ? run.hours - 1 : (run.hours ?? DEFAULT_HOURS);
+  run.flags.beaconHour = !!patch?.beacon && act === 3;
+  run.hours = base + (run.flags.beaconHour ? 1 : 0);
   run.scrap = run.scrap ?? run.config.cogs;
   run.keys = run.keys ?? 0;
   run.prepared = undefined;

@@ -32,6 +32,13 @@ const list: ChassisDef[] = [
     passive: 'Your first turn of each combat has 1 extra tick.',
     unlock: 'Defeat the act 2 boss, or 300 Brass.',
   },
+  {
+    id: 'scrapper',
+    name: 'Scrapper',
+    startingBin: ['pry-bar', 'pry-bar', 'spur', 'spur', 'cold-chisel', 'escapement', 'escapement', 'mending-spool'],
+    passive: 'The first enemy part you break each combat is salvaged upgraded (+), and you may keep one wrecked part\'s salvage per combat.',
+    unlock: 'Break 100 enemy parts in total (Magpie).',
+  },
 ];
 
 export const CHASSIS: Record<string, ChassisDef> = Object.fromEntries(list.map((d) => [d.id, d]));

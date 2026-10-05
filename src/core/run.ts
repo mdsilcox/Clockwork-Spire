@@ -93,6 +93,18 @@ export function newRun(cfg: RunConfig): RunState {
     flags: {},
   };
   for (const t of cfg.trinkets) gainTrinket(run, t);
+  // B10a: the residents' stall gifts. The Oil Merchant's flasks; the Apprentice's extra upgrade comes from the `meta` stream so
+  // every other stream (and the act 1 section) is exactly as without him.
+  run.oilFlasks = cfg.residentPatch?.oilFlasks ?? 0;
+  const extra = cfg.residentPatch?.upgradedStarters ?? 0;
+  if (extra > 0) {
+    const plain = shuffle(
+      rng,
+      'meta',
+      run.bin.filter((p) => !p.plus),
+    );
+    for (const p of plain.slice(0, extra)) p.plus = true;
+  }
   if (!cfg.legacyMap) startAct(run, 1); // v2: the climb starts at dusk in act 1's section (the v1 map stays on the run until the gate removes it)
   return run;
 }
@@ -235,7 +247,11 @@ export function settleCombat(run: RunState): boolean {
       if (el) el.defeated = true;
     }
   }
-  else run.stats.fights += 1;
+  else {
+    run.stats.fights += 1;
+    // B10a: an opened vault's guardian is a regular fight, and the vault still pays its loot
+    if (kind === 'fight' && run.section?.rooms.find((r) => r.id === run.roomId)?.kind === 'vault') takeVault(run);
+  }
   if (run.trinkets.includes('tin-cup')) heal(run, 3);
 
   const trinkets: string[] = [];
@@ -282,9 +298,15 @@ export function settleCombat(run: RunState): boolean {
     }
   } else {
     // v2: the salvage tray replaces the part choice after fights and elites (rules 2.5); the bin grows by choice.
+    const items = salvageItems(c, (id) => isPartUnlocked(run, id));
+    if ((c.chassis ?? run.config.chassis) === 'scrapper') {
+      // the Scrapper: the first enemy part broken with a part salvage is kept upgraded (keys and the wrecked offer excluded)
+      const first = items.find((it) => it.salvage !== 'spire-key' && !it.scrapper);
+      if (first) first.plus = true;
+    }
     run.pending = {
       kind: 'salvage',
-      items: salvageItems(c, (id) => isPartUnlocked(run, id)),
+      items,
       wrecked: c.wrecked,
       cogs,
       trinkets,
