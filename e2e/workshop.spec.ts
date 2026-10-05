@@ -1,6 +1,6 @@
 ﻿import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { noSidewaysScroll, press, skipFirstLaunch, watchErrors } from './helpers';
+import { noSidewaysScroll, press, skipFirstLaunch, watchErrors, openPlace } from './helpers';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const call = <T = unknown>(page: Page, expr: string, arg?: unknown): Promise<T> =>
@@ -46,7 +46,7 @@ async function leaveResult(page: Page): Promise<void> {
     await page.getByTestId('ending-done').click({ timeout: 10_000 });
   }
   await press(page, page.getByTestId('end-continue'));
-  await expect(page.getByTestId('workshop')).toBeVisible();
+  await expect(page.getByTestId('bellfoot')).toBeVisible();
 }
 
 test('slots: three independent saves, a name prompt, a confirmed delete, and a reload that keeps all three', async ({ page }) => {
@@ -65,7 +65,7 @@ test('slots: three independent saves, a name prompt, a confirmed delete, and a r
   await expect(page.getByTestId('name-input')).toHaveValue('Tinkerer');
   await page.getByTestId('name-input').fill('Cy');
   await press(page, page.getByTestId('name-begin'));
-  await expect(page.getByTestId('workshop')).toBeVisible();
+  await expect(page.getByTestId('bellfoot')).toBeVisible();
   await expect(page.getByTestId('ws-name')).toHaveText('Cy');
 
   // each slot kept its own profile
@@ -141,7 +141,7 @@ test('W1: the run is settled into the profile in one write before the result sho
   await page.reload();
   await press(page, page.getByTestId('open-slots'));
   await press(page, page.getByTestId('slot-continue-1'));
-  await expect(page.getByTestId('workshop')).toBeVisible();
+  await expect(page.getByTestId('bellfoot')).toBeVisible();
   const p = await call<any>(page, 'g.profile()');
   expect(p.history).toHaveLength(1);
   expect(p.brass).toBe(brass);
@@ -150,6 +150,7 @@ test('W1: the run is settled into the profile in one write before the result sho
 test('W2: 40 Brass buys Reinforced Frame I, and the next run has 55 max HP', async ({ page }) => {
   await call(page, 'g.cheat.brass(40)');
   await call(page, 'g.useSlot(1)');
+  await openPlace(page, 'workshop');
   await press(page, page.getByTestId('tab-bench'));
   await expect(page.getByTestId('upgrade-frame')).toBeVisible();
   await expect(page.getByTestId('buy-toolbelt')).toBeDisabled();
@@ -158,6 +159,7 @@ test('W2: 40 Brass buys Reinforced Frame I, and the next run has 55 max HP', asy
   await press(page, page.getByTestId('buy-frame'));
   await expect(page.getByTestId('ws-brass')).toContainText('0');
   await expect(page.getByTestId('upgrade-frame')).toHaveAttribute('data-level', '1');
+  await openPlace(page, 'gate');
   await press(page, page.getByTestId('climb'));
   await expect(page.getByTestId('act-section')).toBeVisible();
   expect((await call<any>(page, 'g.runState()')).maxHp).toBe(55);
@@ -167,12 +169,14 @@ test('W3: an unlocked chassis can be picked and starts with its own bin', async 
   await call(page, 'g.climb("tinker")');
   await call(page, 'g.cheat.finishRun("loss", 20)'); // reaching act 2 unlocks the Stoker
   await leaveResult(page);
+  await openPlace(page, 'workshop');
   await press(page, page.getByTestId('tab-chassis'));
   await expect(page.getByTestId('chassis-horologist')).toHaveAttribute('data-unlocked', 'false');
   await expect(page.getByTestId('chassis-horologist')).toContainText('300');
   await noSidewaysScroll(page);
   await expect(page.getByTestId('chassis-stoker')).toHaveAttribute('data-unlocked', 'true');
   await press(page, page.getByTestId('chassis-select-stoker'));
+  await openPlace(page, 'gate');
   await press(page, page.getByTestId('climb'));
   await expect(page.getByTestId('act-section')).toBeVisible();
   const run = await call<any>(page, 'g.runState()');
@@ -185,6 +189,7 @@ test('W3: an unlocked chassis can be picked and starts with its own bin', async 
 test('W3: a locked chassis can be bought with Brass', async ({ page }) => {
   await call(page, 'g.cheat.brass(400)');
   await call(page, 'g.useSlot(1)');
+  await openPlace(page, 'workshop');
   await press(page, page.getByTestId('tab-chassis'));
   await press(page, page.getByTestId('chassis-buy-horologist'));
   await expect(page.getByTestId('chassis-horologist')).toHaveAttribute('data-unlocked', 'true');
@@ -214,7 +219,7 @@ test('W4: Sprocket celebrates a win, wiggles for a good climb and nudges after a
 
 test('W5: idle for 20 seconds and Sprocket falls asleep; a tap wakes and pets him', async ({ page }) => {
   await call(page, 'g.useSlot(1)');
-  await expect(page.getByTestId('workshop')).toBeVisible();
+  await expect(page.getByTestId('bellfoot')).toBeVisible();
   expect(await call(page, 'g.sprocket()')).toBe('idle');
   await call(page, 'g.cheat.idle(20000)');
   await expect.poll(() => call(page, 'g.sprocket()')).toBe('sleepy');
@@ -226,15 +231,18 @@ test('title to slots to the Workshop, every panel fits, and the door starts a ru
   const errors = watchErrors(page);
   await page.reload();
   await expect(page.getByTestId('title')).toBeVisible();
+  await openPlace(page, 'gate');
   await press(page, page.getByTestId('climb'));
   await expect(page.getByTestId('slots')).toBeVisible();
   await press(page, page.getByTestId('slot-continue-1'));
-  await expect(page.getByTestId('workshop')).toBeVisible();
+  await expect(page.getByTestId('bellfoot')).toBeVisible();
   for (const tab of ['bench', 'chassis', 'notes', 'parts', 'history']) {
+    await openPlace(page, 'workshop');
     await press(page, page.getByTestId(`tab-${tab}`));
     await expect(page.getByTestId('tabbody')).toBeVisible();
     await noSidewaysScroll(page);
   }
+  await openPlace(page, 'gate');
   await press(page, page.getByTestId('climb'));
   await expect(page.getByTestId('act-section')).toBeVisible();
   // a climb in progress: the title and the Workshop both offer Continue

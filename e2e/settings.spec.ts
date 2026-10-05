@@ -116,7 +116,7 @@ test('settings work from the keyboard alone and Escape closes them', async ({ pa
 test('settings open from the Workshop and the combat menu', async ({ page }) => {
   await page.goto('/');
   await call(page, 'g.newSlot(1, "Ada")');
-  await expect(page.getByTestId('workshop')).toBeVisible();
+  await expect(page.getByTestId('bellfoot')).toBeVisible();
   await press(page, page.getByTestId('ws-menu'));
   await press(page, page.getByTestId('ws-settings'));
   await expect(page.getByTestId('settings')).toBeVisible();

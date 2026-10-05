@@ -2,7 +2,7 @@
 const VITE_HMR_NOISE = /\[vite\]|WebSocket connection to 'ws:/;
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { noSidewaysScroll, press, skipFirstLaunch } from './helpers';
+import { noSidewaysScroll, press, skipFirstLaunch, openPlace } from './helpers';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Q5: every screen, at both sizes, with no console error or warning, no unhandled rejection and no sideways scroll.
@@ -57,10 +57,11 @@ test('every screen is clean', async ({ page }, info) => {
   await look(page, 'name-dialog');
   await page.getByTestId('name-input').fill('Ada');
   await press(page, page.getByTestId('name-begin'));
-  await look(page, 'workshop');
+  await look(page, 'bellfoot');
 
   // the Workshop and its tabs
   for (const tab of ['bench', 'chassis', 'notes', 'parts', 'history']) {
+    await openPlace(page, 'workshop');
     await press(page, page.getByTestId(`tab-${tab}`));
     await look(page, 'tabbody');
   }
@@ -121,7 +122,7 @@ test('every screen is clean', async ({ page }, info) => {
   await call(page, 'g.cheat.finishRun("loss", 9)');
   await look(page, 'defeat');
   await press(page, page.getByTestId('end-continue'));
-  await look(page, 'workshop');
+  await look(page, 'bellfoot');
 
   // victory, ending, credits
   await call(page, 'g.climb("tinker")');
@@ -134,7 +135,7 @@ test('every screen is clean', async ({ page }, info) => {
   await page.getByTestId('ending-done').click();
   await look(page, 'brass-breakdown');
   await press(page, page.getByTestId('end-continue'));
-  await look(page, 'workshop');
+  await look(page, 'bellfoot');
 
   // the sandbox picker, then boss fights in it
   await press(page, page.getByTestId('ws-menu'));
@@ -175,7 +176,7 @@ test('with IndexedDB blocked the game still plays and says progress will not be 
   await look(page, 'title');
   await call(page, 'g.setSpeed("skip")');
   await call(page, 'g.newSlot(1, "Mem")');
-  await look(page, 'workshop');
+  await look(page, 'bellfoot');
   await call(page, 'g.climb("tinker")');
   await look(page, 'act-section');
   await expect(page.getByTestId('save-notice')).toContainText("Progress won't be saved in this window");

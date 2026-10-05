@@ -475,6 +475,8 @@ export function poke(): void {
 export const townPlace = signal<string>('gate');
 /** The place whose panel is open over the street, or null. */
 export const openPlaceId = signal<string | null>(null);
+/** Bumped when something other than a walk moves the tinker (the town menu): the street jumps to townPlace. */
+export const townJump = signal(0);
 
 /** Sprocket's collar: one of the earned ones (content/collars.ts), or none. Kept in the profile and saved. */
 export function setCollar(id: string | null): void {

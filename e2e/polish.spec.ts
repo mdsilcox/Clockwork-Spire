@@ -31,7 +31,7 @@ test('a new best pins a note in the Workshop and Sprocket is glad', async ({ pag
   await call(page, 'g.climb("tinker")');
   await call(page, 'g.cheat.finishRun("loss", 30)');
   await press(page, page.getByTestId('end-continue'));
-  await expect(page.getByTestId('workshop')).toBeVisible();
+  await expect(page.getByTestId('bellfoot')).toBeVisible();
   await expect(page.getByTestId('moment-note')).toContainText('New best');
   expect(['happy', 'celebrate']).toContain(await call(page, 'g.sprocket()'));
   await noSidewaysScroll(page);

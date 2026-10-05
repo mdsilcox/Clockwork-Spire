@@ -579,3 +579,8 @@ button.lockmark {
   min-height: 44px;
   margin-top: 6px;
 }
+
+.flaskchip {
+  min-height: 44px;
+  text-align: left;
+}

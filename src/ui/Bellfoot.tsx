@@ -19,6 +19,7 @@ import {
   speed,
   startTutorial,
   goTitle,
+  townJump,
   townPlace,
 } from '../app/controller';
 import { colorBlind, openGlossary, openHowTo, openSettings, setColorBlind } from '../app/prefs';
@@ -86,6 +87,7 @@ function Street({ places, p }: { places: TownPlace[]; p: Profile }) {
   const cssH = Math.round(VIEW_H * scale);
   // mutable walk state (the animation loop reads it every frame)
   const s = useRef({ tx: places[0].x, target: places[0].x, heading: townPlace.peek(), sx: places[0].x - 80, mood: 'idle', tmood: 'idle', collarKey: '' });
+  const lastTap = useRef<string | null>(null);
   const placesRef = useRef(places);
   placesRef.current = places;
   const scaleRef = useRef(scale);
@@ -118,6 +120,7 @@ function Street({ places, p }: { places: TownPlace[]; p: Profile }) {
   const walkTo = (id: string): void => {
     const st = s.current;
     st.heading = id;
+    lastTap.current = id;
     townPlace.value = id;
     st.target = placeX(id);
     poke();
@@ -144,7 +147,8 @@ function Street({ places, p }: { places: TownPlace[]; p: Profile }) {
   /** A tap on a place: walk there; at the place (or while still walking to it) open it. */
   const tapPlace = (id: string): void => {
     unlockAudio();
-    if (s.current.heading === id) {
+    // the first tap walks (or just says "here"); a second tap on the same place, walking or not, opens it at once
+    if (s.current.heading === id && lastTap.current === id) {
       arrive();
       openPlaceId.value = id;
       return;
@@ -153,17 +157,18 @@ function Street({ places, p }: { places: TownPlace[]; p: Profile }) {
   };
 
   // the town menu (or a Continue) moved the tinker without walking: jump to it
-  const tp = townPlace.value;
+  const jump = townJump.value;
   useEffect(() => {
-    if (s.current.heading !== tp) {
-      const st = s.current;
+    const tp = townPlace.peek();
+    const st = s.current;
+    if (st.heading !== tp) {
       st.heading = tp;
       st.target = placeX(tp);
       st.tx = st.target;
       walking.value = false;
       look(st.target);
     }
-  }, [tp]);
+  }, [jump]);
 
   const onKey = (e: KeyboardEvent): void => {
     const list = placesRef.current;
@@ -323,7 +328,7 @@ function Street({ places, p }: { places: TownPlace[]; p: Profile }) {
       c2.save();
       c2.scale(k, k);
       c2.translate(0, -VIEW_TOP);
-      drawAmbience(c2, now);
+      if (!SCENE) drawAmbience(c2, now);
       c2.restore();
       st.collarKey = collarRef.current ?? '';
     };
@@ -349,23 +354,29 @@ function Street({ places, p }: { places: TownPlace[]; p: Profile }) {
   }, []);
 
   const label = (q: TownPlace): string => q.label;
+  /** One painted layer: as tall as the scene, bottom-aligned (the sky above the street's view is cropped), moved by parallax on scroll. */
+  const layerImg = (l: { src: string; parallax: number }, i: number) => (
+    <img
+      key={l.src}
+      ref={(el) => {
+        if (el) layerRefs.current[i] = el;
+      }}
+      src={`${import.meta.env.BASE_URL}${l.src}`}
+      style={{ height: `${(SCENE?.size[1] ?? SCENE_H) * scale}px` }}
+      alt=""
+      draggable={false}
+    />
+  );
   return (
     <div class="streetframe">
       <div class="street" data-testid="town-street" ref={frame} tabIndex={0} aria-label="The street. Left and Right walk to the next place, Enter opens it." onKeyDown={(e) => onKey(e as unknown as KeyboardEvent)} onScroll={onScroll}>
         <div class="scene" style={{ width: `${cssW}px`, height: `${cssH}px` }}>
-          {SCENE && (
-            <div class="scenelayers" aria-hidden="true">
-              {SCENE.layers.map((l, i) => (
-                <img key={l.src} ref={(el) => {
-                    if (el) layerRefs.current[i] = el;
-                  }} src={`${import.meta.env.BASE_URL}${l.src}`} style={{ height: `${(SCENE.size[1] / SCENE_H) * cssH}px` }} alt="" />
-              ))}
-            </div>
-          )}
+          {SCENE && <div class="scenelayers" aria-hidden="true">{SCENE.layers.slice(0, -1).map((l, i) => layerImg(l, i))}</div>}
           <canvas class="streetbg" ref={bg} aria-hidden="true" />
           <div class="stagewrap" ref={wrap}>
             <canvas class="townstage" ref={stage} aria-hidden="true" />
           </div>
+          {SCENE && <div class="scenelayers" aria-hidden="true">{SCENE.layers.slice(-1).map((l) => layerImg(l, SCENE.layers.length - 1))}</div>}
           {places.map((q) => (
             <button
               key={q.id}
@@ -523,6 +534,7 @@ export function BellfootScreen() {
                     setPlacesOpen(false);
                     unlockAudio();
                     townPlace.value = q.id;
+                    townJump.value++;
                     openPlaceId.value = q.id;
                   }}
                 >

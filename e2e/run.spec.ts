@@ -184,7 +184,7 @@ test('defeat: the defeat screen shows the floor and leads back to the title', as
   await expect(page.getByTestId('end-stats')).toContainText('Brass');
   await noSidewaysScroll(page);
   await press(page, page.getByTestId('end-continue'));
-  await expect(page.getByTestId('workshop').or(page.getByTestId('title'))).toBeVisible();
+  await expect(page.getByTestId('bellfoot').or(page.getByTestId('title'))).toBeVisible();
   await expect(page.getByTestId('continue-run')).toHaveCount(0);
 });
 

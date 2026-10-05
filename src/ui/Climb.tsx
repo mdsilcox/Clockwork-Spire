@@ -20,6 +20,7 @@ import {
   tradeCost,
   traderBuy,
   useKey,
+  useOilFlask,
   walk,
 } from '../app/controller';
 import { enemyDef } from '../core/content/enemies';
@@ -308,6 +309,11 @@ export function ActScreen() {
             </span>
             {left <= 1 && left > 0 && <span class="late">Midnight comes after your next move.</span>}
           </div>
+          {(run.oilFlasks ?? 0) > 0 && (
+            <button class="secondary flaskchip" data-testid="oil-flask" disabled={run.hp >= run.maxHp} title="Drink an Oil Flask: heal 15 HP, no time passes" onClick={() => useOilFlask()}>
+              Oil Flask x{run.oilFlasks}
+            </button>
+          )}
           {elites.length > 0 && (
             <ul class="elitelist" data-testid="elite-list">
               {elites.map(({ e, i }) => {

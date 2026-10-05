@@ -37,6 +37,7 @@
 }
 
 .scene {
+  overflow: hidden;
   position: relative;
   flex: none;
 }
