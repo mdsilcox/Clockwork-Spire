@@ -13,8 +13,8 @@ export interface Anchor {
   y: number;
   /** Marker size (px). */
   size: number;
-  /** Phone: which side of the pip its intent chip sits on. */
-  side?: 'l' | 'r';
+  /** Phone: which side of the pip its intent chip sits on (beside it, or above or below when the sides are taken). */
+  side?: 'l' | 'r' | 't' | 'b';
 }
 
 export interface Anchors {
@@ -117,77 +117,155 @@ const HALF = PIP / 2;
 /** Room reserved for an intent chip beside its pip. */
 const CHIP = 42;
 const GAP = 2;
-const UNIT_W = PIP + GAP + CHIP;
 
-/** The box a pip and its chip take: the chip goes on the inner side (toward the slot's middle). */
-function unitBox(p: P, slot: Rect): { l: number; r: number; t: number; b: number; side: 'l' | 'r' } {
-  const side: 'l' | 'r' = p.x < slot.x + slot.w / 2 ? 'r' : 'l';
-  return side === 'r' ? { l: p.x - HALF, r: p.x + HALF + GAP + CHIP, t: p.y - HALF, b: p.y + HALF, side } : { l: p.x - HALF - GAP - CHIP, r: p.x + HALF, t: p.y - HALF, b: p.y + HALF, side };
+type Side = 'l' | 'r' | 't' | 'b';
+interface Unit extends P {
+  side: Side;
+}
+interface Box {
+  l: number;
+  r: number;
+  t: number;
+  b: number;
+}
+const CHIP_H = 18;
+
+const pipBox = (p: P): Box => ({ l: p.x - HALF, r: p.x + HALF, t: p.y - HALF, b: p.y + HALF });
+/** The intent chip's box beside (l, r) or above and below (t, b) its pip. */
+function chipBox(p: P, side: Side): Box {
+  if (side === 'r') return { l: p.x + HALF + GAP, r: p.x + HALF + GAP + CHIP, t: p.y - CHIP_H / 2, b: p.y + CHIP_H / 2 };
+  if (side === 'l') return { l: p.x - HALF - GAP - CHIP, r: p.x - HALF - GAP, t: p.y - CHIP_H / 2, b: p.y + CHIP_H / 2 };
+  if (side === 't') return { l: p.x - CHIP / 2, r: p.x + CHIP / 2, t: p.y - HALF - GAP - CHIP_H, b: p.y - HALF - GAP };
+  return { l: p.x - CHIP / 2, r: p.x + CHIP / 2, t: p.y + HALF + GAP, b: p.y + HALF + GAP + CHIP_H };
+}
+const boxesTouch = (A: Box, B: Box): boolean => A.l < B.r + 1 && B.l < A.r + 1 && A.t < B.b + 1 && B.t < A.b + 1;
+const overlapArea = (A: Box, B: Box): number => Math.max(0, Math.min(A.r, B.r) - Math.max(A.l, B.l)) * Math.max(0, Math.min(A.b, B.b) - Math.max(A.t, B.t));
+
+/**
+ * Pass 1: each pip goes to the free spot nearest its anchor (pips only, so they stay on their parts whenever the slot
+ * has room). Pass 2: each pip's intent chip takes a side (right, left, above or below) where it touches no pip and, if
+ * possible, no other chip. Pips stay above the bar and the name line, chips inside the slot.
+ */
+function pipPositions(slot: Rect, targets: P[]): Unit[] {
+  const strict = strictUnits(slot, targets);
+  if (strict) return strict;
+  const loose = pipsThenChips(slot, targets);
+  const bad = loose.some((u, i) => loose.some((v, j) => i !== j && (boxesTouch(chipBox(u, u.side), pipBox(v)) || boxesTouch(pipBox(u), pipBox(v)))));
+  return bad ? cornerUnits(slot, targets) : loose;
 }
 
-function pipPositions(slot: Rect, targets: P[]): { pos: P[]; side: ('l' | 'r')[] } {
+/** Last resort, always clear: two columns in the slot's corners (left pips take their chip on the right, right pips on the left). */
+function cornerUnits(slot: Rect, targets: P[]): Unit[] {
+  const bar = enemyBar(slot, targets.length - 1);
+  const minX = slot.x + HALF + 1;
+  const maxX = slot.x + slot.w - HALF - 1;
+  const minY = slot.y + HALF + 1;
+  const maxY = bar.y - 3 - HALF;
+  const rank = targets.map((t, i) => ({ t, i })).sort((p, q) => p.t.y - q.t.y || p.t.x - q.t.x);
+  const cols = slot.w - 4 >= 2 * (PIP + GAP + CHIP) ? 2 : 1;
+  const rows = Math.ceil(targets.length / cols);
+  const out: Unit[] = new Array<Unit>(targets.length);
+  rank.forEach(({ i }, k) => {
+    const left = cols === 1 || k % 2 === 0;
+    const r = Math.floor(k / cols);
+    const y = rows === 1 ? (minY + maxY) / 2 : minY + ((maxY - minY) * r) / (rows - 1);
+    out[i] = { x: left ? minX : maxX, y, side: left ? 'r' : 'l' };
+  });
+  return out;
+}
+
+/** The slot's middle, kept free of pips and their 40 px tap areas: a tap there targets the enemy itself. */
+const centerBlocked = (slot: Rect, x: number, y: number): boolean => Math.abs(x - (slot.x + slot.w / 2)) < HALF + 10 && Math.abs(y - (slot.y + slot.h / 2)) < HALF + 10;
+
+/** Every pip with its chip, placed one after another at the free spot nearest its anchor; null when one finds no spot. */
+function strictUnits(slot: Rect, targets: P[]): Unit[] | null {
   const bar = enemyBar(slot, targets.length - 1);
   const minX = slot.x + HALF;
   const maxX = slot.x + slot.w - HALF;
   const minY = slot.y + HALF + 1;
   const maxY = bar.y - 3 - HALF;
-  const clamp = (p: P): P => ({ x: Math.min(maxX, Math.max(minX, p.x)), y: Math.min(maxY, Math.max(minY, p.y)) });
-  const sides = (pos: P[]): ('l' | 'r')[] => pos.map((p) => unitBox(p, slot).side);
-  // keep the chip inside the slot: a pip on the left half has its chip to its right, so its x is bounded by the chip
-  const fit = (p: P): P => {
-    const side = unitBox(p, slot).side;
-    const q = clamp(p);
-    if (side === 'r') q.x = Math.min(q.x, slot.x + slot.w - 2 - CHIP - GAP - HALF);
-    else q.x = Math.max(q.x, slot.x + 2 + CHIP + GAP + HALF);
-    return q;
-  };
-  const hit = (a: P, b: P): boolean => {
-    const A = unitBox(a, slot);
-    const B = unitBox(b, slot);
-    return A.l < B.r + 1 && B.l < A.r + 1 && A.t < B.b + 1 && B.t < A.b + 1;
-  };
-  const pos = targets.map(fit);
-  for (let iter = 0; iter < 200; iter++) {
-    let moved = false;
-    for (let i = 0; i < pos.length; i++) {
-      for (let j = i + 1; j < pos.length; j++) {
-        if (!hit(pos[i], pos[j])) continue;
-        moved = true;
-        const dy = pos[j].y - pos[i].y || (j % 2 ? 1 : -1) * 0.01;
-        const dx = pos[j].x - pos[i].x || 0.01;
-        const needY = PIP + 2 - Math.abs(dy);
-        const needX = UNIT_W + 2 - Math.abs(dx);
-        if (needY <= needX) {
-          const s = Math.sign(dy) * (needY / 2 + 0.5);
-          pos[i].y -= s;
-          pos[j].y += s;
-        } else {
-          const s = Math.sign(dx) * (needX / 2 + 0.5);
-          pos[i].x -= s;
-          pos[j].x += s;
+  const inSlot = (B: Box): boolean => B.l >= slot.x + 1 && B.r <= slot.x + slot.w - 1 && B.t >= slot.y + 1 && B.b <= bar.y - 2;
+  const placed: (Unit | undefined)[] = new Array<Unit | undefined>(targets.length).fill(undefined);
+  const order = targets.map((t, i) => ({ i, n: targets.filter((u) => Math.hypot(u.x - t.x, u.y - t.y) < 50).length })).sort((p, q) => q.n - p.n || p.i - q.i);
+  const sides: Side[] = ['r', 'l', 't', 'b'];
+  for (const { i } of order) {
+    const t = targets[i];
+    let best: Unit | undefined;
+    let bestD = Infinity;
+    for (let y = minY; y <= maxY + 0.01; y += 2) {
+      for (let x = minX; x <= maxX + 0.01; x += 2) {
+        const d = Math.hypot(x - t.x, y - t.y);
+        if (d >= bestD || centerBlocked(slot, x, y)) continue;
+        const pb = pipBox({ x, y });
+        if (placed.some((u) => u && (boxesTouch(pb, pipBox(u)) || boxesTouch(pb, chipBox(u, u.side))))) continue;
+        for (const side of sides) {
+          const cb = chipBox({ x, y }, side);
+          if (!inSlot(cb) || placed.some((u) => u && (boxesTouch(cb, pipBox(u)) || boxesTouch(cb, chipBox(u, u.side))))) continue;
+          best = { x, y, side };
+          bestD = d;
+          break;
         }
-        pos[i] = fit(pos[i]);
-        pos[j] = fit(pos[j]);
       }
     }
-    if (!moved) break;
+    if (!best) return null;
+    placed[i] = best;
   }
-  let ok = true;
-  for (let i = 0; i < pos.length && ok; i++) for (let j = i + 1; j < pos.length; j++) if (hit(pos[i], pos[j])) ok = false;
-  if (ok) return { pos, side: sides(pos) };
-  // fallback: two columns (the left pips take their chip on the right, the right pips on the left), rows in target order
-  const order = targets.map((t, i) => ({ t, i })).sort((a, b) => a.t.y - b.t.y || a.t.x - b.t.x);
-  const cols = slot.w - 4 >= 2 * UNIT_W ? 2 : 1;
-  const rows = Math.ceil(targets.length / cols);
-  const out: P[] = new Array<P>(targets.length);
-  order.forEach(({ i }, k) => {
-    const c = cols === 2 ? k % 2 : 0;
-    const r = Math.floor(k / cols);
-    const y = rows === 1 ? (minY + maxY) / 2 : minY + ((maxY - minY) * r) / (rows - 1);
-    const x = cols === 2 ? (c === 0 ? minX + 1 : maxX - 1) : minX + 1;
-    out[i] = { x, y };
-  });
-  return { pos: out, side: sides(out) };
+  return placed as Unit[];
+}
+
+/** The looser fallback: pips first, then each chip on the side where it covers the fewest others. */
+function pipsThenChips(slot: Rect, targets: P[]): Unit[] {
+  const bar = enemyBar(slot, targets.length - 1);
+  const minX = slot.x + HALF;
+  const maxX = slot.x + slot.w - HALF;
+  const minY = slot.y + HALF + 1;
+  const maxY = bar.y - 3 - HALF;
+  const pips: (P | undefined)[] = new Array<P | undefined>(targets.length).fill(undefined);
+  const order = targets.map((t, i) => ({ i, n: targets.filter((u) => Math.hypot(u.x - t.x, u.y - t.y) < 50).length })).sort((p, q) => q.n - p.n || p.i - q.i);
+  for (const { i } of order) {
+    const t = targets[i];
+    let best: P | undefined;
+    let bestD = Infinity;
+    for (let y = minY; y <= maxY + 0.01; y += 2) {
+      for (let x = minX; x <= maxX + 0.01; x += 2) {
+        const d = Math.hypot(x - t.x, y - t.y);
+        if (d >= bestD) continue;
+        // the middle of the slot stays free: a tap there targets the enemy itself
+        if (centerBlocked(slot, x, y)) continue;
+        if (pips.some((p) => p && boxesTouch(pipBox(p), pipBox({ x, y })))) continue;
+        best = { x, y };
+        bestD = d;
+      }
+    }
+    pips[i] = best ?? { x: Math.min(maxX, Math.max(minX, t.x)), y: Math.min(maxY, Math.max(minY, t.y)) };
+  }
+  const inSlot = (B: Box): boolean => B.l >= slot.x + 1 && B.r <= slot.x + slot.w - 1 && B.t >= slot.y + 1 && B.b <= bar.y - 2;
+  const chips: (Box | undefined)[] = new Array<Box | undefined>(targets.length).fill(undefined);
+  const out: Unit[] = [];
+  for (const { i } of order) {
+    const p = pips[i] as P;
+    const prefer: Side[] = p.x < slot.x + slot.w / 2 ? ['r', 'l', 't', 'b'] : ['l', 'r', 't', 'b'];
+    let pick: Side = prefer[0];
+    let pickCost = Infinity;
+    prefer.forEach((side, rank) => {
+      const B = chipBox(p, side);
+      let cost = rank * 0.5;
+      if (!inSlot(B)) cost += 1000;
+      for (let j = 0; j < pips.length; j++) {
+        const q = pips[j] as P;
+        if (j !== i && boxesTouch(B, pipBox(q))) cost += 500;
+        const c = chips[j];
+        if (j !== i && c) cost += overlapArea(B, c) * 2;
+      }
+      if (cost < pickCost) {
+        pickCost = cost;
+        pick = side;
+      }
+    });
+    chips[i] = chipBox(p, pick);
+    out[i] = { x: p.x, y: p.y, side: pick };
+  }
+  return out;
 }
 
 /** Phone pips: on the painting's anchors, or spread over the code-drawn sprite. */
@@ -209,9 +287,9 @@ function phonePips(slot: Rect, partIds: string[], rig: RigPlacement | null): Rec
       { x: cx, y: cy },
     ];
   }
-  const { pos, side } = pipPositions(slot, targets);
+  const units = pipPositions(slot, targets);
   const out: Record<string, Anchor> = {};
-  ids.forEach((id, i) => (out[id] = { x: pos[i].x, y: pos[i].y, size: PIP, side: side[i] }));
+  ids.forEach((id, i) => (out[id] = { x: units[i].x, y: units[i].y, size: PIP, side: units[i].side }));
   return out;
 }
 

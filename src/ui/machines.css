@@ -425,6 +425,22 @@
   left: auto;
 }
 
+.pm.phone.side-t .pm-intent {
+  top: auto;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+}
+
+.pm.phone.side-b .pm-intent {
+  top: calc(100% + 2px);
+  bottom: auto;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+}
+
 .pm.phone .pm-intent .irow {
   flex-direction: row;
   gap: 2px;

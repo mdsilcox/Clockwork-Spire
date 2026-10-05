@@ -393,7 +393,10 @@ export class Stage {
     const paintW = Math.min(b.w * 1.05, ((b.h * fit) / def.size[1]) * def.size[0]);
     const w = (paintW / def.size[0]) * WW;
     const h = (w / WW) * WH;
-    return { x: b.x + b.w / 2 - w / 2, y: b.y + b.h / 2 - h / 2 + (phone ? b.h * 0.05 : 0), w, h };
+    // bottom-aligned: the painting stands on the HP bar, whatever its shape (a cut-out has a small margin under its feet)
+    const artBottom = ((def.pad[1] + def.size[1]) / WH) * h;
+    const lower = phone ? b.h * 0.06 : (h / WH) * def.size[1] * 0.03;
+    return { x: b.x + b.w / 2 - w / 2, y: b.y + b.h + lower - artBottom, w, h };
   }
 
   /** Create, move, re-mood and drop the painted enemies for this frame; true per enemy when its painting is drawn. */

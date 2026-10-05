@@ -1509,7 +1509,7 @@ button:disabled {
 .runstrip .ticon {
   width: 22px !important;
   height: 22px !important;
-  font-size: 11px !important;
+  font-size: 12px !important;
 }
 
 .runstrip .trinket {
@@ -3387,4 +3387,17 @@ button:disabled {
   border-radius: 50%;
   background: var(--lamp);
   box-shadow: 0 0 6px rgba(255, 210, 122, 0.8);
+}
+
+/* phone: the turn recap rides at the top of the board, so it never covers an enemy name and HP line */
+@media (max-height: 460px) {
+  .recap {
+    left: 6px;
+    top: 4px;
+    bottom: auto;
+    transform: none;
+    max-width: 54%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }

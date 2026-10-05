@@ -517,7 +517,7 @@ export function CombatScreen() {
       {runNow && (
         <div class="runstrip" data-testid="runstrip">
           <b data-testid="run-where">
-            {ACT_TITLE[runNow.act]} <span class="dot">|</span> Floor {runNow.floor}
+            {ACT_TITLE[runNow.act]} <span class="dot">|</span> {runNow.section ? `Hour ${runNow.hour ?? 0} of ${runNow.hours ?? 12}` : `Floor ${runNow.floor}`}
           </b>
           <TrinketBar run={runNow} />
         </div>
