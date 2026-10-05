@@ -19,6 +19,7 @@ import { ACHIEVEMENTS } from '../core/content/achievements';
 import { LANDMARK_BY_ID } from '../core/content/landmarks';
 import { RESIDENT_BY_ID } from '../core/content/residents';
 import { sectionFixture } from '../core/testkit';
+import { townPlaces } from '../ui/town';
 import { generateActMap } from '../core/map';
 import { partName } from '../core/content/parts';
 import { enemyDef } from '../core/content/enemies';
@@ -42,7 +43,7 @@ import type { SprocketPose } from '../ui/Sprocket';
 import { colorBlind } from './prefs';
 import { markTutorialDone, tutorialDone, setColorBlind } from './prefs';
 
-export type Screen = 'loading' | 'title' | 'combat' | 'practice' | 'run' | 'slots' | 'workshop';
+export type Screen = 'loading' | 'title' | 'combat' | 'practice' | 'run' | 'slots' | 'bellfoot';
 
 /** Tinker starting bin (docs/content.md) plus Cam, Boiler, Piston and Pendulum, so the practice fight has real choices. */
 const PRACTICE_BIN = ['spur', 'spur', 'spur', 'escapement', 'escapement', 'escapement', 'idler', 'coil', 'cam', 'boiler', 'piston', 'pendulum'];
@@ -391,7 +392,7 @@ export function leaveResult(): void {
   practiceStash = null;
   publish();
   if (active) {
-    screen.value = 'workshop';
+    screen.value = 'bellfoot';
     greet(moment && mood === 'comfort' ? 'happy' : mood);
     if (profileView.value === null) profileView.value = clone(active.profile);
   } else {
@@ -470,6 +471,25 @@ export function poke(): void {
   if (pose.value === 'sleepy') pose.value = 'idle';
 }
 
+// ---------- Bellfoot (B10a): where the tinker stands in the street, the open place, collars, Oil Flasks ----------
+
+/** The place the tinker stands at (or is heading to) in Bellfoot. */
+export const townPlace = signal<string>('gate');
+/** The place whose panel is open over the street, or null. */
+export const openPlaceId = signal<string | null>(null);
+/** Bumped when something other than a walk moves the tinker (the town menu): the street jumps to townPlace. */
+export const townJump = signal(0);
+
+/** Sprocket's collar: one of the earned ones (content/collars.ts), or none. Kept in the profile and saved. */
+export function setCollar(id: string | null): void {
+  if (!active) return;
+  active.profile.collar = id;
+  saveActive();
+}
+
+/** Drink an Oil Flask on the climb screen: heal 15 HP, no hour. */
+export const useOilFlask = (): boolean => runAction((r) => (r.phase === 'section' ? rooms.useOilFlask(r) : false)) ?? false;
+
 export function petSprocket(): void {
   if (active) {
     // the e-pet counter (content.md 7); the achievement itself lands when a run ends
@@ -488,7 +508,7 @@ export function petSprocket(): void {
 
 /** Called about once a second by the Workshop: idle for 20 s means sleepy. */
 export function checkSleepy(): void {
-  if (screen.value !== 'workshop') return;
+  if (screen.value !== 'bellfoot') return;
   if (pose.value === 'idle' && Date.now() + idleShift.value - lastActive >= SLEEP_AFTER) pose.value = 'sleepy';
 }
 
@@ -605,7 +625,7 @@ export async function useSlot(n: SlotNo): Promise<boolean> {
     runView.value = clone(liveRun);
     if (!(live && live === liveRun.combat)) practiceStash = practiceStash ?? live;
   } else runView.value = null;
-  screen.value = 'workshop';
+  screen.value = 'bellfoot';
   greet(active?.profile.lastSprocketMood ?? null);
   if (!liveRun) pose.value = 'idle';
   return true;
@@ -638,7 +658,7 @@ export async function deleteSlot(n: SlotNo): Promise<void> {
 /** Title: into the active slot's Workshop, or the slot screen. */
 export function enterWorkshop(): void {
   if (active) {
-    screen.value = 'workshop';
+    screen.value = 'bellfoot';
     poke();
   } else void openSlots();
 }
@@ -1299,7 +1319,7 @@ export function cycleSpeed(): void {
 
 export function goTitle(): void {
   if (stage?.isPlaying()) stage.setSpeed('skip');
-  if (screen.value === 'workshop' || screen.value === 'slots') {
+  if (screen.value === 'bellfoot' || screen.value === 'slots') {
     screen.value = 'title';
     return;
   }
@@ -1379,7 +1399,7 @@ effect(() => {
       else if (rv.phase === 'defeat') track = trackFor('workshop');
       else track = trackFor('map', rv.act);
     } else if (scr === 'combat') track = trackFor('combat', 1, enemyIds, 0);
-    else if (scr === 'workshop') track = trackFor('workshop');
+    else if (scr === 'bellfoot') track = trackFor('bellfoot');
     else track = trackFor('title');
     if (track !== music.current()) music.play(track);
     if (clock && track === 'clockmaker') music.setIntensity(clock.phase ?? 0);
@@ -1524,9 +1544,10 @@ export function installDebug(): void {
     // ---- end B9b.0 block ----
     // ---- B10a.0 CONTRACT (bellfoot-ui fills town(); memory-core the cheats; nobody else edits these blocks) ----
     /** Bellfoot now: the current place id and the place list (src/ui/town.ts `townPlaces`). */
-    town: (): { place: string; places: { id: string; label: string; x: number }[] } => {
-      throw new Error('B10a');
-    },
+    town: (): { place: string; places: { id: string; label: string; x: number }[] } => ({
+      place: townPlace.value,
+      places: townPlaces(active?.profile.residents ?? []).map((p) => ({ id: p.id, label: p.label, x: p.x })),
+    }),
     // ---- end B10a.0 block ----
     cheat: {
       // ---- B9b.0 CONTRACT (progression lane): earn an achievement now, as finishRun would (unlocks, rewards, one save write) ----

@@ -1,9 +1,9 @@
-// The dev server's hot-reload socket (not game code; the game opens no sockets) may log a refused connection under load.
+﻿// The dev server's hot-reload socket (not game code; the game opens no sockets) may log a refused connection under load.
 const VITE_HMR_NOISE = /\[vite\]|WebSocket connection to 'ws:/;
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-const TRACKS = ['workshop', 'act1', 'act2', 'act3', 'clockmaker', 'ending'];
+const TRACKS = ['workshop', 'bellfoot', 'act1', 'act2', 'act3', 'clockmaker', 'ending'];
 
 function watchErrors(page: Page): string[] {
   const errors: string[] = [];
@@ -26,7 +26,7 @@ test('with ?sound=1 the audio graph builds and every track plays without errors'
       const m = (await import(/* @vite-ignore */ musicPath)) as typeof import('../src/audio/music');
       const s = (await import(/* @vite-ignore */ synthPath)) as typeof import('../src/audio/synth');
       const seen: (string | null)[] = [];
-      for (const t of ['workshop', 'act1', 'act2', 'act3', 'clockmaker', 'ending'] as const) {
+      for (const t of ['workshop', 'bellfoot', 'act1', 'act2', 'act3', 'clockmaker', 'ending'] as const) {
         m.music.play(t);
         await new Promise((r) => setTimeout(r, 350));
         seen.push(m.audioDebug().track);

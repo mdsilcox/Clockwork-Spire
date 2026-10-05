@@ -1,6 +1,8 @@
 // The trophy shelf (B9b, rules 5.6; docs/content.md section 7): every achievement with its condition, its reward and what has been
 // earned; rewards with no system yet (journal pages, collars, landmarks, Overwind, the Scrapper) are listed below it.
 import { ACHIEVEMENTS } from '../core/content/achievements';
+import { COLLARS } from '../core/content/collars';
+import { LANDMARKS } from '../core/content/landmarks';
 import { PARTS } from '../core/content/parts';
 import { TRINKETS } from '../core/content/trinkets';
 import type { AchievementDef } from '../core/defs';
@@ -24,6 +26,16 @@ const REWARD_NOTE = {
   chassis: 'It waits at the gate until Bellfoot opens it.',
 };
 
+/** A collar with its swatch (content/collars.ts). */
+function CollarItem({ name }: { name: string }) {
+  const c = COLLARS.find((x) => x.id === name || x.name === name);
+  return (
+    <span class="trophy-item">
+      {c && <i class="collar-swatch" style={{ background: c.color }} aria-hidden="true" />} {c?.name ?? name}
+    </span>
+  );
+}
+
 function RewardLine({ a }: { a: AchievementDef }) {
   const r = a.reward;
   return (
@@ -39,8 +51,8 @@ function RewardLine({ a }: { a: AchievementDef }) {
         </span>
       ))}
       {r.journal && <span class="trophy-item">Journal page: {r.journal}</span>}
-      {r.collar && <span class="trophy-item">{r.collar}</span>}
-      {r.landmark && <span class="trophy-item">Landmark: {r.landmark}</span>}
+      {r.collar && <CollarItem name={r.collar} />}
+      {r.landmark && <span class="trophy-item">Landmark: {LANDMARKS.find((l) => l.id === r.landmark || l.name === r.landmark)?.name ?? r.landmark}</span>}
       {r.chassis && <span class="trophy-item">New chassis: {r.chassis[0].toUpperCase()}{r.chassis.slice(1)}</span>}
       {r.overwind !== undefined && <span class="trophy-item">Overwind {r.overwind}</span>}
     </span>

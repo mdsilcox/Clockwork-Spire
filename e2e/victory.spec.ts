@@ -61,6 +61,6 @@ test('cheat to the Clockmaker, win, and see the victory screen', async ({ page }
   await expect(page.getByTestId('brass-breakdown')).toContainText('Victory bonus');
   await noSidewaysScroll(page);
   await press(page, page.getByTestId('end-continue'));
-  await expect(page.getByTestId('title').or(page.getByTestId('workshop'))).toBeVisible();
+  await expect(page.getByTestId('title').or(page.getByTestId('bellfoot'))).toBeVisible();
   expect(errors).toEqual([]);
 });

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { noSidewaysScroll, press, skipFirstLaunch, watchErrors } from './helpers';
+import { noSidewaysScroll, press, skipFirstLaunch, watchErrors, openPlace } from './helpers';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const call = <T = unknown>(page: Page, expr: string): Promise<T> =>
@@ -27,7 +27,7 @@ test('Q4: after two finished runs the history lists them and the totals add up',
   expect(total.replace(/,/g, '')).toContain(String(sum));
   await noSidewaysScroll(page);
   await press(page, page.getByTestId('end-continue'));
-  await expect(page.getByTestId('workshop')).toBeVisible();
+  await expect(page.getByTestId('bellfoot')).toBeVisible();
 
   // and a win
   await call(page, 'g.climb("tinker")');
@@ -38,8 +38,9 @@ test('Q4: after two finished runs the history lists them and the totals add up',
   await page.getByTestId('ending-done').click({ timeout: 10_000 });
   await expect(page.getByTestId('brass-breakdown')).toContainText('Victory bonus');
   await press(page, page.getByTestId('end-continue'));
-  await expect(page.getByTestId('workshop')).toBeVisible();
+  await expect(page.getByTestId('bellfoot')).toBeVisible();
 
+  await openPlace(page, 'workshop');
   await press(page, page.getByTestId('tab-history'));
   await expect(page.getByTestId('history')).toBeVisible();
   await noSidewaysScroll(page);
@@ -59,6 +60,7 @@ test('Q4: after two finished runs the history lists them and the totals add up',
   await expect(page.getByTestId('stat-favorite')).not.toHaveText('none yet');
   // per slot: a fresh slot starts empty
   await call(page, 'g.newSlot(2, "Bo")');
+  await openPlace(page, 'workshop');
   await press(page, page.getByTestId('tab-history'));
   await expect(page.getByTestId('history-empty')).toBeVisible();
   expect(errors).toEqual([]);

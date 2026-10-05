@@ -14,7 +14,7 @@
 // gradients, shadows, size, pseudo-elements) with every color stripped, so a mark that differs only by color fails; Common has none.
 import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
-import { noSidewaysScroll, press, skipFirstLaunch, watchErrors } from './helpers';
+import { noSidewaysScroll, press, skipFirstLaunch, watchErrors, openPlace } from './helpers';
 
 type G = {
   __game: {
@@ -36,14 +36,14 @@ async function workshop(page: Page): Promise<void> {
   await skipFirstLaunch(page);
   await page.goto('/');
   await page.evaluate(() => (window as unknown as G).__game.newSlot(1, 'Ada'));
-  await expect(page.getByTestId('workshop')).toBeVisible();
+  await expect(page.getByTestId('bellfoot')).toBeVisible();
 }
 const unlock = (page: Page, id: string) => page.evaluate((x) => (window as unknown as G).__game.cheat.unlock(x), id);
 
 test('AD2 (E): an unlocked achievement shows on the trophy shelf, earned, with its reward', async ({ page }) => {
   const errors = watchErrors(page);
   await workshop(page);
-  await press(page, page.getByTestId('tab-trophies'));
+  await openPlace(page, 'trophies');
   await expect(page.getByTestId('trophies')).toBeVisible();
   await expect(page.getByTestId('trophy-m-burst')).toHaveAttribute('data-earned', 'false');
   await unlock(page, 'm-burst');
@@ -58,8 +58,8 @@ test('AD2 (E): an unlocked achievement shows on the trophy shelf, earned, with i
   // a reload lands on the title screen (as in workshop.spec.ts): open the saved slot again
   await skipFirstLaunch(page);
   await page.evaluate(() => (window as unknown as { __game: { useSlot(n: number): Promise<boolean> } }).__game.useSlot(1));
-  await expect(page.getByTestId('workshop')).toBeVisible();
-  await press(page, page.getByTestId('tab-trophies'));
+  await expect(page.getByTestId('bellfoot')).toBeVisible();
+  await openPlace(page, 'trophies');
   await expect(page.getByTestId('trophy-m-burst')).toHaveAttribute('data-earned', 'true');
   await noSidewaysScroll(page);
   expect(errors).toEqual([]);
@@ -67,7 +67,7 @@ test('AD2 (E): an unlocked achievement shows on the trophy shelf, earned, with i
 
 test('achievements that open with Bellfoot say so, and are never earned', async ({ page }) => {
   await workshop(page);
-  await press(page, page.getByTestId('tab-trophies'));
+  await openPlace(page, 'trophies');
   for (const id of ['h-master', 'h-clockwork', 'h-ow5', 'h-ow10']) { // B10a opened e-resident and m-residents
     const row = page.getByTestId(`trophy-${id}`);
     await expect(row).toHaveAttribute('data-available', 'false');
@@ -138,9 +138,9 @@ test('AD6: each tier is distinct by a shape mark, not color alone, on the hand, 
   note(await shapes(page.getByTestId('trader')), 'trader');
   // the shelf: Rare (sapper), Masterwork (resonance rod) and Legendary (Sprocket's Blanket) rewards
   await page.evaluate(() => (window as unknown as G).__game.newSlot(1, 'Ada'));
-  await expect(page.getByTestId('workshop')).toBeVisible();
+  await expect(page.getByTestId('bellfoot')).toBeVisible();
   for (const id of ['m-act2-breaker', 'm-burst', 'h-flawless']) await unlock(page, id);
-  await press(page, page.getByTestId('tab-trophies'));
+  await openPlace(page, 'trophies');
   await expect(page.getByTestId('trophy-h-flawless')).toHaveAttribute('data-earned', 'true');
   note(await shapes(page.getByTestId('trophies')), 'shelf');
 

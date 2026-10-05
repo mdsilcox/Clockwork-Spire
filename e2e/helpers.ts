@@ -81,3 +81,15 @@ export async function showTip(page: Page, loc: Locator): Promise<void> {
     await loc.hover();
   }
 }
+
+/** Open one of Bellfoot's places through the town menu (no walking). Does nothing when that place's panel is already open. */
+export async function openPlace(page: Page, id: string): Promise<void> {
+  const panel = page.getByTestId('place-panel');
+  if ((await panel.count()) > 0) {
+    if ((await panel.getAttribute('data-place')) === id) return;
+    await press(page, page.getByTestId('place-close'));
+  }
+  await press(page, page.getByTestId('town-menu'));
+  await press(page, page.getByTestId(`town-menu-${id}`));
+  await expect(page.getByTestId('place-panel')).toHaveAttribute('data-place', id);
+}
