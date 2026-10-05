@@ -19,7 +19,7 @@ export interface Layout {
 export function computeLayout(w: number, h: number): Layout {
   const pad = Math.max(6, Math.round(Math.min(w, h) * 0.03));
   // a phone gives the enemies nearly half the width: the paintings are the point of the fight
-  const enemyW = Math.max(110, Math.min(w * (w < 760 ? 0.46 : 0.3), 330));
+  const enemyW = Math.max(110, Math.min(w * (w < 760 ? 0.46 : 0.4), w < 760 ? 330 : 520));
   const availW = Math.max(100, w - enemyW - pad * 3);
   const availH = Math.max(60, h - pad * 2);
   const cell = Math.max(24, Math.floor(Math.min(availW / COLS, availH / ROWS)));
@@ -132,7 +132,7 @@ export function machineGeometry(slot: Rect, parts: number): MachineGeometry {
     const size = Math.min(slot.w * 0.96, bottom - top);
     const w = Math.min(slot.w * 0.8, 120);
     const body = { x: slot.x + (slot.w - size) / 2, y: top + (bottom - top - size) / 2, w: size, h: size };
-    return { mode: 'ring', body, area: body, bar: { x: slot.x + (slot.w - w) / 2, y: slot.y + slot.h - textBlock(slot) - 5, w, h: 5 }, size: 44 };
+    return { mode: 'ring', body, area: { x: slot.x + 2, y: top, w: slot.w - 4, h: Math.max(16, bottom - top) }, bar: { x: slot.x + (slot.w - w) / 2, y: slot.y + slot.h - textBlock(slot) - 5, w, h: 5 }, size: 44 };
   }
   const barY = slot.y + slot.h - PHONE_TEXT_H - 7;
   const top = slot.y + 1;
