@@ -65,6 +65,7 @@ export interface V2Fight {
 export function replay(bot: V2Bot, snap: FightSnapshot, seed: number): FightStats {
   const c = createCombat({
     seed,
+    curved: true, // B10c: replays are climb fights, so the per-act percents apply
     bin: snap.bin,
     enemies: snap.enemies,
     hp: snap.hp,
@@ -133,6 +134,8 @@ export interface WardenFightStats {
   turnsMedian: number; // median player turns over the WON fights (a loss on turn 5 is not the fight's length)
   /** Per phase index, the fewest turns any fight of this cell spent in that phase (a fight that won in a phase counts the turns it took there). */
   phaseTurnsMin: number[];
+  /** B10c: how many won fights spent fewer than 3 turns in the last phase (BV4 wants none): the margin behind `phaseTurnsMin`. */
+  lastPhaseShort: number;
 }
 
 export interface WardenFightOpts {
@@ -175,7 +178,7 @@ export function wardenStatsFromBins(o: WardenFightOpts, bins: FightSnapshot[]): 
       const phases = enemyDef(warden).frame?.phases?.length ?? 1;
       const won = rows.filter((r) => r.won);
       const min = Array.from({ length: phases }, (_, k) => (won.length ? Math.min(...won.map((r) => r.phaseStartTurns[k] ?? 0)) : 0));
-      out.push({ bot, warden, fights: rows.length, wins: won.length, turnsMedian: median(won.map((r) => r.turns)), phaseTurnsMin: min });
+      out.push({ bot, warden, fights: rows.length, wins: won.length, turnsMedian: median(won.map((r) => r.turns)), phaseTurnsMin: min, lastPhaseShort: won.filter((r) => (r.phaseStartTurns[phases - 1] ?? 0) < 3).length });
     }
   }
   return out;

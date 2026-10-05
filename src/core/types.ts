@@ -180,6 +180,8 @@ export interface CombatState {
   outcome: 'ongoing' | 'won' | 'lost';
   /** B9a: this fight's play style so far, accumulated per turn from the event timeline; recordFight moves it into the run. */
   planAcc?: PlanStats;
+  /** B10c: a climb combat (run fights): the per-act percents of content/balance.ts apply (attack amounts, regular core HP). Test and practice combats are unscaled. */
+  curved?: boolean;
   /** B10b: the run's mode and Overwind level, copied at combat start so summons scale too (missing: journeyman, 0). */
   mode?: string;
   overwind?: number;

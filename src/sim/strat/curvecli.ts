@@ -8,6 +8,7 @@ import { writeFileSync } from 'node:fs';
 import { CurvePool, careersV2, climbRates, impactTable } from './curve';
 import type { CareerRoute } from './curve';
 import type { RoutePolicy } from './decide';
+import { ENEMIES } from '../../core/content/enemies';
 
 function arg(name: string, def: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -31,6 +32,20 @@ async function main(): Promise<void> {
       const { stats, rows } = await climbRates(pool, policy, seed, runs, opts);
       console.log(`rates ${policy} seed ${seed} runs ${runs} ${JSON.stringify(opts)}: win ${pct(stats.winRate)} reach2 ${pct(stats.reach2)} reach3 ${pct(stats.reach3)} meanAct ${stats.meanAct.toFixed(2)}`);
       out = { policy, seed, opts, stats, rows };
+    } else if (cmd === 'deaths') {
+      // no-meta deaths by act and by killer (count and share of the runs)
+      const runs = Number(arg('runs', '300'));
+      const policy = arg('policy', 'expert') as RoutePolicy;
+      const { stats, rows } = await climbRates(pool, policy, seed, runs, {});
+      const by = new Map<string, number>();
+      for (const r of rows) if (!r.won) {
+        const d = r.killedBy ? ENEMIES[r.killedBy] : undefined;
+        const key = `act ${r.act} ${d ? (d.tier === 'boss' ? 'warden' : d.tier) : 'other'} ${r.killedBy ?? 'none'}`;
+        by.set(key, (by.get(key) ?? 0) + 1);
+      }
+      console.log(`deaths ${policy} seed ${seed} runs ${runs}: win ${pct(stats.winRate)}`);
+      for (const [k, n] of [...by.entries()].sort()) console.log(`  ${k}: ${n} (${pct(n / runs)})`);
+      out = { policy, seed, runs, stats, deaths: Object.fromEntries(by) };
     } else if (cmd === 'careers' || cmd === 'impact') {
       const route = arg('route', 'expert') as CareerRoute;
       const n = Number(arg('careers', '100'));

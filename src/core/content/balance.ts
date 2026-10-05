@@ -67,3 +67,19 @@ export function bypassShare(act: 1 | 2 | 3): BypassShare {
   }
   return { act, damage, pierce, siphon, corrodeCredit, share: damage > 0 ? (pierce + siphon) / damage : 0 };
 }
+
+/**
+ * B10c round 1 (D-047): per-act percent of the amount of every Attack, Pierce, Siphon and Echo payload that regular and elite enemies
+ * deal (never Shell, Mend, Bulwark, Governor or Drain, and never a warden fight). Applied in one place, `enemyAmount` (difficulty.ts),
+ * before the mode's damage %. 100 = the content.md amount. Act 1 gets +10% (BV3 act 1 normals needed the step); acts 2 and 3 carry the attrition.
+ */
+export const ACT_ATTACK_PCT: Record<1 | 2 | 3, number> = { 1: 110, 2: 210, 3: 210 };
+
+/** B10c round 1 (D-047): percent of a regular (tier normal, not a summon) enemy's core HP in acts 2 and 3; applied in `scaleEnemy` (difficulty.ts). */
+export const ACT_CORE_HP_PCT: Record<1 | 2 | 3, number> = { 1: 100, 2: 100, 3: 100 };
+
+/** B10c round 1 (D-047): the oil station's rest heals this percent of max HP (rounded down; content.md 4). */
+export const OIL_REST_PCT = 30;
+
+/** B10c round 1 (D-047): the same percent for warden fights (kind 'boss': the Foreman act 1, the Queen act 2, the Clockmaker act 3, and their summons). */
+export const WARDEN_ATTACK_PCT: Record<1 | 2 | 3, number> = { 1: 100, 2: 105, 3: 115 };

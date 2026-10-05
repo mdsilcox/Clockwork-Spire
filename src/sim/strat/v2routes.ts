@@ -46,6 +46,8 @@ export interface RouteRun {
   offers: { partId: string; taken: boolean; act: number }[];
   /** Bosses beaten (an act-1 or act-2 offer is judged by that act's boss, an act-3 offer by the win). */
   bossesBeaten: number;
+  /** B10c: the enemy that ended the run (the first living enemy at the defeat), when it lost in a fight. */
+  killedBy?: string;
   trinkets: string[];
   /** The parts in the bin at the end. */
   bin: string[];
@@ -95,6 +97,7 @@ export function routeRun(policy: RoutePolicyV2, seed: number, index: number, opt
       illegal: r.illegal,
       offers: r.run.stats.offers.map((o) => ({ partId: o.partId, taken: o.taken, act: o.act })),
       bossesBeaten: r.run.stats.bossesBeaten,
+      killedBy: r.run.killedBy,
       trinkets: r.run.trinkets.slice(),
       bin: r.run.bin.map((p) => p.defId),
     };

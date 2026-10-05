@@ -10,7 +10,8 @@
 //   oil: base times mode oil % times 0.5 at Overwind 6, round half up (stations, trader oil and Oil Flasks alike);
 //   Brass: mode % times (1 + 0.1 times the Overwind level), once, at finishRun.
 import { DEFAULT_MODE, MODE_BY_ID } from './content/modes';
-import { MEMORY_PARTS } from './content/enemies';
+import { ENEMIES, MEMORY_PARTS } from './content/enemies';
+import { ACT_ATTACK_PCT, ACT_CORE_HP_PCT, WARDEN_ATTACK_PCT } from './content/balance';
 import { neighbors } from './board';
 import { MAINSPRING } from './types';
 import { frameOf, initPart } from './framelib';
@@ -38,7 +39,9 @@ export function scalePart(c: CombatState, p: EnemyPartState): void {
 /** Combat start and every summon: scale the enemy's HP (parts and core). The core takes the mode % only. */
 export function scaleEnemy(c: CombatState, e: EnemyState): void {
   const m = modeOf(c.mode);
-  const core = rh(e.maxHp * m.enemyHp, 100);
+  const d = ENEMIES[e.defId];
+  const actPct = c.curved && d && d.tier === 'normal' && !d.summonOnly ? ACT_CORE_HP_PCT[d.act as 1 | 2 | 3] : 100; // B10c hook (curve): regular cores in acts 2 and 3
+  const core = rh(rh(e.maxHp * actPct, 100) * m.enemyHp, 100);
   e.hp = core;
   e.maxHp = core;
   for (const p of e.parts) scalePart(c, p);
@@ -46,7 +49,10 @@ export function scaleEnemy(c: CombatState, e: EnemyState): void {
 
 /** The amount of one enemy attack the player takes before reductions: the mode % of the base, then Strength, then Overwind 8's +2. */
 export function enemyAmount(c: CombatState, base: number, strength: number): number {
-  return rh(base * modeOf(c.mode).enemyDamage, 100) + strength + (combatLevel(c) >= 8 ? 2 : 0);
+  const act = c.curved ? (ENEMIES[c.enemies[0]?.defId]?.act ?? 1) : 1;
+  const pct = !c.curved ? 100 : c.kind === 'boss' ? WARDEN_ATTACK_PCT[act as 1 | 2 | 3] : ACT_ATTACK_PCT[act as 1 | 2 | 3];
+  const scaled = pct === 100 ? base : rh(base * pct, 100); // B10c hook (curve): per-act attack percent (regulars and elites; wardens have their own)
+  return rh(scaled * modeOf(c.mode).enemyDamage, 100) + strength + (combatLevel(c) >= 8 ? 2 : 0);
 }
 
 /** Hours in this act (startAct): the mode's, one fewer with Overwind 2, one more in act 3 with the beacon, never below 6. */

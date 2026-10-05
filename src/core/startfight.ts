@@ -18,6 +18,7 @@ export function startCombat(run: RunState, enemies: string[], kind: CombatState[
     handSize,
     chassis: run.config.chassis,
     memory: run.config.memory,
+    curved: true, // B10c: run fights use the per-act percents of content/balance.ts
     mode: run.config.mode,
     overwind: run.config.overwind,
     ...extra,

@@ -41,6 +41,8 @@ export interface CreateCombatOpts {
   prepared?: number;
   /** B9a: the plan the Clockmaker remembers; he starts with the matching memory part (frame.memoryParts). */
   memory?: Plan | null;
+  /** B10c: a climb combat: the per-act percents of content/balance.ts apply (set by startfight.ts). */
+  curved?: boolean;
   /** B10b: the run's mode and Overwind level (missing: journeyman, 0). */
   mode?: string;
   overwind?: number;
@@ -89,6 +91,7 @@ export function createCombat(o: CreateCombatOpts): CombatState {
     chassis: o.chassis,
     flags: {},
   };
+  if (o.curved) c.curved = true;
   if (o.mode !== undefined) c.mode = o.mode;
   if (o.overwind !== undefined) c.overwind = o.overwind;
   for (const id of o.enemies) c.enemies.push(newEnemy(id));
@@ -181,6 +184,7 @@ export function cloneCombat(c: CombatState): CombatState {
     chassis: c.chassis,
     flags: { ...(c.flags ?? {}) },
     swapsUsed: c.swapsUsed,
+    ...(c.curved ? { curved: true } : {}),
     ...(c.mode !== undefined ? { mode: c.mode } : {}),
     ...(c.overwind !== undefined ? { overwind: c.overwind } : {}),
   };

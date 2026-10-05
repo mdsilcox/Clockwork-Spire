@@ -207,6 +207,15 @@ Rules 7.4 (7): at least 30% of each act's regular expected damage per turn must 
 
 Reading it: v1's per-turn damage is kept (act 1 about 23 across the roster against v1's 27, act 2 36 against 38, act 3 55 against 63). Against the spike's turtle (loses 7 percent of max HP in act 1), act 1's Pierce alone is about 3 to 4 HP a turn per enemy that survives, so a pure Plating stack loses HP in every act 1 fight longer than 3 turns. Elites and wardens add Corrode at 50% to 75% on their big hitters (below), which does bite: Corrode 75% on a 59 stack leaves 15, so an Attack 24 lands 9. The sim reports this share, the Pierce and Corrode parts of it, and turtle HP lost per act (rules 7.4 targets 3 and 7).
 
+**The curve constants (B10c round 1, D-047; `content/balance.ts`).** Every number in sections 3.1 to 3.6 is the base amount. In a run's fights (climb combats, not practice or tests) the amount of every Attack, Pierce, Siphon and Echo payload an enemy deals is first multiplied by a per-act percent, rounded half up, then by the mode's damage % (rules 5.7). Shell, Mend, Bulwark, Governor and Drain never scale. The shares above (3.0) are computed from the base amounts: a uniform percent leaves each act's Pierce and Siphon share unchanged.
+
+| | Act 1 | Act 2 | Act 3 |
+|---|---|---|---|
+| Regular and elite attack percent (`ACT_ATTACK_PCT`) | 110 | 210 | 210 |
+| Warden attack percent (`WARDEN_ATTACK_PCT`, kind boss) | 100 | 105 | 115 |
+| Regular core HP percent (`ACT_CORE_HP_PCT`) | 100 | 100 | 100 |
+| Oil rest heal, percent of max HP (`OIL_REST_PCT`) | 30 | 30 | 30 |
+
 ### 3.1 Act 1: the Gearworks (regulars)
 
 **Rust Mite** (`rust-mite`): core 11 of 18, Scrap 3, Bump 3. Often in pairs.

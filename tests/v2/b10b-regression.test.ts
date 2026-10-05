@@ -9,11 +9,11 @@ import { playClimb } from '../../src/sim/strat/climb';
 import { ROUTE_COMBAT } from '../../src/sim/strat/v2routes';
 
 describe('regression: a seeded Journeyman run at Overwind 0 matches the numbers of the code before B10b', () => {
-  // Snapshot taken from the contract commit (9488b48) before any effect existed: playClimb with the route sim's expert combat bot.
+  // Snapshot re-taken in B10c round 1 (D-047: the per-act attack percents of content/balance.ts changed every run's numbers; taken from the contract commit 9488b48 before): playClimb with the route sim's expert combat bot.
   const SNAP = [
-    { idx: 0, won: false, act: 1, turns: 16, hp: 0, maxHp: 50, hour: 8, hours: 12, scrap: 137, brass: 28, fights: 4, elites: 1, bin: ['escapement', 'escapement', 'escapement', 'coil+', 'cam', 'coil', 'auger', 'pry-bar+', 'lever', 'pry-bar'], trinkets: ['bellows'] },
-    { idx: 1, won: false, act: 2, turns: 41, hp: 0, maxHp: 54, hour: 8, hours: 12, scrap: 295, brass: 87, fights: 9, elites: 2, bin: ['escapement+', 'escapement+', 'coil+', 'wedge', 'coil', 'trap', 'torsion', 'cam-follower', 'cam', 'leaf', 'cold-chisel', 'trip-hammer', 'cold-chisel', 'trip-hammer', 'lever', 'trip-hammer'], trinkets: ['spectacles', 'echo-chamber', 'extra-pocket'] },
-    { idx: 2, won: false, act: 3, turns: 63, hp: 0, maxHp: 65, hour: 5, hours: 12, scrap: 405, brass: 139, fights: 8, elites: 5, bin: ['spur', 'spur', 'escapement', 'escapement', 'escapement', 'idler', 'coil+', 'cam', 'pry-bar', 'pry-bar', 'trap', 'pry-bar', 'pry-bar', 'cam', 'toggle', 'coil', 'anchor', 'sapper', 'anchor', 'anchor', 'grandfather'], trinkets: ['tin-cup', 'hourglass', 'brass-heart', 'pocket-watch', 'counterweight', 'echo-chamber', 'grease-pot', 'bellows'] },
+{ idx: 0, won: false, act: 1, turns: 16, hp: 0, maxHp: 50, hour: 8, hours: 12, scrap: 137, brass: 28, fights: 4, elites: 1, bin: ['escapement', 'escapement', 'escapement', 'coil+', 'cam', 'coil', 'auger', 'pry-bar+', 'lever', 'pry-bar'], trinkets: ['bellows'] },
+    { idx: 1, won: false, act: 2, turns: 38, hp: 0, maxHp: 54, hour: 5, hours: 12, scrap: 233, brass: 80, fights: 5, elites: 3, bin: ['escapement+', 'escapement+', 'coil+', 'wedge', 'coil', 'trap', 'torsion', 'cam-follower', 'cam', 'leaf', 'cold-chisel', 'auger', 'torsion', 'lever'], trinkets: ['spectacles', 'echo-chamber', 'copper-wire', 'brass-knuckles'] },
+    { idx: 2, won: false, act: 2, turns: 32, hp: 0, maxHp: 65, hour: 5, hours: 12, scrap: 168, brass: 78, fights: 5, elites: 3, bin: ['spur', 'spur', 'escapement', 'escapement', 'escapement', 'idler', 'coil+', 'cam', 'pry-bar', 'pry-bar', 'trap', 'pry-bar', 'pry-bar', 'cam', 'toggle', 'coil', 'anchor'], trinkets: ['tin-cup', 'hourglass', 'brass-heart', 'pocket-watch', 'counterweight'] },
   ];
   const play = (idx: number, explicit: boolean): ReturnType<typeof playClimb> => {
     const c: RunConfig = { ...defaultRunConfig(100003 + idx), legacyMap: false };

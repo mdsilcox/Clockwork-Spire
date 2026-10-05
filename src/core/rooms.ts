@@ -6,6 +6,7 @@ import { PARTS } from './content/parts';
 import { TRINKETS } from './content/trinkets';
 import { eligible, foldDown, rollTier, canTakeLegendary } from './pool';
 import { oilHealFor, traderPrice } from './difficulty';
+import { OIL_REST_PCT } from './content/balance';
 import { addScrap, gainTrinket, heal, markOfferTaken, newPart, recordOffers, scrapOf } from './rewards';
 import { spendHour } from './section';
 import type { Family, Pending, Rarity, RunState, TradeItem } from './types';
@@ -210,11 +211,11 @@ function useOil(run: RunState, p: Extract<Pending, { kind: 'oil' }>): void {
   if (r) r.used = true;
 }
 
-/** Rest: heal 30% of max HP (rounded down), 1 extra hour (elites step). Once per station. */
+/** Rest: heal OIL_REST_PCT of max HP (balance.ts; 30 before B10c) (rounded down), 1 extra hour (elites step). Once per station. */
 export function rest(run: RunState): boolean {
   const p = oilReady(run);
   if (!p) return false;
-  heal(run, oilHealFor(run, Math.floor(run.maxHp * 0.3) + (run.trinkets.includes('sprocket-tag') ? 5 : 0))); // B10b hook (modes-overwind)
+  heal(run, oilHealFor(run, Math.floor((run.maxHp * OIL_REST_PCT) / 100) + (run.trinkets.includes('sprocket-tag') ? 5 : 0))); // B10b hook (modes-overwind)
   spendHour(run);
   useOil(run, p);
   return true;
