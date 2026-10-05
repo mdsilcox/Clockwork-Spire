@@ -16,6 +16,8 @@ import * as rooms from '../core/rooms';
 import { SAVE_VERSION } from '../core/migrate';
 import { earnAchievement } from '../core/achievements';
 import { ACHIEVEMENTS } from '../core/content/achievements';
+import { LANDMARK_BY_ID } from '../core/content/landmarks';
+import { RESIDENT_BY_ID } from '../core/content/residents';
 import { sectionFixture } from '../core/testkit';
 import { generateActMap } from '../core/map';
 import { partName } from '../core/content/parts';
@@ -1533,11 +1535,15 @@ export function installDebug(): void {
       },
       // ---- end B9b.0 block ----
       // ---- B10a.0 CONTRACT (memory-core): add a resident or landmark to the active profile as finishRun would, then save ----
-      addResident: (_id: string): void => {
-        throw new Error('B10a');
+      addResident: (id: string): void => {
+        if (!active || !RESIDENT_BY_ID[id]) return;
+        if (!active.profile.residents.includes(id)) active.profile.residents.push(id);
+        saveActive();
       },
-      addLandmark: (_id: string): void => {
-        throw new Error('B10a');
+      addLandmark: (id: string): void => {
+        if (!active || !LANDMARK_BY_ID[id]) return;
+        if (!active.profile.landmarks.includes(id)) active.profile.landmarks.push(id);
+        saveActive();
       },
       // ---- end B10a.0 block ----
       /** B9a: set the active profile's planHistory (the Clockmaker's memory), save, and re-render the Workshop. */

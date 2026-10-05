@@ -3,7 +3,7 @@
 
 export type Family = 'gear' | 'spring' | 'cam' | 'tempo' | 'steam' | 'chime';
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'masterwork' | 'legendary'; // v2: five tiers (rules 5.6)
-export type RngStream = 'map' | 'draw' | 'enemy' | 'reward' | 'event' | 'shop';
+export type RngStream = 'map' | 'draw' | 'enemy' | 'reward' | 'event' | 'shop' | 'meta'; // B10a: `meta` seeds Bellfoot's extras (the Apprentice) so no other stream moves
 
 /** Board geometry: 5 columns x 3 rows, index = row * 5 + col. A2 (index 5) is the Mainspring. */
 export const COLS = 5;
@@ -115,6 +115,8 @@ export interface SalvageItem {
   salvage: string; // player part id, or 'spire-key'
   rarity: Rarity;
   locked: boolean; // salvage not yet unlocked: pays 6 instead (rules 2.5)
+  plus?: boolean; // B10a Scrapper: the first part salvage of the fight is kept upgraded
+  scrapper?: boolean; // B10a Scrapper: a wrecked part's salvage offered once per combat (marked "Scrapper" in the tray)
 }
 
 export interface EnemyState {
@@ -430,6 +432,8 @@ export interface RunConfig {
   residentPatch?: RunConfigPatch;
   /** B10a: the landmarks' combined effect on map generation; `startAct` passes it to `generateSection`. Undefined: none. */
   mapPatch?: MapGenPatch;
+  /** B10a: resident ids living in Bellfoot when the run started (resident events that would offer them again are not placed). */
+  residents?: string[];
   /** B9a: the plan the Clockmaker remembers (memoryPlan of the profile's planHistory); null or missing: no memory part. */
   memory?: Plan | null;
   /** B9b: Masterwork and Legendary trinkets the profile's achievements have unlocked (parts go in `unlockedParts`). */
@@ -494,6 +498,7 @@ export interface MapGenPatch {
   beacon?: boolean; // act 3: every elite patrol and the door shown from the start, +1 hour
   revealRooms?: boolean; // every room's kind shown (Lamplighter)
   extraTraders?: number; // the Trader's cousin: converts regular fight rooms into traders (never the opening fight)
+  excludeEvents?: string[]; // event ids not placed (a resident who lives in Bellfoot, a landmark already made)
 }
 
 export interface RunRecord {

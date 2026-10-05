@@ -2,11 +2,15 @@
 // in its fixed sequence, so a feat met mid-run unlocks at the run's end. Item unlocks are derived from `profile.achievements`
 // (pool.ts `achievementUnlocks`, `runConfigFor`); rewards with no system yet are recorded in `profile.rewards`.
 import { ACHIEVEMENTS } from './content/achievements';
+import { COLLARS } from './content/collars';
+import { journalIdFor } from './content/story';
 import { PARTS } from './content/parts';
 import type { AchievementDef } from './defs';
 import type { Profile, RunRecord, RunState } from './types';
 
 const CHASSIS_WINS = ['tinker', 'stoker', 'horologist'];
+/** The landmark each achievement reward names (display name to landmark id). */
+const LANDMARK_FOR: Record<string, string> = { 'Opened vault': 'vault-1', 'Repaired lift': 'lift', 'Lit beacon': 'beacon' };
 
 /** Check every available achievement not yet earned against the finished run (and the profile's progress counters). Mutates
  * `profile.achievements`, `achievementProgress` and `rewards` in the one finishRun write; returns the newly earned ids. The 11
@@ -50,6 +54,12 @@ export function checkAchievements(profile: Profile, run: RunState, record: RunRe
     'm-wrecker': prog.wreckWins >= 25,
     'm-three-elites': everyAct(s.elitesByAct),
     'h-flawless': wardens.some((w) => w.won && w.hpLost === 0),
+    // B10a: Bellfoot's five (finishRun adds the resident, the landmarks and the lore progress before this check)
+    'e-resident': !!run.resident && profile.residents.includes(run.resident),
+    'e-lore': ['hour-ghost', 'stopped-clock', 'empty-chair', 'unsent-letter'].every((m) => prog[`lore-${m}`]),
+    'm-residents': profile.residents.length >= 5,
+    'm-lift': profile.landmarks.includes('lift'),
+    'm-beacon': profile.landmarks.includes('beacon'),
     'h-whole-clock': wardens.some((w) => w.enemy === 'clockmaker' && w.won && w.allBroken),
   };
 
@@ -74,6 +84,12 @@ function grant(profile: Profile, a: AchievementDef, at: string): void {
   add(rw.collars, a.reward.collar);
   add(rw.landmarks, a.reward.landmark);
   add(rw.chassis, a.reward.chassis);
+  // B10a: the rewards kept since B9b now apply: journal pages, collars, landmarks and the Scrapper go where Bellfoot reads them
+  if (a.reward.journal) add((profile.journal ??= []), journalIdFor(a.reward.journal));
+  const collar = COLLARS.find((c) => c.name === a.reward.collar);
+  if (collar) add((profile.collars ??= []), collar.id);
+  if (a.reward.landmark && LANDMARK_FOR[a.reward.landmark]) add((profile.landmarks ??= []), LANDMARK_FOR[a.reward.landmark]);
+  if (a.reward.chassis) add(profile.chassisUnlocked, a.reward.chassis);
   rw.overwind = Math.max(rw.overwind, a.reward.overwind ?? 0);
 }
 

@@ -228,6 +228,15 @@ export function polish(run: RunState): boolean {
   return true;
 }
 
+/** B10a: use an Oil Flask (the Oil Merchant's gift): outside combat, in any room, heal 15 (never above max HP), no hour.
+ * False in combat, with no flasks left, or at full HP. */
+export function useOilFlask(run: RunState): boolean {
+  if ((run.oilFlasks ?? 0) <= 0 || run.combat || run.phase === 'combat' || run.phase === 'victory' || run.phase === 'defeat' || run.hp >= run.maxHp) return false;
+  run.oilFlasks -= 1;
+  heal(run, OIL_HEAL);
+  return true;
+}
+
 // Vaults
 export interface VaultLoot {
   partId?: string;
