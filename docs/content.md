@@ -685,6 +685,7 @@ Rules 4.2, 4.4 and 4.5, in one place. Prices are fixed (no variance).
 | Clockmaker's broken parts | 4 Brass each |
 | Event costs | listed per event in section 6 |
 | Hours | move 1; rest 1 extra; pick a lock 1 extra; Journeyman midnight at hour 12 |
+| Bench upgrades, Brass per level (`content/upgrades.ts`) | Reinforced Frame 40, 60, 80, 100, 120; Spare Scrap 30, 50, 70; Oiled Bearings 50, 90, 140; **Tool Belt 250** (was 150, B10c round 2, D-049); Inventor's Notes 80, 160; Second Wind 200; Lucky Charm 120 |
 
 ## 11. Rule decisions and open questions
 
