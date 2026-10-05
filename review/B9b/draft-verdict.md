@@ -1,0 +1,51 @@
+# Draft verdict: B9b Rarity and achievements
+
+Reviewer: critic, in place of the owner's draft approval (D-035). Read: docs/briefs/B9b-rarity.md (commit 41276e0), review/B9/draft-verdict.md and round 2, content.md 1, 2 (Masterwork and Legendary rows), 5, 7, 8, 11, rules 4.4, 4.7, 5.6, data-model "Version 2" invariants 8 to 10, and the code the items must hook into: `src/core/machine.ts` (strike resolution `hitAt`, overpressure at lines 95 to 98), `enemy.ts` (`damageTarget`), `record.ts` (B9a), `rooms.ts`, `types.ts`. The game was not run.
+
+## Verdict: FAIL (revise and resubmit). 1 blocker, 6 must-fix
+
+| Metric | Score | Evidence |
+|---|---|---|
+| Plan quality | 6 | Good ideas (contract pre-places all 21 items and `TierMark` sites, one pool, one owner for pool call sites and achievements). But the item lanes are split by file while the items are coupled through `machine.ts`, which the lane that needs it does not own. |
+| Spec fit | 7 | Pool, warden-core, vault, trader and Legendary rules match content 1 and rules 4.7 and 5.6; the 22/11 split is right. Contradictions: Overrun Coupler "once per turn" vs the brief's "once per Strike", Watch "hand and draw order stay", invariant 8 and `legendaryTaken` untouched. |
+| Risk handling | 6 | The Watch and Foresight rules are decided, which clears B1's open questions. Unaddressed: defeat flow versus the Watch, double-counted run facts after a wind-back, thin Queen pick with one Legendary unlocked, two lanes that carry 13 and 8 items plus UI. |
+| Testability | 7 | One behavior test per item, a test per pool source, AD1 "exactly one" as a test, `cheat.unlock` hook. Gaps: facts the achievements need are not listed, and the Watch and Foresight tests lack edge cases. |
+
+Average 6.5. Pass rule (no blockers, each at least 7, average at least 7.5): not met.
+
+## Blocker
+
+**B1. The lane split by file does not match where the items live, so two lanes edit one function and the combat lane lacks the file it needs.**
+All strike resolution runs through `hitAt` and the `ctx` in `machine.ts` (the file `items-machine` owns, and `items-combat` does not). Items assigned to items-combat that must change `machine.ts`: Cascade Piston, Overrun Coupler and Apprentice's Hands (the three damage routings: carry to the next entry, two entries), Conductor's Baton (status spread through `applyStatus`), Ballast Lance (Plating to damage on the last tick), and Sun-Orb Core (the overpressure rule is `machine.ts` lines 95 to 98, plus its Sweep). Night Watchman (fires before the enemies act) needs `runTurn` in `combat.ts` and the same ctx. items-machine's own items (Skewframe, Mirror Gear, Twin Mainspring, Free Pawl, Resonance Rod, Hour Hand, Perpetual Engine, Bottled Dusk) all live in the tick loop. So both lanes will edit `hitAt`, the tick loop and the `ctx` API at once, which is the coupling the lane rule says to split by, not by file. This is also the same B1 the first verdict raised, only moved. Fix: (a) have the contract commit extend the `ctx` surface the items need (a damage-routing hook: `carry`, `extraTargets`; a status-spread hook; an overpressure hook; a last-tick query) as stubs, so lanes fill items against fixed hooks; and (b) regroup by mechanism, for example `items-strike` (every Strike-routing item and every status item: Cascade, Overrun, Apprentice's Hands, Conductor's Baton, Ballast Lance, Sun-Orb Core, Night Watchman), `items-motion` (the eight tick-loop items), and a third small lane `items-meta` (Foresight Dial, the Watch, Two Left Hands, Tow Hook, Whistle, Blanket and their UI). Re-balance: items-combat as written carries 13 items plus `previewIntents` and two UI components.
+
+## Must-fix
+
+M1. **Contradictions with the docs.** (a) Overrun Coupler is "once per turn" in content 5; the brief says all three carry items work "once per Strike". Cascade Piston is "once" per Strike, the Coupler once per turn: state both, and what happens when both are held (does a carried hit carry again?). (b) Invariant 8 ("damage never carried past a target") and rules 2.3 are not amended; the brief only calls them "exceptions". Edit invariant 8 and EM2's wording in the contract, and keep a test that overkill is lost with no carrier. (c) Watch: content 5 says "your hand and draw order stay", the brief restores them. The brief's reading (full pre-Run snapshot, same draws) is the safer, but then edit content 5 and rules 1.6 and 6 in the contract commit, not only content 11. (d) `RunState.legendary: string | null` replaces data-model's `legendaryTaken: boolean` and invariant 9 ("in a run's bin"): update the data model so trinkets count.
+
+M2. **The Watch and defeat.** "Usable after a Run that ends in your defeat" needs the defeat to be held open: today a loss settles through `finishRun`, `recordFight` and `abandonRun` paths at once. Say that the loss waits one prompt (Wind back or accept), where the used flag lives (it must not be inside the restored snapshot, or the Watch is infinite), and that the run facts and `planAcc` of the rewound Run are restored with it (otherwise parts broken, plan stats and the per-hit counters count the lost Run twice). Test: Run, wind back, Run again, and compare the facts with a single Run.
+
+M3. **The Queen's pick of two with fewer than two unlocked.** `{ options: [id, id] }`: with one Legendary unlocked, or none unlocked after the part and trinket pool overlap, there is nothing to pair. State: one option shown if one is unlocked, a Masterwork then Rare fallback otherwise (content 1), and add the matching test. At the B9b gate only two Legendaries are reachable, so one or two options is the normal case.
+
+M4. **Facts the achievements need are missing from the run-facts list.** The list lacks: a run-wide overpressure flag and the Steam count in the bin at the end (m-calm-steam); total Plating gained in the run (m-no-plating; `plan.plating` can serve if its definition is Plating gained, say so); per-chassis win flags in `achievementProgress` (m-all-chassis); fuses per run, vaults per act, bells with hours-left per act, elites per act (the brief names them but gives no owner or key), "damage taken" in h-flawless (HP loss after Plating, not Plating loss; define). m-break-all and h-whole-clock: define "every part" as each part broken at least once in that fight, counting rebuilt parts once, the memory part included, summons excluded. Also: the Drill-break-protected and Shatter-triple facts live in `machine.ts` events; derive them in `recordFight` from the event timeline (as B9a's plan stats do) and have the contract add the needed `protected` and `shatter` flags to the break event, so the progression lane does not edit `machine.ts`.
+
+M5. **Rewards that have no system yet.** Collars, journal pages, landmarks, the Scrapper and Overwind levels are rewards; `types.ts` has no `collars`, `journal`, `landmarks`, `overwindMax` or pet counter (checked), though e-pet, e-bell and e-first-win are "available". State where they are recorded (`Profile.achievements` plus `reward` data shown on the shelf, applied in B10), and that e-pet needs a persisted pet counter (and the pet interaction exists to count). Otherwise "available: true" is false for e-pet.
+
+M6. **One owner per function holds, except at the seams.** `recordFight` (progression, in sequence after B9a: good), `finishRun` (progression), pool call sites (progression: good). But progression also owns `controller.ts` hooks and `Nodes.tsx`, `rooms.ts`, `eventfx.ts`, `run.ts`, `salvage.ts`, while items-combat owns `salvage.ts` (Tow Hook) and the combat UI files that the shelf and the Queen's pick may touch. Give `salvage.ts` Tow Hook as a hook the contract places (a named function in `salvage.ts` progression owns) or move Tow Hook to progression. Add one line: `finishRun` stays a fixed sequence (planHistory, then `checkAchievements`, then save).
+
+## Should-fix
+
+- Legendary trinkets and the boss trinket choice: content 5 says only the Foreman's and Queen's choices may swap in a Masterwork trinket; the brief says "the boss trinket choice (may include Masterwork trinkets)": limit it to those two wardens, and never Legendary trinkets there.
+- Vault fallbacks (no Masterwork unlocked: a random Rare plus 40 Scrap; act 3 Legendary only when unlocked and none held; family weights by act) are in content 1 but not named in the brief's test list; add each.
+- Foresight Dial: say what the second turn shows for a part that will be Jammed, Rewound or in a phase action (pending), and that `previewIntents` ignores random targets (done) and Summon counts. Keep the test for "recomputed after a break".
+- Mirror Gear is the only Masterwork whose achievement (m-residents) is unavailable; say so with the other unreachable-until-B10 items so the owner is not surprised that 7 of 15 items are locked at the gate (Mirror Gear plus six Legendary items other than Blanket and Whistle).
+- m-salvager's reward chassis: the shelf text is fine; make sure `buyChassis` and the chassis rack do not list a Scrapper that has no parts yet.
+- `migrate.ts` empty achievements for old profiles: add `planHistory` ordering check (B9a's `memoryPlan` slices the last three oldest-first; the data model says newest first), a one-line consistency decision.
+
+## What passed
+No placeholder text survives (the contract replaces the B7 stubs); AD1, AD2, AD3, AD6, AD7 each have a named test file; the available and unavailable split of 22 and 11 matches content 7 (Legendaries reachable now: Sprocket's Blanket and Sprocket's Whistle; m-all-chassis, m-vaults, m-bells and m-salvager are correctly counted available); the tier-mark shapes are added to art-direction; the Watch and Foresight Dial rules are written down and deterministic; B9a's `record.ts` is correctly extended in sequence. Sprocket: his two Legendary items keep his role (a fetch and a blanket), and nothing in the brief changes his Workshop reactions.
+
+## What was tested
+Document and code read only: no `npm test`, no server. Confirmed: `hitAt` and the ctx are in `machine.ts`, overpressure is in `machine.ts`, `record.ts` is a 40-line file with no achievement facts, `types.ts` lacks collars, journal and pet fields.
+
+## Resubmit when
+B1 and M1 to M6 are applied. Expected scores after: plan 8, spec fit 8, risk 7, testability 8.
