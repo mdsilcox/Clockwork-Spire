@@ -150,11 +150,26 @@ export class Stage {
   private paintedKey = '';
   /** Characters whose painting did not load (the code-drawn enemy shows and the markers go back to the ring). */
   private failed = new Set<string>();
+  /** The paintings are a WebGL layer between this canvas and a second 2D canvas that carries what must show on top of them. */
+  private glLayer: HTMLCanvasElement | null = null;
+  private top: HTMLCanvasElement | null = null;
+  private topCtx: CanvasRenderingContext2D | null = null;
+  private topUsed = false;
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas 2D is not available');
     this.ctx = ctx;
+    this.glLayer = this.hub.mount(canvas);
+    if (this.glLayer) {
+      const top = document.createElement('canvas');
+      top.className = canvas.className;
+      top.setAttribute('aria-hidden', 'true');
+      top.style.pointerEvents = 'none';
+      this.glLayer.after(top);
+      this.top = top;
+      this.topCtx = top.getContext('2d');
+    }
     this.relayout();
     // the DOM part markers sit on the painting's anchors (anchors.ts asks which rig fills a slot)
     setRigSource((slot) => {
@@ -178,6 +193,8 @@ export class Stage {
     this.finishNow();
     for (let i = 0; i < this.rigs.length; i++) this.dropRig(i);
     setRigSource(null);
+    this.hub.unmount();
+    this.top?.remove();
   }
 
   /** Match the canvas to its CSS size (device pixels, DPR capped at 2). */
@@ -187,6 +204,10 @@ export class Stage {
     this.dpr = Math.min(2, window.devicePixelRatio || 1);
     this.canvas.width = Math.round(w * this.dpr);
     this.canvas.height = Math.round(h * this.dpr);
+    if (this.top) {
+      this.top.width = this.canvas.width;
+      this.top.height = this.canvas.height;
+    }
     this.layout = computeLayout(w, h);
     this.hub.resize(w, h, this.dpr);
     this.relayout();
@@ -1057,7 +1078,7 @@ export class Stage {
   }
 
   private draw(dt: number): void {
-    const ctx = this.ctx;
+    let ctx = this.ctx;
     const L = this.layout;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, L.w, L.h);
@@ -1216,7 +1237,20 @@ export class Stage {
       const b0 = enemyBody(slot, e.parts?.length ?? 0);
       drawEnemy(ctx, e.defId, b0.x + b0.w / 2, b0.y + b0.h / 2, b0.w, look);
     }
-    if (painted.some(Boolean)) this.hub.frame(ctx, now);
+    // paintings: under-effects on this canvas, the painting in the GL layer, over-effects and everything after on the top canvas
+    const topCtx = this.topCtx;
+    const onTop = topCtx !== null && painted.some(Boolean);
+    if (topCtx && (onTop || this.topUsed)) {
+      topCtx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      topCtx.clearRect(0, 0, L.w, L.h);
+      this.topUsed = onTop;
+    }
+    if (this.glLayer) this.glLayer.style.transform = this.shake > 0.05 ? `translate(${Math.sin(now * 83) * this.shake}px, ${Math.cos(now * 71) * this.shake}px)` : '';
+    if (this.hub.ready()) this.hub.frame(ctx, now, onTop && topCtx ? topCtx : ctx);
+    if (onTop && topCtx) {
+      ctx = topCtx;
+      if (this.shake > 0.05) ctx.translate(Math.sin(now * 83) * this.shake, Math.cos(now * 71) * this.shake);
+    }
     for (let i = 0; i < s.enemies.length; i++) {
       const e = s.enemies[i];
       const look = this.looks[i];

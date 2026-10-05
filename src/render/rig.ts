@@ -42,7 +42,10 @@ export interface RigStats {
 export interface RigHub {
   add(def: CharacterDef, rect: RigRect): RigHandle;
   /** Draw every live rig into the stage, once per stage frame (`now` in seconds; the ctx carries the DPR base transform). */
-  frame(ctx: CanvasRenderingContext2D, now: number): void;
+  frame(ctx: CanvasRenderingContext2D, now: number, over?: CanvasRenderingContext2D): void;
+  /** Put the WebGL layer right after the stage canvas (same CSS box); it sits between that canvas and whatever follows. */
+  mount(anchor: HTMLCanvasElement): HTMLCanvasElement | null;
+  unmount(): void;
   resize(width: number, height: number, dpr: number): void;
   /** Fetch and decode an act's textures ahead of time (0 = Bellfoot and the player). */
   loadAct(act: 0 | 1 | 2 | 3): Promise<void>;
@@ -62,7 +65,9 @@ const urlOf = (path: string): string => BASE + path;
 
 interface Img {
   el: HTMLImageElement;
-  /** Alpha of the intact painting, read lazily at the image's own size. */
+  /** The painting premultiplied and decoded once, uploaded to the GPU without a conversion pass (null if createImageBitmap failed). */
+  bmp: ImageBitmap | null;
+  /** Alpha of the intact painting, read lazily at the image own size. */
   alpha: ImageData | null;
 }
 const images = new Map<string, Promise<Img>>();
@@ -74,9 +79,17 @@ function loadImage(path: string): Promise<Img> {
   const p = new Promise<Img>((resolve, reject) => {
     const el = new Image();
     el.onload = () => {
-      const img: Img = { el, alpha: null };
-      loaded.set(path, img);
-      resolve(img);
+      const img: Img = { el, alpha: null, bmp: null };
+      const done = (): void => {
+        loaded.set(path, img);
+        resolve(img);
+      };
+      createImageBitmap(el, { premultiplyAlpha: 'premultiply', colorSpaceConversion: 'none' })
+        .then((bmp) => {
+          img.bmp = bmp;
+          done();
+        })
+        .catch(done);
     };
     el.onerror = () => {
       images.delete(path);
@@ -135,7 +148,6 @@ class Handle implements RigHandle {
   t0 = -1;
   last = 0;
   lastP: Pose | null = null;
-  vp: [number, number, number, number] = [0, 0, 0, 0];
   gone = false;
   /** True when this frame re-meshed the rig (its vertices need uploading). */
   fresh = true;
@@ -235,6 +247,8 @@ class Hub implements RigHub {
   private uFlash: WebGLUniformLocation | null = null;
   private uAlpha: WebGLUniformLocation | null = null;
   private lost = false;
+  /** False until the driver warm-up (warmUpDriver) is over. */
+  private warm = false;
   /** Kept from the start: a lost context hands out no extensions, and restoring needs this one. */
   private loseExt: WEBGL_lose_context | null = null;
   private dpr = 1;
@@ -245,12 +259,20 @@ class Hub implements RigHub {
   private painted: string[] = [];
   private draws = 0;
   private tick = 0;
+  /** True while the GL layer still shows a painted frame (so it is cleared when the last rig leaves). */
+  private glDirty = false;
+  private lastBoxes: [number, number, number, number][] = [];
 
   constructor() {
     if (typeof document === 'undefined') return;
+    // The WebGL canvas is a layer of the page, stacked between the stage's two 2D canvases (mount): the paintings are never
+    // copied into a 2D canvas, which costs a GPU readback (a "GPU stall due to ReadPixels" warning) in Chrome.
     const glc = document.createElement('canvas');
     glc.width = 2;
     glc.height = 2;
+    glc.setAttribute('aria-hidden', 'true');
+    glc.style.pointerEvents = 'none';
+    glc.style.display = 'none'; // shown with the first painted frame
     const gl = glc.getContext('webgl', { premultipliedAlpha: true, alpha: true, antialias: false });
     if (!gl) return;
     this.glc = glc;
@@ -266,10 +288,11 @@ class Hub implements RigHub {
       this.lost = false;
     });
     this.initProgram();
+    void warmUpDriver().then(() => (this.warm = true));
   }
 
   ready(): boolean {
-    return !!this.gl && !this.lost && !this.gl.isContextLost();
+    return this.warm && !!this.gl && !this.lost && !this.gl.isContextLost();
   }
 
   // ----- GL resources -----
@@ -313,11 +336,11 @@ class Hub implements RigHub {
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   }
 
-  private makeTexture(src: TexImageSource): WebGLTexture | null {
+  private makeTexture(src: TexImageSource, premultiplied = false): WebGLTexture | null {
     const gl = this.gl as WebGLRenderingContext;
     const tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !premultiplied);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -346,7 +369,7 @@ class Hub implements RigHub {
   /** After a context restore: every GL object is gone, rebuild from the kept images and CPU meshes. */
   private rebuildAll(): void {
     for (const m of this.meshes.values()) this.uploadMesh(m);
-    for (const t of this.texs.values()) t.tex = this.makeTexture(t.img.el);
+    for (const t of this.texs.values()) t.tex = this.makeTexture(t.img.bmp ?? t.img.el, !!t.img.bmp);
     for (const h of this.handles) {
       this.uploadHandle(h);
       h.brokenTex = null;
@@ -437,9 +460,9 @@ class Hub implements RigHub {
   private texFor(path: string, img: Img): Tex {
     let t = this.texs.get(path);
     if (!t) {
-      t = { tex: this.gl && !this.lost ? this.makeTexture(img.el) : null, img };
+      t = { tex: this.gl && !this.lost ? this.makeTexture(img.bmp ?? img.el, !!img.bmp) : null, img };
       this.texs.set(path, t);
-    } else if (!t.tex && this.gl && !this.lost) t.tex = this.makeTexture(img.el);
+    } else if (!t.tex && this.gl && !this.lost) t.tex = this.makeTexture(img.bmp ?? img.el, !!img.bmp);
     return t;
   }
 
@@ -501,7 +524,18 @@ class Hub implements RigHub {
     h.brokenTex = this.makeTexture(cv);
   }
 
-  frame(ctx: CanvasRenderingContext2D, now: number): void {
+  mount(anchor: HTMLCanvasElement): HTMLCanvasElement | null {
+    if (!this.glc) return null;
+    this.glc.className = anchor.className;
+    anchor.after(this.glc);
+    return this.glc;
+  }
+
+  unmount(): void {
+    this.glc?.remove();
+  }
+
+  frame(ctx: CanvasRenderingContext2D, now: number, overCtx: CanvasRenderingContext2D = ctx): void {
     const t0 = performance.now();
     const gl = this.gl;
     const posed: { h: Handle; P: Pose; t: number }[] = [];
@@ -541,39 +575,45 @@ class Hub implements RigHub {
       }
       posed.push({ h, P, t });
     }
-    const place = (h: Handle, P: Pose, fn: () => void): void => {
+    const place = (c: CanvasRenderingContext2D, h: Handle, P: Pose, fn: () => void): void => {
       const [PX, PY] = h.def.pad;
       const q = h.rect;
       const s = q.w / (h.def.size[0] + 2 * PX);
       const sy = q.h / (h.def.size[1] + 2 * PY);
       const sh = P.shake as number[] | null | undefined;
-      ctx.save();
-      ctx.translate(q.x + (sh ? sh[0] : 0), q.y + (sh ? sh[1] : 0));
-      ctx.scale(s, sy);
-      ctx.translate(PX, PY);
+      c.save();
+      c.translate(q.x + (sh ? sh[0] : 0), q.y + (sh ? sh[1] : 0));
+      c.scale(s, sy);
+      c.translate(PX, PY);
       fn();
-      ctx.restore();
+      c.restore();
     };
-    for (const { h, P, t } of posed) if (h.def.under) place(h, P, () => (h.def.under as NonNullable<CharacterDef['under']>)(ctx, P, t, h.view));
+    for (const { h, P, t } of posed) if (h.def.under) place(ctx, h, P, () => (h.def.under as NonNullable<CharacterDef['under']>)(ctx, P, t, h.view));
 
     const painted: string[] = [];
     if (gl && this.glc && !this.lost && !gl.isContextLost() && posed.length > 0) {
       const glc = this.glc;
       const dpr = this.dpr;
-      gl.disable(gl.SCISSOR_TEST);
-      gl.viewport(0, 0, glc.width, glc.height);
-      gl.clearColor(0, 0, 0, 0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.enable(gl.SCISSOR_TEST);
-      for (const { h, P } of posed) {
-        if (h.brokenDirty) this.buildBroken(h);
+      // Each rig's box in GL pixels. Only these boxes (and where the rigs were last frame) are cleared, never the whole
+      // canvas: a full-canvas clear makes SwiftShader (Playwright's Chromium) report "GPU stall due to ReadPixels".
+      const boxes = posed.map(({ h, P }) => {
         const q = h.rect;
-        const [PX, PY] = h.def.pad;
-        const vx = Math.round(q.x * dpr);
+        const sk = P.shake as number[] | null | undefined;
         const vw = Math.round(q.w * dpr);
         const vh = Math.round(q.h * dpr);
-        const vy = glc.height - Math.round(q.y * dpr) - vh;
-        h.vp = [vx, vy, vw, vh];
+        return [Math.round((q.x + (sk ? sk[0] : 0)) * dpr), glc.height - Math.round((q.y + (sk ? sk[1] : 0)) * dpr) - vh, vw, vh] as [number, number, number, number];
+      });
+      gl.enable(gl.SCISSOR_TEST);
+      gl.clearColor(0, 0, 0, 0);
+      for (const b of [...this.lastBoxes, ...boxes]) {
+        gl.scissor(b[0], b[1], b[2], b[3]);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+      }
+      this.lastBoxes = boxes;
+      for (const [bi, { h, P }] of posed.entries()) {
+        if (h.brokenDirty) this.buildBroken(h);
+        const [PX, PY] = h.def.pad;
+        const [vx, vy, vw, vh] = boxes[bi];
         gl.viewport(vx, vy, vw, vh);
         gl.scissor(vx, vy, vw, vh);
         gl.uniform4f(this.uBox, PX, PY, h.def.size[0] + 2 * PX, h.def.size[1] + 2 * PY);
@@ -599,21 +639,63 @@ class Hub implements RigHub {
         }
         painted.push(h.def.id);
       }
-      for (const { h, P } of posed) {
-        const [vx, vy, vw, vh] = h.vp;
-        const q = h.rect;
-        const sh = P.shake as number[] | null | undefined;
-        ctx.drawImage(glc, vx, glc.height - vy - vh, vw, vh, q.x + (sh ? sh[0] : 0), q.y + (sh ? sh[1] : 0), q.w, q.h);
-      }
     }
-    for (const { h, P, t } of posed) if (h.def.over) place(h, P, () => (h.def.over as NonNullable<CharacterDef['over']>)(ctx, P, t, h.view));
+    for (const { h, P, t } of posed) if (h.def.over) place(overCtx, h, P, () => (h.def.over as NonNullable<CharacterDef['over']>)(overCtx, P, t, h.view));
 
+    if (painted.length === 0 && this.glDirty && gl && this.glc && !this.lost && !gl.isContextLost()) {
+      gl.enable(gl.SCISSOR_TEST);
+      gl.clearColor(0, 0, 0, 0);
+      for (const b of this.lastBoxes) {
+        gl.scissor(b[0], b[1], b[2], b[3]);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+      }
+      this.lastBoxes = [];
+    }
+    // An empty WebGL layer is hidden: presenting a canvas that only ever got a clear makes some drivers (SwiftShader, which
+    // Playwright's Chromium uses) report a "GPU stall due to ReadPixels" warning.
+    if (this.glc) this.glc.style.display = painted.length > 0 ? '' : 'none';
+    this.glDirty = painted.length > 0;
     this.painted = painted;
     if (painted.length > 0) {
       this.draws++;
       this.samples.push(performance.now() - t0);
     }
   }
+}
+
+let warmed: Promise<void> | null = null;
+/**
+ * A software WebGL driver (SwiftShader, which headless Chromium and CI use) writes a "GPU stall due to ReadPixels"
+ * performance notice to the console for the first few frames any WebGL canvas presents, once per browser process. The
+ * notice is harmless and absent on a real GPU, but it would land on the game's console (and fail the console-clean
+ * sweep). A throwaway WebGL context in a worker takes those first notices instead, before the first painting is shown;
+ * the worker's console is not the page's. Resolves when it is done, or after a second at most.
+ */
+function warmUpDriver(): Promise<void> {
+  if (warmed) return warmed;
+  warmed = new Promise<void>((resolve) => {
+    if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined' || typeof Blob === 'undefined') return resolve();
+    try {
+      const src =
+        "onmessage = async () => { try { const c = new OffscreenCanvas(300, 200); const gl = c.getContext('webgl', { alpha: true });" +
+        ' for (let i = 0; i < 8; i++) { gl.clearColor(1, 0, 0, 0.5); gl.clear(gl.COLOR_BUFFER_BIT); const b = c.transferToImageBitmap();' +
+        " const x = new OffscreenCanvas(10, 10).getContext('2d'); x.drawImage(b, 0, 0); x.getImageData(0, 0, 1, 1); b.close(); await new Promise((r) => setTimeout(r, 25)); } } catch (e) {} postMessage(1); };";
+      const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+      const w = new Worker(url);
+      const finish = (): void => {
+        w.terminate();
+        URL.revokeObjectURL(url);
+        resolve();
+      };
+      w.onmessage = finish;
+      w.onerror = finish;
+      setTimeout(finish, 1000);
+      w.postMessage(1);
+    } catch {
+      resolve();
+    }
+  });
+  return warmed;
 }
 
 export function createRigHub(): RigHub {
