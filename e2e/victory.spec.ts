@@ -37,12 +37,12 @@ test('cheat to the Clockmaker, win, and see the victory screen', async ({ page }
   await expect(page.getByTestId('boss-intro')).toHaveCount(0);
   await page.evaluate(() => (window as unknown as { __game: G }).__game.cheat.winFight());
   await expect(page.getByTestId('screen-reward')).toBeVisible({ timeout: 10_000 });
-  // a boss gives its reward: a legacy warden still offers the part pick (until B9), a framed one the salvage tray
+  // a boss gives its reward: the Clockmaker offers a trinket and no part, a framed elite the salvage tray
   if (await page.getByTestId('salvage-tray').count()) {
     if (await page.getByTestId('reward-trinket').count()) await press(page, page.getByTestId('reward-trinket').first());
     await press(page, page.getByTestId('salvage-done'));
   } else {
-    await press(page, page.getByTestId('reward-part').first());
+    if (await page.getByTestId('reward-part').count()) await press(page, page.getByTestId('reward-part').first()); // the Clockmaker gives no part (B9a: Brass 4 per broken part)
     if (await page.getByTestId('reward-trinket').count()) await press(page, page.getByTestId('reward-trinket').first());
     await press(page, page.getByTestId('continue-node'));
   }
