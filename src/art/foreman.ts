@@ -206,7 +206,7 @@ foreman.pose = function (L, t, dt, S, mood, api = makeView(foreman, mood, S)) {
 };
 
 // ---- effects: flat, ink-edged, two-tone. All state is module-level; the top layer draws it. ----
-const FX = { puffs: [], sparks: [], scraps: [], bursts: [], rings: [], muzzles: [], acc: 0 };
+const FX = { puffs: [], sparks: [], scraps: [], bursts: [], rings: [], muzzles: [], swing: [], acc: 0 };
 function glow(c, [x, y], r, [R, G, B], a) {
   if (a <= 0) return;
   const g = c.createRadialGradient(x, y, 0, x, y, r);
@@ -275,6 +275,19 @@ function drawOver(c, P, t, api) {
   FX.lastT = P.t;
   handleEvents(P, api);
   const at = p => api.point(p[0], p[1], P), H = P.heat, f = P.flick, tt = P.t;
+  // The wrench swing: a flat ink-edged smear along where the wrench head has just been, so the arm reads as a swing, not a point.
+  if (P.mood === "attack" && P.u % 2.8 > 0.45 && P.u % 2.8 < 1.4) FX.swing.push({ p: at(WTIP), t: tt });
+  FX.swing = FX.swing.filter(q => tt - q.t < 0.22);
+  if (FX.swing.length > 1) {
+    c.lineCap = "round"; c.lineJoin = "round";
+    for (const [col, lw] of [["#14100C", 46], ["#EADFBE", 30], ["#FFB547", 12]]) {
+      for (let i = 1; i < FX.swing.length; i++) {
+        const a = 1 - (tt - FX.swing[i].t) / 0.22; c.globalAlpha = Math.max(0, a) * (col === "#FFB547" ? 0.9 : 0.8);
+        c.strokeStyle = col; c.lineWidth = lw * (0.4 + 0.6 * a); c.beginPath(); c.moveTo(...FX.swing[i - 1].p); c.lineTo(...FX.swing[i].p); c.stroke();
+      }
+    }
+    c.globalAlpha = 1;
+  }
   c.globalCompositeOperation = "lighter";
   const pulse = 1 + 0.25 * Math.sin(tt * Math.PI * 0.5 + 1) * (0.4 + H);
   const g = at(GRATE);
