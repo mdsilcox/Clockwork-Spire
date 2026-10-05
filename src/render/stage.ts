@@ -8,7 +8,7 @@ import { drawEcho, drawEnemy, drawMainspring, drawPart, drawShell, drawStatuses,
 import type { EnemyLook, Vis } from './draw';
 import { TAU, gearPath } from './kit';
 import { partAnchors, rigAnchorsEpoch, setRigSource } from './anchors';
-import { cellRect, computeLayout, enemyBar, enemyBody, enemySlots } from './layout';
+import { cellRect, computeLayout, enemyBar, enemyBody, enemySlots, machineGeometry, RING_MIN_H } from './layout';
 import type { Layout, Rect } from './layout';
 import { sharedRigHub } from './rig';
 import type { RigHandle, RigRect } from './rig';
@@ -382,14 +382,18 @@ export class Stage {
   private rigRect(i: number, def: Geometry): RigRect {
     const slot = this.slotList()[i];
     const e = this.after?.enemies[i] ?? this.state?.enemies[i];
-    const b = enemyBody(slot, e?.parts?.length ?? 0);
+    const b = e && (e.parts?.length ?? 0) > 0 ? machineGeometry(slot, e.parts.length).area : enemyBody(slot, 0);
     const WW = def.size[0] + 2 * def.pad[0];
     const WH = def.size[1] + 2 * def.pad[1];
     // fit the painting itself, not its pad, to the body: a little wider than it, never taller
-    const paintW = Math.min(b.w * 1.05, (b.h / def.size[1]) * def.size[0]);
+    // On the phone the room is short, and a cut-out has an empty margin under its feet, so the painting may run
+    // 12 percent past the room, lowered so its feet still land at the bar.
+    const phone = slot.h < RING_MIN_H && (e?.parts?.length ?? 0) > 0;
+    const fit = phone ? 1.12 : 1;
+    const paintW = Math.min(b.w * 1.05, ((b.h * fit) / def.size[1]) * def.size[0]);
     const w = (paintW / def.size[0]) * WW;
     const h = (w / WW) * WH;
-    return { x: b.x + b.w / 2 - w / 2, y: b.y + b.h / 2 - h / 2, w, h };
+    return { x: b.x + b.w / 2 - w / 2, y: b.y + b.h / 2 - h / 2 + (phone ? b.h * 0.05 : 0), w, h };
   }
 
   /** Create, move, re-mood and drop the painted enemies for this frame; true per enemy when its painting is drawn. */

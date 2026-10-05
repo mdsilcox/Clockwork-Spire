@@ -1,8 +1,8 @@
 // Part markers on an enemy machine (B7): a tap target per part and one for the core, each with its HP, the intent it
 // will act on next turn, its place in the target order and the damage the preview deals to it.
-// Positions come from render/anchors.ts only (B8 moves them to the painted rigs' anchor points). On a tall slot (the
-// desktop) the intent and HP sit outside the marker; on a short one (the phone) they sit inside it, so a marker is
-// one self-contained 40 px button and nothing can cover a neighbor, a name or an HP line.
+// Positions come from render/anchors.ts only (on the painted rigs' anchor points). On a tall slot (the desktop) the
+// intent and HP sit outside the 44 px marker; on a short one (the phone) the marker is a 28 px pip showing the HP
+// number (a 40 px tap area extends past it, see machines.css) with its intent as a small chip beside it.
 import type { CombatState, PartIntent, TargetRef, TurnPreview } from '../core/types';
 import { partAnchors } from '../render/anchors';
 import type { Rect } from '../render/layout';
@@ -69,7 +69,8 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
   const frame = (e.parts?.length ?? 0) > 0;
   const parts = e.parts ?? [];
   const geo = partAnchors(slot, parts.map((p) => p.id));
-  const inline = geo.mode === 'strip';
+  const phone = geo.mode === 'phone';
+  const inline = phone; // the phone's intent chip is the compact one
   const cancelled = new Set((preview?.cancelled ?? []).filter((x) => x.enemy === i).map((x) => x.partId));
   const intentOf = (id: string): PartIntent | undefined => e.intents?.find((it) => it.partId === id);
   const bonus = pendingRatchet(c, i, preview);
@@ -157,7 +158,7 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
     return (
       <div
         key={id}
-        class={`pm ${core ? 'core' : ''} ${broken ? 'broken' : ''} ${sealed ? 'sealed' : ''} ${inline ? 'inline' : 'outer'}`}
+        class={`pm ${core ? 'core' : ''} ${broken ? 'broken' : ''} ${sealed ? 'sealed' : ''} ${phone ? `phone side-${a.side ?? 'r'}` : 'outer'}`}
         style={{ left: `${a.x - slot.x - size / 2}px`, top: `${a.y - slot.y - size / 2}px`, width: `${size}px`, height: `${size}px` }}
       >
         <button
@@ -171,7 +172,7 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
           {...tip(info)}
           onClick={() => onTap(ref)}
         >
-          {broken ? <Crack /> : inline && intentChip ? intentChip : <Glyph core={core} />}
+          {broken ? <Crack /> : phone && !core ? hpText : <Glyph core={core} />}
           {sealed && <Lock />}
           {pos >= 0 && (
             <span class="order-badge" data-testid="order-badge">
@@ -188,10 +189,9 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
               <StatusIcon kind="jam" size={12} />
             </span>
           )}
-          {inline && !core && !broken && hpText}
         </button>
-        {!inline && !core && !broken && hpText}
-        {!inline && intentChip && (frame || !core) && intentChip}
+        {!phone && !core && !broken && hpText}
+        {intentChip && (phone || frame || !core) && intentChip}
       </div>
     );
   };

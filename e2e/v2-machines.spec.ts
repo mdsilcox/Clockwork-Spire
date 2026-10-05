@@ -57,7 +57,11 @@ test('EM8: tapping parts and the core builds a numbered target order that persis
   await press(page, page.getByTestId('enemy-part-e0-rat-jaw')); // tap again removes it
   expect(await game(page).order()).toEqual(['e0.rat-tail', 'e0.core']);
   const box = await page.getByTestId('enemy-part-e0-rat-tail').boundingBox();
-  expect(box && box.width >= 40 && box.height >= 40).toBe(true); // tap targets 40 px+
+  const phone = page.viewportSize()!.width < 700;
+  expect(box && box.width >= (phone ? 27.5 : 40) && box.height >= (phone ? 27.5 : 40)).toBe(true); // the visible marker: a 28 px pip on the phone, 44 px on the desktop
+  // the tap area is 40 px either way: a tap 19 px from the center still lands on the marker
+  const hit = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.getAttribute("data-testid"), [box!.x + box!.width / 2 + 19, box!.y + box!.height / 2] as const);
+  expect(hit).toBe("enemy-part-e0-rat-tail");
   await noSidewaysScroll(page);
   expect(errors).toEqual([]);
 });

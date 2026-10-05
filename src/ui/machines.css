@@ -231,49 +231,6 @@
   }
 }
 
-/* phone strip: the intent and HP live inside the marker */
-.pm .pm-intent.inline {
-  position: static;
-  transform: none;
-  margin: 0;
-  padding: 0;
-  background: none;
-  pointer-events: none;
-}
-
-.pm .pm-intent.inline .irow {
-  flex-direction: column;
-  gap: 0;
-  line-height: 1;
-  margin: -3px 4px 0 0;
-}
-
-.pm .pm-intent.inline b {
-  font-size: 13px;
-  line-height: 13px;
-}
-
-.pm.inline .pm-hp {
-  left: auto;
-  top: auto;
-  right: -4px;
-  bottom: -4px;
-  transform: none;
-  min-width: 16px;
-  height: 16px;
-  margin: 0;
-  padding: 0 3px;
-  justify-content: center;
-  border: 1px solid var(--brass-dark);
-  border-radius: 9px;
-  background: rgba(23, 17, 12, 0.96);
-}
-
-.pm.inline .pm-jam {
-  left: -3px;
-  bottom: -3px;
-}
-
 /* the salvage tray */
 .salvagebox .salvage-note {
   margin: 0 0 8px;
@@ -345,44 +302,6 @@
   overflow: hidden;
 }
 
-/* compact slots on a phone: markers on the left, sprite, bar and name in a column on the right */
-.enemy.machine.compact .info {
-  display: flex;
-  left: var(--col-x, 90px);
-  right: 2px;
-  top: 52px;
-  height: auto;
-  padding-bottom: 0;
-}
-
-.enemy.machine.compact .nameline {
-  position: static;
-  height: auto;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-  font-size: 12px;
-  line-height: 13px;
-  white-space: normal;
-  text-align: center;
-}
-
-.enemy.machine.compact .ename {
-  white-space: normal;
-  max-height: 26px;
-  overflow: hidden;
-}
-
-.enemy.machine.compact .edmg {
-  display: none;
-}
-
-.enemy.machine.compact .pips {
-  position: static;
-  max-width: 100%;
-  justify-content: center;
-}
-
 /* the salvage footer stays on screen: what Done will add, and Done itself */
 .salvagebox {
   padding-bottom: 64px;
@@ -421,8 +340,149 @@
   white-space: nowrap;
 }
 
-.pm .pm-intent.inline .ilabel {
+/* ---------- phone (slots under 250 px tall): the painting fills the slot, markers are small pips on it ---------- */
+/* a 28 px pip with the HP number inside; a 40 px tap area extends past it (the pseudo-element takes the taps) */
+.pm.phone .pmark {
+  overflow: visible;
+}
+
+.pm.phone .pmark::before {
+  content: '';
+  position: absolute;
+  inset: -8px; /* the pip is 28 px with a 2 px border: 24 + 16 = a 40 px tap area */
+  border-radius: 50%;
+}
+
+.pm.phone .pmark > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.pm.phone .pm-hp {
+  position: static;
+  transform: none;
+  margin: 0;
+  pointer-events: none;
+}
+
+.pm.phone .pm-hp b {
   font-size: 12px;
-  line-height: 12px;
   font-weight: 800;
+}
+
+.pm.phone .pm-cross {
+  width: 16px;
+  height: 16px;
+}
+
+.pm.phone .order-badge {
+  top: -9px;
+  right: -9px;
+  min-width: 16px;
+  height: 16px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.pm.phone .pm-dmg {
+  top: -13px;
+  left: -9px;
+  font-size: 12px;
+  line-height: 14px;
+}
+
+.pm.phone .pm-jam {
+  left: -6px;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+}
+
+.pm.phone .pm-lock {
+  right: -4px;
+  bottom: -4px;
+}
+
+/* the intent chip sits beside the pip, on the side facing the middle of the slot */
+.pm.phone .pm-intent {
+  top: 50%;
+  bottom: auto;
+  margin: 0;
+  padding: 0 4px;
+  height: 18px;
+  transform: translateY(-50%);
+  border-radius: 9px;
+  pointer-events: none;
+}
+
+.pm.phone.side-r .pm-intent {
+  left: calc(100% + 2px);
+  right: auto;
+}
+
+.pm.phone.side-l .pm-intent {
+  right: calc(100% + 2px);
+  left: auto;
+}
+
+.pm.phone .pm-intent .irow {
+  flex-direction: row;
+  gap: 2px;
+  margin: 0;
+  line-height: 18px;
+}
+
+.pm.phone .pm-intent b {
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.pm.phone .pm-intent .ilabel {
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 800;
+}
+
+/* the name line, statuses and Run damage of a phone slot */
+/* the text block's children are placed against the slot itself */
+.enemy.machine.phone .info {
+  display: contents;
+}
+
+.enemy.machine.phone .nameline {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  bottom: 0;
+  height: 16px;
+  flex-direction: row;
+  justify-content: center;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.enemy.machine.phone .shell {
+  display: none;
+}
+
+.enemy.machine.phone .edmg {
+  position: absolute;
+  right: 4px;
+  top: 2px;
+  font-size: 12px;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.enemy.machine.phone .pips {
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  bottom: auto;
+  max-width: 60%;
+  justify-content: flex-start;
 }
