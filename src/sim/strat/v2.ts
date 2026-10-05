@@ -3,11 +3,12 @@
 import { createCombat } from '../../core/combat';
 import { chooseTurn } from '../bot';
 import type { Policy } from './combat';
-import { playStratCareer } from './drive';
+import { defaultRunConfig } from '../../core/run';
+import { playClimb } from './climb';
+import { ROUTE_COMBAT } from './v2routes';
 import type { FightSnapshot } from './drive';
 import { playCombatWith } from './fight';
 import type { FightStats } from './fight';
-import { expertRun } from './runbot';
 import { burst2, expert2, maxburst2, turtle2 } from './v2combat';
 
 
@@ -37,26 +38,22 @@ export interface V2FightOpts {
 export const V2_POLICY: Record<V2Bot, Policy> = { greedy: chooseTurn, turtle: turtle2, burst: burst2, expert: expert2, maxburst: maxburst2 };
 
 /**
- * Snapshots of what expert runs (v2 expert combat and drafting, careers on the sensible path) held on arrival at
+ * Snapshots of what expert climbs (v2 expert route, combat and drafting, Journeyman, no meta) held on arrival at
  * normal and elite fights: every elite, every second normal fight, until each wanted bucket has `need` of them.
  */
-export function collectBins(seed: number, need: number, acts: (1 | 2 | 3)[], maxCareers = 300): FightSnapshot[] {
+export function collectBins(seed: number, need: number, acts: (1 | 2 | 3)[], maxRuns = 800): FightSnapshot[] {
   const snaps: FightSnapshot[] = [];
   const count = (a: number, t: string): number => snaps.filter((x) => x.act === a && x.tier === t).length;
   const done = (): boolean => acts.every((a) => count(a, 'fight') >= need && count(a, 'elite') >= need);
   let n = 0;
-  for (let i = 0; i < maxCareers && !done(); i++) {
-    playStratCareer({
-      seed: seed * 10007 + i,
-      maxRuns: 6,
-      combat: expert2,
-      runPolicy: expertRun,
-      hooks: { onFight: (rec) => (rec.snap.tier === 'elite' || (rec.snap.tier === 'fight' && n++ % 2 === 0)) && snaps.push(rec.snap) },
+  for (let i = 0; i < maxRuns && !done(); i++) {
+    const cfg = { ...defaultRunConfig(seed * 100003 + 77 + i), legacyMap: false };
+    playClimb(cfg, seed * 31 + i, 'expert', ROUTE_COMBAT, {
+      onFight: (rec) => (rec.snap.tier === 'elite' || (rec.snap.tier === 'fight' && n++ % 2 === 0)) && snaps.push(rec.snap),
     });
   }
   return snaps;
 }
-
 export interface V2Fight {
   bot: V2Bot;
   snap: FightSnapshot;

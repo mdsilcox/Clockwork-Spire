@@ -36,13 +36,15 @@ const BASE: Record<string, number> = {
   // steam
   boiler: 2, piston: 3, whistle: 1.5, 'safety-valve': 2.4, firebox: 2, kettle: 1.4, condenser: 2.2, 'steam-hammer': 3.4, governor: 2,
   // chime
+  // v2 parts (content.md): machine breakers
+  auger: 2.6, 'core-drill': 3, 'pry-bar': 3, wedge: 2, sapper: 3, 'cold-chisel': 3, 'mending-spool': 2.2, 'soothing-valve': 1.8, sunder: 3.2,
   chime: 1.2, 'bell-hammer': 2, 'oil-can': 1.2, 'tuning-fork': 1.5, 'alarm-clock': 2, gong: 1.5, lamp: 1.5,
 };
 
 const PKG: Record<string, Pkg> = {
   boiler: 'steam', piston: 'steam', whistle: 'steam', 'safety-valve': 'steam', firebox: 'steam', kettle: 'steam', condenser: 'steam', 'steam-hammer': 'steam', governor: 'steam',
   coil: 'spring', leaf: 'spring', torsion: 'spring', trap: 'spring', recoil: 'spring', volute: 'spring', hairspring: 'spring', 'trip-hammer': 'spring', 'cam-follower': 'spring',
-  cam: 'cam', 'triple-cam': 'cam', lever: 'cam', tappet: 'cam', toggle: 'cam',
+  cam: 'cam', 'triple-cam': 'cam', lever: 'cam', tappet: 'cam', toggle: 'cam', 'pry-bar': 'cam', wedge: 'cam', sapper: 'cam',
 };
 
 const TRINKET_BASE: Record<string, number> = {
@@ -95,12 +97,12 @@ export function value(run: RunState, defId: string): number {
   return v;
 }
 
-const keep = (run: RunState, p: PartInstance): number => value(run, p.defId) + (p.plus ? 1.2 : 0);
+export const keep = (run: RunState, p: PartInstance): number => value(run, p.defId) + (p.plus ? 1.2 : 0);
 
 /** A new part is worth a slot only above this; a big bin raises the bar. */
-const takeBar = (run: RunState): number => 2.2 + 0.07 * Math.max(0, run.bin.length - 10);
+export const takeBar = (run: RunState): number => 2.2 + 0.07 * Math.max(0, run.bin.length - 10);
 
-function weakest(run: RunState, pool: PartInstance[] = run.bin): { uid: number; v: number } | null {
+export function weakest(run: RunState, pool: PartInstance[] = run.bin): { uid: number; v: number } | null {
   let best: { uid: number; v: number } | null = null;
   for (const p of pool) {
     const v = keep(run, p) - (PARTS[p.defId]?.family === 'gear' && p.defId === 'spur' ? 0.3 : 0);
@@ -109,7 +111,7 @@ function weakest(run: RunState, pool: PartInstance[] = run.bin): { uid: number; 
   return best;
 }
 
-function strongest(run: RunState, m: BotMemory, plusOk: boolean, pool: PartInstance[] = run.bin): number | null {
+export function strongest(run: RunState, m: BotMemory, plusOk: boolean, pool: PartInstance[] = run.bin): number | null {
   let best: number | null = null;
   let bestV = -Infinity;
   for (const p of pool) {
@@ -123,7 +125,7 @@ function strongest(run: RunState, m: BotMemory, plusOk: boolean, pool: PartInsta
   return best;
 }
 
-function trinketValue(run: RunState, id: string): number {
+export function trinketValue(run: RunState, id: string): number {
   let v = TRINKET_BASE[id] ?? 1;
   const lead = leadingPkg(run.bin);
   if ((id === 'bellows' || id === 'pressure-gauge' || id === 'ember-coal' || id === 'steam-locket') && lead === 'steam') v += 1.5;

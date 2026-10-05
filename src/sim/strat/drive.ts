@@ -42,6 +42,10 @@ export interface FightSnapshot {
   maxHp: number;
   handSize: number;
   chassis: string;
+  /** Climb runs: the hour the fight started at, and whether the warden was Overwound or the bell Prepared the player. */
+  hour?: number;
+  overwound?: boolean;
+  prepared?: number;
 }
 
 export interface FightRecord {
@@ -53,7 +57,7 @@ export interface Hooks {
   onFight?(rec: FightRecord): void;
 }
 
-function playCombat(run: RunState, m: BotMemory, combat: Policy, hooks?: Hooks): void {
+export function playCombat(run: RunState, m: BotMemory, combat: Policy, hooks?: Hooks): void {
   const c = run.combat;
   if (!c) return;
   const snap: FightSnapshot = {
@@ -67,6 +71,9 @@ function playCombat(run: RunState, m: BotMemory, combat: Policy, hooks?: Hooks):
     maxHp: c.playerMaxHp,
     handSize: c.handSize,
     chassis: run.config.chassis,
+    hour: run.hour,
+    overwound: run.overwound,
+    prepared: run.prepared,
   };
   let first: FightStats | null = null;
   for (let round = 0; round < 3; round++) {

@@ -7,7 +7,7 @@ import { frameOf, partDefOf } from '../../core/framelib';
 import { canTarget, refOf, setOrder, targetables } from '../../core/frames';
 import { initStreams, shuffle } from '../../core/rng';
 import { CELLS, MAINSPRING } from '../../core/types';
-import type { CombatState, TargetRef } from '../../core/types';
+import type { ActionDef, CombatState, TargetRef } from '../../core/types';
 import { chooseTurn } from '../bot';
 import type { BotTurn } from '../bot';
 import { chargeOnBoard, stratStats, allSwapPairs, replacePenalty } from './common';
@@ -17,6 +17,14 @@ export type V2Policy = (c: CombatState) => BotTurn;
 
 // ---------- reading the enemy ----------
 
+/** The actions of an intent; a legacy warden's core intent carries none, so read its v1 summary. */
+function actionsOf(e: CombatState['enemies'][number], it: CombatState['enemies'][number]['intents'][number]): ActionDef[] {
+  if (it.actions.length > 0 || it.partId !== 'core') return it.actions;
+  const v = e.intent;
+  if (v.kind === 'attack') return [{ kind: 'attack', amount: (v.amount ?? 0) + (v.alsoAttack ?? 0), hits: v.hits }];
+  return [];
+}
+
 /** HP the shown intents would cost given `plating` (Corrode first, Pierce ignores Plating, Siphon strips it). */
 export function lossFrom(c: CombatState, plating: number): number {
   let loss = 0;
@@ -25,7 +33,7 @@ export function lossFrom(c: CombatState, plating: number): number {
     if (e.hp <= 0) continue;
     const str = e.statuses.strength ?? 0;
     for (const it of e.intents) {
-      for (const a of it.actions) {
+      for (const a of actionsOf(e, it)) {
         const n = (a.amount ?? 0) * (a.hits ?? 1);
         if (a.kind === 'corrode') p -= Math.ceil(((a.pct ?? 0) / 100) * p);
         else if (a.kind === 'attack') {
@@ -51,10 +59,11 @@ export function rawLoss(c: CombatState): number {
 }
 
 function intentDamage(c: CombatState, enemy: number, partId: string): number {
-  const it = c.enemies[enemy]?.intents.find((i) => i.partId === partId);
+  const e = c.enemies[enemy];
+  const it = e?.intents.find((i) => i.partId === partId);
   if (!it) return 0;
   let t = 0;
-  for (const a of it.actions) {
+  for (const a of actionsOf(e, it)) {
     if (a.kind === 'attack' || a.kind === 'pierce') t += (a.amount ?? 0) * (a.hits ?? 1);
     else if (a.kind === 'corrode') t += 6;
     else if (a.kind === 'siphon') t += 6;
@@ -99,6 +108,9 @@ interface Ran2 {
   loss: number;
   /** HP the remaining intents would cost with no Plating. */
   raw: number;
+  /** The same two numbers for the intents as shown before the machine ran (the naive bots plan against these). */
+  lossShown: number;
+  rawShown: number;
   partValue: number;
   plating: number;
   overpressure: boolean;
@@ -131,7 +143,7 @@ function ran2(c: CombatState, hpW: number): Ran2 {
       if (frac > 0) partValue += frac * breakValue(c, i, p.id, hpW);
     }
   }
-  return { sim, dealt, kills, killedIncoming, loss: lossFrom(sim, sim.plating), raw: rawLoss(sim), partValue, plating: sim.plating, overpressure: pre.overpressure, pressureAfter: pre.pressureAfter };
+  return { sim, dealt, kills, killedIncoming, loss: lossFrom(sim, sim.plating), raw: rawLoss(sim), lossShown: lossFrom(c, sim.plating), rawShown: rawLoss(c), partValue, plating: sim.plating, overpressure: pre.overpressure, pressureAfter: pre.pressureAfter };
 }
 
 const pressureTerms = (r: Ran2): number => 0.3 * Math.min(r.pressureAfter, 18) - (r.overpressure ? 15 : 0);
@@ -173,11 +185,11 @@ function withOrder(c: CombatState, order: TargetRef[]): CombatState {
 type Score2 = (r: Ran2) => number;
 
 const turtleScore: Score2 = (r) => {
-  const absorbed = r.raw - r.loss;
-  const extra = Math.max(0, r.plating - r.raw);
+  const absorbed = r.rawShown - r.lossShown;
+  const extra = Math.max(0, r.plating - r.rawShown);
   return 10 * absorbed + 0.3 * extra + r.dealt + r.kills * 10 + 1.5 * chargeOnBoard(r.sim) + pressureTerms(r);
 };
-const burstScore: Score2 = (r) => r.dealt + r.kills * 10 + r.killedIncoming + 0.05 * (r.raw - r.loss) + 1.5 * chargeOnBoard(r.sim) + pressureTerms(r);
+const burstScore: Score2 = (r) => r.dealt + r.kills * 10 + r.killedIncoming + 0.05 * (r.rawShown - r.lossShown) + 1.5 * chargeOnBoard(r.sim) + pressureTerms(r);
 
 function greedy2(score: Score2): V2Policy {
   return (c) => {
