@@ -626,18 +626,28 @@ button:disabled {
     width: 44px;
   }
   .tray {
-    padding-top: 4px;
-    padding-bottom: calc(4px + env(safe-area-inset-bottom));
+    padding-top: 3px;
+    padding-bottom: calc(3px + env(safe-area-inset-bottom));
   }
   .card {
-    min-height: 76px;
-    padding: 5px 6px 4px 12px;
+    min-height: 62px;
+    padding: 3px 6px 3px 12px;
   }
   .card .ctext {
     line-height: 1.2;
   }
   .controls {
     min-width: 136px;
+    max-width: 216px;
+    gap: 2px;
+  }
+  /* a shorter hand row gives the enemies more of the stage (the painted enemies need the room) */
+  .controls .summary {
+    min-height: 0;
+  }
+  .controls .speed,
+  .controls .run {
+    min-height: 40px;
   }
 }
 

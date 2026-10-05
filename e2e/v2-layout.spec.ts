@@ -53,6 +53,8 @@ async function fight(page: Page, enemies: string[]): Promise<void> {
 }
 
 async function expectClean(page: Page): Promise<void> {
+  const phone = page.viewportSize()!.width < 700;
+  const minMarker = phone ? 27.5 : 39.5;
   const stage = (await page.getByTestId('stage').boundingBox())!;
   const markers = await boxes(page, '[data-target-marker]', 'marker');
   const intents = await boxes(page, '[data-testid^="part-intent-"]', 'intent');
@@ -65,7 +67,7 @@ async function expectClean(page: Page): Promise<void> {
     expect(b.y + b.h, b.what).toBeLessThanOrEqual(stage.y + stage.height + 0.5);
   }
   for (let i = 0; i < markers.length; i++) {
-    expect(markers[i].w, markers[i].what).toBeGreaterThanOrEqual(39.5);
+    expect(markers[i].w, markers[i].what).toBeGreaterThanOrEqual(minMarker); // the visible marker: a 28 px pip on the phone, 44 px on the desktop
     for (let j = i + 1; j < markers.length; j++) expect(overlap(markers[i], markers[j]), `${markers[i].what} over ${markers[j].what}`).toBe(false);
     for (const t of texts) expect(overlap(markers[i], t), `${markers[i].what} over ${t.what}`).toBe(false);
   }

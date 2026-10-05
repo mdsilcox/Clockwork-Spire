@@ -18,7 +18,8 @@ export interface Layout {
 
 export function computeLayout(w: number, h: number): Layout {
   const pad = Math.max(6, Math.round(Math.min(w, h) * 0.03));
-  const enemyW = Math.max(110, Math.min(w * 0.3, 330));
+  // a phone gives the enemies nearly half the width: the paintings are the point of the fight
+  const enemyW = Math.max(110, Math.min(w * (w < 760 ? 0.46 : 0.3), 330));
   const availW = Math.max(100, w - enemyW - pad * 3);
   const availH = Math.max(60, h - pad * 2);
   const cell = Math.max(24, Math.floor(Math.min(availW / COLS, availH / ROWS)));
@@ -96,89 +97,55 @@ export function enemyBar(slot: Rect, parts = 0): Rect {
   return { x: slot.x + (slot.w - w) / 2, y: slot.y + slot.h - textBlock(slot) - 5, w, h: 5 };
 }
 
-// ---------- B7: enemy machines (a frame enemy has part markers and a core marker) ----------
+// ---------- B7/B8: enemy machines (a frame enemy has part markers and a core marker) ----------
 
-/** Slots at least this tall (the desktop) draw the markers on a ring around the sprite; shorter ones (the phone) use a strip. */
+/** Slots at least this tall (the desktop) draw the markers on a ring around the sprite; shorter ones (the phone) use pips. */
 export const RING_MIN_H = 250;
-/** Phone markers: the 40 px tap target, with a small gap. */
-export const STRIP_MARKER = 40;
-const STRIP_GAP = 4;
-const COMPACT_SPRITE = 34;
+/** Phone: the visible pip, and the tap target around it (an invisible extension of the pip). */
+export const PIP = 28;
+export const PIP_HIT = 40;
+/** Phone: the one text line (name and HP) at the bottom of a slot, and the HP bar just above it. */
+export const PHONE_TEXT_H = 16;
 
 export interface MachineGeometry {
-  mode: 'ring' | 'strip';
+  mode: 'ring' | 'phone';
+  /** A square for the code-drawn enemy (and the statuses and Shell drawn over it). */
   body: Rect;
+  /** The whole room for the enemy: a painting is fitted into this (the phone gives it nearly the whole slot). */
+  area: Rect;
   bar: Rect;
-  /** Marker size in px. */
+  /** Marker size in px (the pip on the phone). */
   size: number;
-  /** Strip mode: marker rectangles for the parts in frame order, then the core last. Ring mode: empty (anchors.ts places them). */
-  strip: Rect[];
-  /** Compact strips: the text column on the right (x is slot-relative). */
+  /** Phone: set so the DOM text band is not given the ring's fixed height (Combat.tsx). */
   column?: { x: number; w: number };
 }
 
 /**
- * The room inside a slot for a frame enemy with `parts` parts: the sprite, its HP bar and the markers never overlap
- * each other or the name text. Ring (tall slots): markers around the sprite. Strip: markers in rows above the name,
- * the sprite above them; in a compact slot the markers take the left and the sprite, bar and name the right.
+ * The room inside a slot for a frame enemy with `parts` parts. Ring (tall slots, the desktop): markers around a square
+ * sprite. Phone: the enemy fills the slot above one line of text; the markers are small pips drawn on the painting
+ * (anchors.ts), so the art is the main thing in each slot and the pips and name never overlap.
  */
 export function machineGeometry(slot: Rect, parts: number): MachineGeometry {
-  const m = parts + 1;
+  void parts;
   if (slot.h >= RING_MIN_H) {
     const { top, bottom } = bodyBand(slot);
     const size = Math.min(slot.w * 0.96, bottom - top);
     const w = Math.min(slot.w * 0.8, 120);
-    return {
-      mode: 'ring',
-      body: { x: slot.x + (slot.w - size) / 2, y: top + (bottom - top - size) / 2, w: size, h: size },
-      bar: { x: slot.x + (slot.w - w) / 2, y: slot.y + slot.h - textBlock(slot) - 5, w, h: 5 },
-      size: 44,
-      strip: [],
-    };
+    const body = { x: slot.x + (slot.w - size) / 2, y: top + (bottom - top - size) / 2, w: size, h: size };
+    return { mode: 'ring', body, area: body, bar: { x: slot.x + (slot.w - w) / 2, y: slot.y + slot.h - textBlock(slot) - 5, w, h: 5 }, size: 44 };
   }
-  const S = STRIP_MARKER;
-  if (isCompact(slot)) {
-    const maxRows = Math.max(1, Math.floor((slot.h + STRIP_GAP) / (S + STRIP_GAP)));
-    const rows = Math.min(maxRows, m);
-    const perRow = Math.ceil(m / rows);
-    const gridW = perRow * S + (perRow - 1) * STRIP_GAP;
-    const gridH = rows * S + (rows - 1) * STRIP_GAP;
-    const gy = slot.y + (slot.h - gridH) / 2;
-    const strip: Rect[] = [];
-    for (let i = 0; i < m; i++) strip.push({ x: slot.x + 2 + (i % perRow) * (S + STRIP_GAP), y: gy + Math.floor(i / perRow) * (S + STRIP_GAP), w: S, h: S });
-    const cx = gridW + 8;
-    const cw = Math.max(0, slot.w - cx - 2);
-    const size = Math.min(cw, COMPACT_SPRITE);
-    return {
-      mode: 'strip',
-      body: { x: slot.x + cx + (cw - size) / 2, y: slot.y + 2, w: size, h: size },
-      bar: { x: slot.x + cx, y: slot.y + 2 + size + 3, w: cw, h: 5 },
-      size: S,
-      strip,
-      column: { x: cx, w: cw },
-    };
-  }
-  const text = textBlock(slot);
-  const barY = slot.y + slot.h - text - 5;
-  const perRow = Math.max(1, Math.floor((slot.w + STRIP_GAP) / (S + STRIP_GAP)));
-  const rows = Math.ceil(m / perRow);
-  const stripH = rows * S + (rows - 1) * STRIP_GAP;
-  const stripTop = barY - 4 - stripH;
-  const strip: Rect[] = [];
-  for (let r = 0; r < rows; r++) {
-    const count = Math.min(perRow, m - r * perRow);
-    const x0 = slot.x + (slot.w - (count * S + (count - 1) * STRIP_GAP)) / 2;
-    for (let k = 0; k < count; k++) strip.push({ x: x0 + k * (S + STRIP_GAP), y: stripTop + r * (S + STRIP_GAP), w: S, h: S });
-  }
-  const top = slot.y + 2;
-  const room = Math.max(16, stripTop - 4 - top);
-  const size = Math.min(slot.w * 0.8, room);
+  const barY = slot.y + slot.h - PHONE_TEXT_H - 7;
+  const top = slot.y + 1;
+  const room = Math.max(16, barY - 2 - top);
   const w = Math.min(slot.w * 0.8, 120);
+  const area = { x: slot.x + 2, y: top, w: slot.w - 4, h: room };
+  const size = Math.min(area.w, area.h);
   return {
-    mode: 'strip',
-    body: { x: slot.x + (slot.w - size) / 2, y: top + (room - size) / 2, w: size, h: size },
+    mode: 'phone',
+    body: { x: area.x + (area.w - size) / 2, y: top + (room - size) / 2, w: size, h: size },
+    area,
     bar: { x: slot.x + (slot.w - w) / 2, y: barY, w, h: 5 },
-    size: S,
-    strip,
+    size: PIP,
+    column: { x: 0, w: slot.w },
   };
 }
