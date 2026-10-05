@@ -523,3 +523,24 @@
   opacity: 0.55;
   pointer-events: none;
 }
+
+/* phone: the dimmed second intent sits below the pip (beside it, away from the current chip); on top and bottom sides it stacks outward */
+.pm.phone .pm-intent.pm-intent2 {
+  top: calc(100% + 2px);
+  bottom: auto;
+  margin: 0;
+  height: 18px;
+  padding: 0 4px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+}
+
+.pm.phone.side-b .pm-intent.pm-intent2 {
+  top: calc(100% + 22px);
+}
+
+.pm.phone.side-t .pm-intent.pm-intent2 {
+  top: auto;
+  bottom: calc(100% + 22px);
+}

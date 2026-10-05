@@ -741,7 +741,7 @@ export function CombatScreen() {
         {askWatch && (
           <div class="result watchprompt" data-testid="watch-prompt" role="dialog" aria-label="The Inventor's Watch">
             <div class="panel">
-              <h2>Defeat</h2>
+              <h2>The Watch can wind this back</h2>
               <p>The Inventor's Watch ticks. Wind back to before that Run, once, or accept the defeat.</p>
               <div class="row">
                 <button class="primary" data-testid="watch-wind-back" onClick={() => windBackNow()}>
@@ -835,15 +835,15 @@ export function CombatScreen() {
           </p>
           <p class="placements" data-testid="placements">
             Placements: <b>{c.placementsLeft}</b>
-            {c.swapUsed ? '' : c.trinkets.includes('two-left-hands') ? ` | ${2 - (c.swapsUsed ?? 0)} swaps ready` : ' | Swap ready'}
+            {c.swapUsed ? '' : c.trinkets.includes('two-left-hands') ? ` | ${2 - (c.swapsUsed ?? 0)} ${2 - (c.swapsUsed ?? 0) === 1 ? 'swap' : 'swaps'} ready` : ' | Swap ready'}
           </p>
           <div class="row">
             <button class={`primary run ${glow.has('run') ? 'tut-glow' : ''}`} data-testid="run" disabled={busy || over} onClick={doRun}>
               Run
             </button>
             {canWind && (
-              <button class="secondary watch" data-testid="watch-wind-back" onClick={() => windBackNow()} aria-label="Wind back to before your last Run. Once per fight.">
-                Wind back
+              <button class="secondary watch" data-testid="watch-wind-back" onClick={() => windBackNow()} aria-label="Wind back to before your last Run. Once per fight." title="Wind back to before your last Run. Once per fight.">
+                <span aria-hidden="true">&#8630;</span>
               </button>
             )}
             <button class="speed" data-testid="speed" onClick={cycleSpeed} aria-label={`Animation speed ${speed.value}. Tap to change.`}>
