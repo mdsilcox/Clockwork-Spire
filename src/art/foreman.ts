@@ -177,7 +177,7 @@ foreman.pose = function (L, t, dt, S, mood, api = makeView(foreman, mood, S)) {
   } else if (m === "death") {
     const c = Math.min(u, 2.999), T = [0, 0.12, 0.35, 1.3, 2.0, 3];
     P.flash = 0.09 * clamp(1 - (u - 0.02) / 0.11);
-    P.lean = kf(c, T, [0, 6, 3, -12, -15, -15]); P.lift = kf(c, T, [0, -4, -6, -90, -118, -118]); P.asym = 1.2 * ease(clamp((c - 0.3) / 1));
+    P.lean = kf(c, T, [0, 6, 3, -14, -22, -22]); P.lift = kf(c, T, [0, -4, -6, -100, -150, -150]); P.asym = 1.2 * ease(clamp((c - 0.3) / 1));
     P.head = kf(c, T, [0, 12, 6, 16, 22, 22]); P.headLift = kf(c, T, [0, 0, 0, -14, -22, -22]); P.headX = 0;
     const lim = 3 * Math.exp(-Math.max(0, c - 1.3) * 3) * Math.sin(c * 9);
     P.shR = kf(c, T, [0, -14, -6, 6, 10, 10]) + lim; P.shL = kf(c, T, [0, 14, 6, -4, -6, -6]) - lim;

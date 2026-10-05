@@ -65,8 +65,8 @@ export const MANIFEST: ManifestEntry[] = [
     id: 'foreman',
     act: 1,
     files: [
-      { path: 'art/foreman/cut.webp', bytes: 109464 },
-      { path: 'art/foreman/cut-phase2.webp', bytes: 111194 },
+      { path: 'art/foreman/cut.webp', bytes: 108144 },
+      { path: 'art/foreman/cut-phase2.webp', bytes: 110266 },
     ],
     source: 'art/foreman',
   },

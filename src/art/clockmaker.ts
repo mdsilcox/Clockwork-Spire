@@ -85,7 +85,7 @@ const clockmaker = {
     // Lift (hover) and kneel: the legs shorten, the body sinks.
     y -= P.lift * smooth(1075, 800, y) * 0.7 + P.lift * 0.3 * smooth(900, 300, y);
     if (P.kneel) y = y > 760 ? y + P.kneel * (BASE[1] - y) : y + P.kneel * (BASE[1] - 760);
-    [x, y] = rot(x, y, ...BASE, rad(P.lean), smooth(1070, 700, y));
+    [x, y] = rot(x, y, 448, 820, rad(P.lean), smooth(900, 780, y)); // about the hip: the body bows over the legs, the waist holds
     return [x + P.step * smooth(1060, 800, y), y];
   },
   moods: { idle: {}, attack: {}, hurt: {}, phase: {}, rewind: {}, death: {} },
@@ -192,14 +192,14 @@ clockmaker.pose = function (L, t, dt, S, mood, api = makeView(clockmaker, mood, 
     P.shR = kf(c, T, [0, -3, -14, 8, 8, 1, 0]); P.elR = kf(c, T, [0, -2, -8, 5, 5, 1, 0]);
     P.lean = kf(c, T, [0, 3, 6, -7, -7, -1, 0]); P.head = kf(c, T, [0, 2, 6, -5, -5, -1, 0]); P.headLift = kf(c, T, [0, 0, 4, -3, -3, 0, 0]);
     P.br = kf(c, T, [0.5, 0.4, 1.2, -0.2, -0.2, 0.3, 0.5]); P.lift = kf(c, T, [0, 2, 8, -4, -4, -1, 0]);
-    pendA = 7 + 22 * Math.exp(-Math.max(0, c - 1.1) * 2.4);
+    pendA = 7 + 8 * Math.exp(-Math.max(0, c - 1.1) * 2.4);
     P.sweep = c > 0.9 && c < 1.4;
     P.hemLift = kf(c, T, [0, 0, 6, 14, 6, 0, 0]);
     if (c >= 1.18 && S.cycle !== Math.floor(u / 2.8)) { S.cycle = Math.floor(u / 2.8); P.ev.push("swept"); }
   } else if (m === "hurt") {
     const c = Math.min(u, 1.79), T = [0, 0.08, 0.25, 0.7, 1.8];
     P.flash = 0.25 * clamp(1 - (u - 0.02) / 0.1);
-    P.lean = kf(c, T, [0, 7, 5, 0, 0]); P.head = kf(c, T, [0, 12, 7, 0, 0]); P.headLift = kf(c, T, [0, -4, -2, 0, 0]);
+    P.lean = kf(c, T, [0, 12, 8, 0, 0]); P.head = kf(c, T, [0, 22, 12, 0, 0]); P.headLift = kf(c, T, [0, -6, -3, 0, 0]); P.headX = kf(c, T, [0, -14, -8, 0, 0]); P.step = kf(c, T, [0, 16, 10, 0, 0]);
     P.shL = kf(c, T, [0, 14, 7, 0, 0]) + 3 * Math.exp(-c * 5) * Math.sin(c * 26); P.elL = kf(c, T, [0, 9, 4, 0, 0]);
     P.shR = kf(c, T, [0, -14, -7, 0, 0]) - 3 * Math.exp(-c * 5) * Math.sin(c * 26); P.elR = kf(c, T, [0, -9, -4, 0, 0]);
     P.lift = kf(c, T, [0, -6, -3, 0, 0]); P.step = kf(c, T, [0, 20, 16, 0, 0]); P.br = kf(c, T, [0.5, -0.4, 0.2, 0.5, 0.5]);
@@ -235,7 +235,7 @@ clockmaker.pose = function (L, t, dt, S, mood, api = makeView(clockmaker, mood, 
     P.br *= amp; P.elL *= amp; P.elR *= amp; P.sway *= amp; P.gearL *= amp; pendA *= amp; P.head *= amp;
     P.shL = P.shL * amp - 12 * still; P.shR = P.shR * amp + 12 * still;
     const bow = ease(clamp((c - 1.0) / 1.8));
-    P.head += 30 * bow; P.headLift = -6 * bow; P.lean = 12 * bow; P.pool = ease(clamp((c - 1.8) / 1.6));
+    P.head += 26 * bow; P.headLift = -6 * bow; P.lean = 7 * bow; P.pool = ease(clamp((c - 1.8) / 1.6));
     P.kneel = 0.52 * ease(clamp((c - 1.4) / 1.9));
     P.warm = ease(clamp((c - 0.3) / 2.6));
     P.droop = ease(clamp((c - 0.45) / 0.45));

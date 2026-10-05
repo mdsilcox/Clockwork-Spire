@@ -54,6 +54,7 @@ const queen = {
     y -= P.breath * 220 * w.chest;
     x = 450 + (x - 450) * (1 + P.breath * 0.6 * w.skirt);
     y = BASE[1] - (BASE[1] - y) * (1 + P.tall);
+    if (P.fold) { const u = smooth(840, 700, y); y += (780 - y) * 0.16 * P.fold * u; [x, y] = rot(x, y, 450, 780, rad(P.bow), u); }
     [x, y] = rot(x, y, ...BASE, rad(P.lean), 1);
     return [x + P.step, y];
   },
@@ -66,12 +67,12 @@ const queen = {
     const u = t - S.start, br = Math.sin(t * Math.PI * 2 / 4);
     const P = { head: 2 * Math.sin(t * Math.PI * 2 / 4 + 0.6), headLift: 0, sh: 1.3 * Math.sin(t * Math.PI * 2 / 4 + 1.2), elb: 1.2 * Math.sin(t * Math.PI * 2 / 4 + 0.7), scepY: 0,
                 staff: 0.5 * Math.sin(t * 1.3), armR: 0.9 * Math.sin(t * Math.PI * 2 / 4 + 0.4), lean: 0.5 * Math.sin(t * Math.PI * 2 / 8), tall: 0.004 * br, step: 0,
-                breath: 0.028 * br, flash: 0, shake: null, fur: 0 };
+                breath: 0.028 * br, flash: 0, shake: null, fur: 0, fold: 0, bow: 0 };
     let heatBoost = 0, jet = 0;
     const m = api.mood;
     if (m === "attack") {
       const c = u % 2.8, T = [0, 0.9, 1.06, 1.19, 2.0, 2.8];
-      P.sh = kf(c, T, [0, 20, -10, -10, -3, 0]); P.elb = kf(c, T, [0, -24, 14, 14, 4, 0]); P.scepY = kf(c, T, [0, -22, 28, 28, 6, 0]);
+      P.sh = kf(c, T, [0, 34, -16, -16, -4, 0]); P.elb = kf(c, T, [0, -40, 20, 20, 5, 0]); P.scepY = kf(c, T, [0, -48, 48, 48, 10, 0]);
       P.lean = kf(c, T, [0, -4, 4.5, 4.5, 1, 0]); P.head = kf(c, T, [0, -3, 6, 6, 1.5, 0]); P.headLift = kf(c, T, [0, 5, -3, -3, 0, 0]);
       P.tall = kf(c, T, [0, 0.015, -0.035, -0.035, 0, 0]); P.armR = kf(c, T, [0, -2, -1, -1, 0, 0]); P.staff = kf(c, T, [0, -1, 1.5, 1, 0, 0]);
       P.fur = kf(c, T, [0, 0.6, 1, 0.6, 0.2, 0]); heatBoost = 0.35 * P.fur;
@@ -79,16 +80,16 @@ const queen = {
       const cyc = Math.floor((u - 1.06) / 2.8);
       if (u >= 1.06 && S.cycle !== cyc && c >= 1.06 && c < 1.3) {
         S.cycle = cyc;
-        for (const v of HEM) for (let i = 0; i < 9; i++) S.puffs.push(puff(t, [v[0], v[1] - Math.random() * 30], { vx: (v[0] < 450 ? -1 : 1) * (240 + Math.random() * 260), vy: -30 - Math.random() * 70, r: 30 + Math.random() * 20, life: 0.9 + Math.random() * 0.5, hot: true }));
+        for (const v of HEM) for (let i = 0; i < 9; i++) S.puffs.push(puff(t, [v[0], v[1] - Math.random() * 30], { vx: (v[0] < 450 ? -1 : 1) * (80 + Math.random() * 120), vy: -30 - Math.random() * 70, r: 30 + Math.random() * 20, life: 0.9 + Math.random() * 0.5, hot: true }));
         S.rings.push({ born: t, at: [450, 1090] });
         for (let i = 0; i < 8; i++) S.sparks.push(spark(t, [450 + (Math.random() - 0.5) * 380, 1080], 20, 0.6));
       }
     } else if (m === "hurt") {
       const c = u % 1.8, T = [0, 0.08, 0.25, 0.7, 1.8];
       P.flash = c < 0.1 ? 0.25 : 0;   // 3 frames at most
-      P.lean = kf(c, T, [0, -8, -6, 0, 0]); P.head = kf(c, T, [0, 15, 9, 0, 0]); P.headLift = kf(c, T, [0, -3, -2, 0, 0]);
-      P.sh = kf(c, T, [0, -9, -4, 0, 0]); P.elb = kf(c, T, [0, 11, 5, 0, 0]); P.armR = kf(c, T, [0, -5, -2, 0, 0]);
-      P.tall = kf(c, T, [0, -0.02, -0.01, 0, 0]); P.step = kf(c, T, [0, 26, 22, 0, 0]); P.staff = 2.5 * Math.exp(-c * 5) * Math.sin(c * 28);
+      P.lean = kf(c, T, [0, -12, -9, 0, 0]); P.head = kf(c, T, [0, 22, 13, 0, 0]); P.headLift = kf(c, T, [0, -6, -3, 0, 0]);
+      P.sh = kf(c, T, [0, -14, -6, 0, 0]); P.elb = kf(c, T, [0, 11, 5, 0, 0]); P.armR = kf(c, T, [0, -5, -2, 0, 0]);
+      P.tall = kf(c, T, [0, -0.02, -0.01, 0, 0]); P.step = kf(c, T, [0, 34, 28, 0, 0]); P.staff = 2.5 * Math.exp(-c * 5) * Math.sin(c * 28);
       const d = Math.exp(-c * 6); P.shake = [(Math.random() - 0.5) * 10 * d, (Math.random() - 0.5) * 6 * d];
       if (S.hit !== Math.floor(u / 1.8)) { S.hit = Math.floor(u / 1.8); S.bursts.push({ born: t, at: GAUGE, r: 60 }); for (let i = 0; i < 10; i++) S.sparks.push(spark(t, GAUGE, 60, 0.8)); }
     } else if (m === "phase") {
@@ -112,13 +113,15 @@ const queen = {
       // Her fire goes out: a last burst from the gauge and crown, then she folds forward and the light drains from the plates.
       const c = Math.min(u, 3.999), T = [0, 0.15, 0.5, 1.5, 2.6, 4];
       P.flash = c < 0.1 ? 0.2 : 0;
-      P.lean = kf(c, T, [0, 5, 3, -8, -12, -12]); P.head = kf(c, T, [0, 12, 8, 16, 24, 24]); P.headLift = kf(c, T, [0, -3, -3, -8, -12, -12]);
-      P.sh = kf(c, T, [0, -8, -4, 6, 10, 10]); P.elb = kf(c, T, [0, 10, 6, -4, -8, -8]); P.armR = kf(c, T, [0, -4, -2, 3, 6, 6]);
-      P.tall = kf(c, T, [0, -0.02, -0.015, -0.06, -0.09, -0.09]); P.staff = kf(c, T, [0, 2, 1, -3, -5, -5]);
+      // She folds: the torso bows toward the hip (about 28 degrees of tilt), the head and hat dip, the scepter arm drops and the staff tips out.
+      P.fold = kf(c, T, [0, 0.1, 0.25, 0.8, 1, 1]); P.bow = kf(c, T, [0, 3, 6, 20, 28, 28]);
+      P.lean = kf(c, T, [0, 4, 3, -2, -4, -4]); P.head = kf(c, T, [0, 12, 8, 22, 34, 34]); P.headLift = kf(c, T, [0, -3, -4, -22, -34, -34]);
+      P.sh = kf(c, T, [0, -8, -6, -16, -22, -22]); P.elb = kf(c, T, [0, 10, 8, 22, 30, 30]); P.scepY = kf(c, T, [0, 0, 6, 40, 60, 60]); P.armR = kf(c, T, [0, -4, -2, 8, 14, 14]);
+      P.tall = kf(c, T, [0, -0.02, -0.02, -0.06, -0.08, -0.08]); P.staff = kf(c, T, [0, 2, 1, 14, 26, 26]);
       if (c < 0.7) { const d = Math.exp(-c * 5); P.shake = [(Math.random() - 0.5) * 14 * d, (Math.random() - 0.5) * 8 * d]; }
       if (!S.dead) { S.dead = true; for (let i = 0; i < 14; i++) S.sparks.push(spark(t, GAUGE, 50, 0.7)); S.bursts.push({ born: t, at: GAUGE, r: 70 });
         for (let i = 0; i < 16; i++) S.puffs.push(puff(t, CROWN[i % 3], { vx: (Math.random() - 0.5) * 140, vy: -110 - Math.random() * 110, r: 32 + Math.random() * 18, life: 1.3 + Math.random() * 0.6 })); }
-      heatBoost = -0.2 * ease(clamp(c / 2.4));
+      heatBoost = -0.19 * ease(clamp(c / 2.0));
       const k = 1 - 0.42 * ease(clamp((c - 0.5) / 1.8));
       P.tint = [k, 0, 0, 0, k, 0, 0, 0, k * 1.04, 0, 0, 0];
     }

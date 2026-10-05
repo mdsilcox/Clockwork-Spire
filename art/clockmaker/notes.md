@@ -15,3 +15,5 @@ Round 2: pad cut to 230 x 170 (stage aspect 1356 x 1492). Halo: clean.py now dro
 
 ## B9a: in the game (RigHub)
 `src/art/clockmaker.ts`: the phase look comes from `view.phase` (0-based; the phase mood shifts it at 1.3 s); the colder light is `P.tint` (a color matrix the hub applies in the shader, replacing the SVG filter). Death polish (A2 review): the head no longer sinks into the shoulder mass (bow 30 degrees, head lowered 6 px instead of 34) and the flat half disc with ink rays is a soft radial glow with three short faint rays. `clip.webp` re-recorded from the game (idle, attack, hurt, phase, rewind, death).
+
+Round 2: death bows about the hip (pivot 448,820, lean 7 degrees, torso weights hold across the waist, only the legs shorten); hurt snaps the head and leans 12 degrees; the attack chain swing is clamped (7 + 8 degrees).

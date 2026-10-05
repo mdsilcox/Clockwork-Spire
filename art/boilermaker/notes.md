@@ -25,3 +25,5 @@ Round 3 (shared effect look):
 
 ## B9a: in the game (RigHub)
 `src/art/boilermaker.ts`: anchors are the content.md part ids (queen-crown, -scepter, -gauge, -furnace, -staff, -ember, -cinder). New: a `death` mood (a last burst from the gauge and crown, she folds forward, the plates cool: `P.tint` dims and cools the painting) and no self-breaking gauge (the game says what is broken). `phase` is used for both phase changes. `clip.webp` re-recorded from the game.
+
+Round 2: death is a real collapse (the torso folds toward the hip, head and hat dip, scepter arm lowers, staff tips out, heat falls to embers); the attack winds up (scepter high) and lands (scepter down, ring and clouds on the impact frame, clouds travel half as far); hurt recoils 12 degrees and 34 px.
