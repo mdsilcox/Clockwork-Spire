@@ -3469,6 +3469,13 @@ button:disabled {
 .tier-common {
   display: none;
 }
+
+.watchprompt .row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+
 .tier-uncommon {
   background: #9ad27a;
   clip-path: polygon(0 0, 62% 0, 100% 38%, 100% 100%, 0 100%);

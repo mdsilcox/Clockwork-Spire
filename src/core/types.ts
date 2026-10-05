@@ -158,7 +158,8 @@ export interface CombatState {
   flags?: Record<string, number>; // ADDED in B3: once-per-combat markers (trinkets, passives)
   extraDraw: number; // ADDED in B2: extra parts drawn at the next turn start (Sprocket Wheel); saves from B1 may lack it
   placementsLeft: number;
-  swapUsed: boolean;
+  swapUsed: boolean; // no free swap left this turn
+  swapsUsed?: number; // B9b: free swaps used this turn (Two Left Hands gives two)
   plating: number;
   pressure: number;
   momentum: number;

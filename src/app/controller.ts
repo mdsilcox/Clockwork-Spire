@@ -1,6 +1,6 @@
 ﻿// The controller: holds the combat, dispatches actions, replays turns on the stage, autosaves.
 import { effect, signal } from '@preact/signals';
-import { cloneCombat, createCombat, placePart, previewTurn, runTurn, setTarget, swapParts } from '../core/combat';
+import { cloneCombat, createCombat, placePart, previewTurn, runTurn, setTarget, swapParts, swapWithHand, windBack } from '../core/combat';
 import type { CreateCombatOpts } from '../core/combat';
 import { cell as cellIndex } from '../core/board';
 import { ENEMIES } from '../core/content/enemies';
@@ -592,7 +592,7 @@ export async function useSlot(n: SlotNo): Promise<boolean> {
   if (r.state !== 'ok') return false;
   if (stage?.isPlaying()) stage.setSpeed('skip');
   enterSlot(n, r.slot.profile, r.slot.run);
-  if (liveRun && liveRun.phase === 'combat' && liveRun.combat && liveRun.combat.outcome !== 'ongoing') {
+  if (liveRun && liveRun.phase === 'combat' && liveRun.combat && liveRun.combat.outcome !== 'ongoing' && !watchOffered(liveRun.combat)) {
     try {
       core.settleCombat(liveRun);
     } catch {
@@ -1099,6 +1099,43 @@ export function place(handIndex: number, target: number | string): boolean {
   return ok;
 }
 
+/** B9b: a lost Run with the Inventor's Watch held and unused: the fight waits for the choice before it settles. */
+export function watchOffered(c: CombatState | null | undefined): boolean {
+  return !!c && c.outcome === 'lost' && !c.watchUsed && !!c.watchSnapshot && c.trinkets.includes('inventors-watch');
+}
+
+/** B9b: wind the fight back to before the last Run (the Watch), after a Run or at the defeat prompt. */
+export function windBackNow(): boolean {
+  if (!live || isBusy()) return false;
+  const ok = windBack(live);
+  if (ok) {
+    banner.value = null;
+    lastResult.value = null;
+    publish();
+    persist();
+  }
+  return ok;
+}
+
+/** B9b: decline the Watch at the defeat prompt: the fight settles as it always did. */
+export function acceptDefeat(): void {
+  if (!live || !liveRun || live !== liveRun.combat || live.outcome === 'ongoing') return;
+  live.watchUsed = true; // no second offer, even after a reload
+  core.settleCombat(liveRun);
+  afterRun(liveRun.phase !== 'combat');
+}
+
+/** B9b: Two Left Hands: trade the board part at `cell` with a part in your hand. */
+export function swapHand(cell: number | string, handIndex: number): boolean {
+  if (!live || isBusy()) return false;
+  const ok = swapWithHand(live, typeof cell === 'string' ? cellIndex(cell) : cell, handIndex);
+  if (ok) {
+    publish();
+    persist();
+  }
+  return ok;
+}
+
 export function swap(a: number | string, b: number | string): boolean {
   if (!live || isBusy()) return false;
   const ia = typeof a === 'string' ? cellIndex(a) : a;
@@ -1241,6 +1278,7 @@ export async function run(): Promise<TurnResult | null> {
   if (liveRun && live === liveRun.combat) {
     // a run fight: let the last beat land, then settle (rewards, or defeat)
     if (live.outcome !== 'ongoing' && speed.value !== 'skip') await new Promise((r) => setTimeout(r, 650));
+    if (watchOffered(live)) return result; // B9b: defeat waits for "Wind back" or "Accept defeat"
     core.settleCombat(liveRun);
     afterRun(liveRun.phase !== 'combat');
   }
@@ -1371,7 +1409,7 @@ export async function init(): Promise<void> {
         enterSlot(last as SlotNo, r.slot.profile, r.slot.run);
         if (liveRun) {
           // a reload during the beat after the last blow: settle it now
-          if (liveRun.phase === 'combat' && liveRun.combat && liveRun.combat.outcome !== 'ongoing') core.settleCombat(liveRun);
+          if (liveRun.phase === 'combat' && liveRun.combat && liveRun.combat.outcome !== 'ongoing' && !watchOffered(liveRun.combat)) core.settleCombat(liveRun);
           afterRun(true);
           bossIntro.value = null;
           return;
@@ -1400,7 +1438,7 @@ export async function init(): Promise<void> {
       active = null;
     }
     try {
-      if (liveRun && liveRun.phase === 'combat' && liveRun.combat && liveRun.combat.outcome !== 'ongoing') core.settleCombat(liveRun);
+      if (liveRun && liveRun.phase === 'combat' && liveRun.combat && liveRun.combat.outcome !== 'ongoing' && !watchOffered(liveRun.combat)) core.settleCombat(liveRun);
       if (liveRun) {
         afterRun(true);
         bossIntro.value = null;
@@ -1493,6 +1531,14 @@ export function installDebug(): void {
         if (!active) return;
         active.profile.planHistory = plans.slice(-3);
         saveActive();
+      },
+      /** B9b: the run holds this trinket now (run.trinkets and the live combat's). */
+      giveTrinket: (id: string): void => {
+        if (!liveRun) return;
+        if (!liveRun.trinkets.includes(id)) liveRun.trinkets.push(id);
+        if (live && !live.trinkets.includes(id)) live.trinkets.push(id);
+        publish();
+        persist();
       },
       startClimb: (seed: number): void => cheatStartClimb(seed),
       fixtureSection: (o?: { at?: string; hour?: number; clear?: string[] }): void => cheatFixtureSection(o),

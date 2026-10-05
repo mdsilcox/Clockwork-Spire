@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { attachStage, banner, bossIntro, combat, cycleSpeed, goTitle, lastResult, newFight, place, replaying, run, runView, screen, speed, swap, target, toggleTarget, tutorial, tutorialAck, view } from '../app/controller';
+import { acceptDefeat, attachStage, banner, bossIntro, combat, cycleSpeed, goTitle, lastResult, newFight, place, replaying, run, runView, screen, speed, swap, swapHand, target, toggleTarget, tutorial, tutorialAck, view, watchOffered, windBackNow } from '../app/controller';
 import { colorBlind, glossaryOpen, openGlossary, openHowTo, openSettings, setColorBlind } from '../app/prefs';
 import { intentTargets } from '../app/intents';
 import { glossaryFor } from '../core/content/glossary';
@@ -53,6 +53,9 @@ export function CombatScreen() {
   const c = rep ?? live;
   const busy = rep !== null;
   const over = !!c && c.outcome !== 'ongoing';
+  // B9b: the Inventor's Watch: a lost Run waits for the choice; after any other Run "Wind back" is a button
+  const askWatch = !!c && !busy && watchOffered(c);
+  const canWind = !!c && !busy && !over && !c.watchUsed && !!c.watchSnapshot && c.trinkets.includes('inventors-watch');
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -180,7 +183,7 @@ export function CombatScreen() {
         click();
       } else {
         setMark(-1);
-        flash('You can swap once per turn.');
+        flash(live.trinkets.includes('two-left-hands') ? 'You can swap twice per turn.' : 'You can swap once per turn.');
       }
     } else if (mark !== -1) {
       setMark(-1);
@@ -285,6 +288,13 @@ export function CombatScreen() {
       return;
     }
     if (suppressClick.current || busy || over) return;
+    if (mark !== -1 && live?.trinkets.includes('two-left-hands')) {
+      // Two Left Hands: a marked board part trades places with this hand part
+      if (swapHand(mark, idx)) click();
+      else flash('No swaps left this turn.');
+      setMark(-1);
+      return;
+    }
     setSel(sel === idx ? null : idx);
     setMark(-1);
   };
@@ -728,7 +738,23 @@ export function CombatScreen() {
             {toast}
           </div>
         )}
-        {over && !busy && !runNow && (
+        {askWatch && (
+          <div class="result watchprompt" data-testid="watch-prompt" role="dialog" aria-label="The Inventor's Watch">
+            <div class="panel">
+              <h2>Defeat</h2>
+              <p>The Inventor's Watch ticks. Wind back to before that Run, once, or accept the defeat.</p>
+              <div class="row">
+                <button class="primary" data-testid="watch-wind-back" onClick={() => windBackNow()}>
+                  Wind back
+                </button>
+                <button class="secondary" data-testid="watch-accept" onClick={() => acceptDefeat()}>
+                  Accept defeat
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {over && !busy && !runNow && !askWatch && (
           <div class="result" data-testid="result" role="dialog" aria-label={c.outcome === 'won' ? 'Victory' : 'Defeat'}>
             <div class="panel">
               <h2>{c.outcome === 'won' ? 'Victory' : 'Defeat'}</h2>
@@ -809,12 +835,17 @@ export function CombatScreen() {
           </p>
           <p class="placements" data-testid="placements">
             Placements: <b>{c.placementsLeft}</b>
-            {c.swapUsed ? '' : ' | Swap ready'}
+            {c.swapUsed ? '' : c.trinkets.includes('two-left-hands') ? ` | ${2 - (c.swapsUsed ?? 0)} swaps ready` : ' | Swap ready'}
           </p>
           <div class="row">
             <button class={`primary run ${glow.has('run') ? 'tut-glow' : ''}`} data-testid="run" disabled={busy || over} onClick={doRun}>
               Run
             </button>
+            {canWind && (
+              <button class="secondary watch" data-testid="watch-wind-back" onClick={() => windBackNow()} aria-label="Wind back to before your last Run. Once per fight.">
+                Wind back
+              </button>
+            )}
             <button class="speed" data-testid="speed" onClick={cycleSpeed} aria-label={`Animation speed ${speed.value}. Tap to change.`}>
               {speed.value === 'skip' ? 'Skip' : speed.value}
             </button>
