@@ -301,7 +301,7 @@ export function WorkshopScreen() {
           )}
         </div>
       </header>
-      <div class="wsbody">
+      <div class={`wsbody ${tab === 'trophies' ? 'on-trophies' : ''}`}>
         <section class="room" data-testid="room">
           <div class="roominner">
             <RoomArt />

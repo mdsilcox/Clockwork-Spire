@@ -3465,6 +3465,26 @@ button:disabled {
   height: 14px;
   vertical-align: -2px;
   flex: none;
+  margin-right: 4px;
+}
+/* on a card the mark sits in the corner, so it never adds a line */
+.card > .tier {
+  position: absolute;
+  right: 6px;
+  top: 24px;
+  margin: 0;
+}
+.card .cfam {
+  padding-right: 20px;
+}
+/* phone landscape: the trophy shelf takes the whole width (the Workshop art steps aside) */
+@media (max-height: 460px) {
+  .wsbody.on-trophies {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wsbody.on-trophies .room {
+    display: none;
+  }
 }
 .tier-common {
   display: none;
@@ -3487,7 +3507,8 @@ button:disabled {
 }
 .tier-masterwork {
   background: #d1a64a;
-  clip-path: polygon(40% 0, 60% 0, 64% 14%, 78% 8%, 86% 22%, 100% 40%, 100% 60%, 86% 64%, 92% 78%, 78% 86%, 60% 100%, 40% 100%, 36% 86%, 22% 92%, 14% 78%, 0 60%, 0 40%, 14% 36%, 8% 22%, 22% 14%, 36% 8%);
+  /* a cog: four big teeth and a hole in the middle (even-odd), so it reads small */
+  clip-path: polygon(evenodd, 35% 0, 65% 0, 65% 18%, 82% 18%, 82% 35%, 100% 35%, 100% 65%, 82% 65%, 82% 82%, 65% 82%, 65% 100%, 35% 100%, 35% 82%, 18% 82%, 18% 65%, 0 65%, 0 35%, 18% 35%, 18% 18%, 35% 18%, 35% 0, 40% 40%, 60% 40%, 60% 60%, 40% 60%, 40% 40%);
 }
 .tier-legendary {
   background: #e9a0ff;
