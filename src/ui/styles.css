@@ -3571,3 +3571,11 @@ button:disabled {
 .legendarycard .plus {
   color: var(--ink-soft);
 }
+
+.controls .row .watch {
+  flex: none;
+  min-width: 44px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+}
