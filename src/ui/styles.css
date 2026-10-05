@@ -3475,6 +3475,7 @@ button:disabled {
   gap: 8px;
   justify-content: center;
   flex-wrap: wrap;
+}
 
 .tier-uncommon {
   background: #9ad27a;
