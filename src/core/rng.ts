@@ -4,7 +4,7 @@ import type { RngStream } from './types';
 
 export type RngState = Record<RngStream, number>;
 
-export const STREAMS: readonly RngStream[] = ['map', 'draw', 'enemy', 'reward', 'event', 'shop'];
+export const STREAMS: readonly RngStream[] = ['map', 'draw', 'enemy', 'reward', 'event', 'shop', 'meta'];
 
 function hashString(s: string): number {
   let h = 0x811c9dc5;

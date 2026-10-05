@@ -30,7 +30,7 @@ test('autoplay wins a career from a fresh profile, then the Workshop celebrates'
   await page.getByTestId('end-continue').click();
 
   // the Workshop: the profile is marked won and Sprocket celebrates
-  await expect(page.getByTestId('workshop')).toBeVisible();
+  await expect(page.getByTestId('bellfoot')).toBeVisible();
   const profile = await page.evaluate(() => (window as any).__game.profile());
   expect(profile.wins).toBeGreaterThanOrEqual(1);
   expect(profile.storyFlags).toContain('victory');

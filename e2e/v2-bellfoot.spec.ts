@@ -1,4 +1,4 @@
-// B10a acceptance (browser), owner: bellfoot-ui. Desktop (1280x800) and phone (667x375 touch).
+﻿// B10a acceptance (browser), owner: bellfoot-ui. Desktop (1280x800) and phone (667x375 touch).
 // docs/acceptance.md BF1, BF2 (E), BF6 (the town half), AR6 for Bellfoot (code ambience and a sound bed);
 // docs/briefs/B10a-bellfoot.md "Semantics" and "Round 2 decisions". Written by the orchestrator's test-porter in B10a.0.
 // CONTRACT test ids and hooks the bellfoot-ui lane implements (src/ui/town.ts gives the place ids and order):
@@ -244,6 +244,9 @@ test("Sprocket's corner offers the earned collars, and the chosen one is drawn o
   expect((await g<{ collar: string | null }>(page, 'g.profile()')).collar).toBe('red');
   await page.waitForTimeout(400);
   await page.reload();
+  await expect(page.getByTestId('title')).toBeVisible(); // a reload starts at the title; Continue leads back to the town
+  await press(page, page.getByTestId('open-slots'));
+  await press(page, page.getByTestId('slot-continue-1'));
   await expect(page.getByTestId('bellfoot')).toBeVisible();
   await expect(page.getByTestId('sprocket')).toHaveAttribute('data-collar', 'red');
   await press(page, page.getByTestId('town-menu'));
