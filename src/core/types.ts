@@ -370,7 +370,7 @@ export type Pending =
   | { kind: 'shop'; stock: ShopItem[]; removalsBought: number }
   | { kind: 'forge'; done: boolean }
   | { kind: 'oil'; done: boolean }
-  | { kind: 'legendary'; options: string[] }; // B9b: the Queen's core: one or two Legendary ids (parts or trinkets), take one, no skip
+  | { kind: 'legendary'; options: string[]; after?: Pending }; // B9b: the Queen's core: one or two Legendary ids (parts or trinkets), take one, no skip
 
 /** B9a: a run's main plan, for the Clockmaker's memory (rules 5.4). */
 export type Plan = 'plating' | 'burst' | 'pressure' | 'statuses';
@@ -424,6 +424,8 @@ export interface RunConfig {
   legacyMap?: boolean;
   /** B9a: the plan the Clockmaker remembers (memoryPlan of the profile's planHistory); null or missing: no memory part. */
   memory?: Plan | null;
+  /** B9b: Masterwork and Legendary trinkets the profile's achievements have unlocked (parts go in `unlockedParts`). */
+  unlockedTrinkets?: string[];
 }
 
 export interface RunState {

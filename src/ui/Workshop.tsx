@@ -13,14 +13,16 @@ import { unlockAudio } from '../audio/synth';
 import { dayLabel, fmt } from './format';
 import { PartCard } from './PartCard';
 import { Sprocket } from './Sprocket';
+import { Trophies } from './Trophies';
 import { RoomArt } from './WorkshopArt';
 
-type Tab = 'bench' | 'chassis' | 'notes' | 'parts' | 'history';
+type Tab = 'bench' | 'chassis' | 'notes' | 'parts' | 'trophies' | 'history';
 const TABS: [Tab, string][] = [
   ['bench', 'Upgrade bench'],
   ['chassis', 'Chassis'],
   ['notes', 'Notes'],
   ['parts', 'Blueprints'],
+  ['trophies', 'Trophies'],
   ['history', 'History'],
 ];
 
@@ -342,6 +344,7 @@ export function WorkshopScreen() {
             {tab === 'chassis' && <Rack p={p} chosen={pick} setChosen={setChosen} />}
             {tab === 'notes' && <Notes p={p} />}
             {tab === 'parts' && <Blueprints p={p} />}
+            {tab === 'trophies' && <Trophies p={p} />}
             {tab === 'history' && <History p={p} />}
           </div>
           <footer class="door">

@@ -3457,14 +3457,109 @@ button:disabled {
   }
 }
 
-/* B9b.0: the tier mark (color plus a shape; docs/art-direction.md). Minimal so nothing shifts; progression styles the shapes. */
+/* B9b: the tier mark: color plus a shape, so it never relies on color alone (docs/art-direction.md "Tier marks").
+   Common none; Uncommon one notch (a square with a cut corner); Rare a diamond; Masterwork a cog; Legendary a star. */
 .tier {
   display: inline-block;
-  width: 12px;
-  height: 12px;
-  vertical-align: -1px;
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
   flex: none;
 }
 .tier-common {
   display: none;
+}
+.tier-uncommon {
+  background: #9ad27a;
+  clip-path: polygon(0 0, 62% 0, 100% 38%, 100% 100%, 0 100%);
+}
+.tier-rare {
+  background: #7fc8ff;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.tier-masterwork {
+  background: #d1a64a;
+  clip-path: polygon(40% 0, 60% 0, 64% 14%, 78% 8%, 86% 22%, 100% 40%, 100% 60%, 86% 64%, 92% 78%, 78% 86%, 60% 100%, 40% 100%, 36% 86%, 22% 92%, 14% 78%, 0 60%, 0 40%, 14% 36%, 8% 22%, 22% 14%, 36% 8%);
+}
+.tier-legendary {
+  background: #e9a0ff;
+  width: 16px;
+  height: 16px;
+  clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+
+/* B9b: the trophy shelf and the Queen's pick. */
+.trophylist {
+  list-style: none;
+  margin: 8px 0 12px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+}
+.trophy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  background: var(--tile);
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  font-size: 13px;
+  min-width: 0;
+}
+.trophy.earned {
+  border-color: var(--brass);
+}
+.trophy.later {
+  opacity: 0.7;
+}
+.trophy-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+.trophy-tier,
+.trophy-kind {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.trophy-got {
+  font-size: 12px;
+  color: var(--good);
+}
+.trophy-text,
+.trophy-prog,
+.trophy-later {
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+.trophy-later {
+  color: var(--lamp);
+}
+.trophy-reward {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--ink);
+}
+.trophy-rewards {
+  list-style: none;
+  margin: 4px 0 12px;
+  padding: 0;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.legendarybox .cardrow {
+  justify-content: center;
+}
+.legendarycard {
+  border-color: #e9a0ff;
+  min-height: 40px;
+}
+.legendarycard .plus {
+  color: var(--ink-soft);
 }

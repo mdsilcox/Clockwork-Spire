@@ -29,7 +29,7 @@ export function migrateSlot(stored: unknown): MigrationResult {
     r.chassis ??= [];
   }
   if (input.run && input.run.legendary === undefined) input.run.legendary = null; // B9b: an old run holds no Legendary
-  if ((input.version ?? 1) >= SAVE_VERSION) return { slot: input, notice: null };
+  if ((input.version ?? 1) >= SAVE_VERSION) return { slot: fillB9b(input), notice: null };
   const slot = structuredClone(input);
   const profile = slot.profile;
   // Spare Cogs became Spare Scrap: same level, same Brass spent
@@ -46,7 +46,23 @@ export function migrateSlot(stored: unknown): MigrationResult {
     notice = MIGRATION_NOTICE;
   }
   slot.run = null;
+  fillB9b(slot);
   slot.version = SAVE_VERSION;
   profile.version = SAVE_VERSION;
   return { slot, notice };
+}
+
+/** B9b fields added after version 2 shipped: achievements, progress and rewards on the profile, `legendary` on a run in progress.
+ * Fills what is missing and leaves everything else alone (a slot that already has them is returned as it is). */
+function fillB9b(slot: SaveSlot): SaveSlot {
+  const p = slot.profile;
+  if (!p.achievements || !p.achievementProgress || !p.rewards || (slot.run && slot.run.legendary === undefined)) {
+    slot = { ...slot, profile: { ...p } };
+    const q = slot.profile;
+    q.achievements ??= {};
+    q.achievementProgress ??= {};
+    q.rewards ??= { journal: [], collars: [], landmarks: [], overwind: 0, chassis: [] };
+    if (slot.run && slot.run.legendary === undefined) slot.run = { ...slot.run, legendary: null };
+  }
+  return slot;
 }

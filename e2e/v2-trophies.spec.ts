@@ -55,6 +55,10 @@ test('AD2 (E): an unlocked achievement shows on the trophy shelf, earned, with i
   expect(shelf.achievements.find((a) => a.id === 'm-burst')?.earned).toBeTruthy();
   await page.waitForTimeout(400); // the save lands in the same write
   await page.reload();
+  // a reload lands on the title screen (as in workshop.spec.ts): open the saved slot again
+  await skipFirstLaunch(page);
+  await page.evaluate(() => (window as unknown as { __game: { useSlot(n: number): Promise<boolean> } }).__game.useSlot(1));
+  await expect(page.getByTestId('workshop')).toBeVisible();
   await press(page, page.getByTestId('tab-trophies'));
   await expect(page.getByTestId('trophy-m-burst')).toHaveAttribute('data-earned', 'true');
   await noSidewaysScroll(page);

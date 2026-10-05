@@ -1,9 +1,9 @@
 // Node screens inside a run: reward, event, shop, forge and oil, plus the part picker they share.
 import type { ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
-import { shopBuy, chooseEvent, forge, leave, oil, pickEventPart, rewardPart, rewardTrinket, runView, salvageDone, shopRemove } from '../app/controller';
+import { shopBuy, chooseEvent, forge, leave, oil, pickEventPart, rewardPart, rewardTrinket, runView, salvageDone, shopRemove, takeLegendary } from '../app/controller';
 import { EVENTS } from '../core/content/events';
-import { partDef, partName, partText } from '../core/content/parts';
+import { PARTS, partDef, partName, partText } from '../core/content/parts';
 import { trinketDef } from '../core/content/trinkets';
 import { salvagePayout } from '../core/salvage';
 import type { PartInstance, RunState } from '../core/types';
@@ -208,6 +208,36 @@ export function RewardScreen() {
         </div>
       </section>
       {tip.node}
+    </Shell>
+  );
+}
+
+// ---------- the Queen's core: one Legendary to take, no skip (B9b, rules 4.7) ----------
+
+export function LegendaryScreen() {
+  const run = runView.value;
+  if (!run || run.pending?.kind !== 'legendary') return null;
+  const options = run.pending.options;
+  return (
+    <Shell run={run} title="The Queen's core" art={<SpoilsArt />}>
+      <section class="rewardbox legendarybox" data-testid="legendary" aria-label="The Queen's core">
+        <h3>{options.length > 1 ? 'Take one of the two' : 'Take it'}</h3>
+        <p class="hint">The core held something that was never meant to be sold. You may carry one Legendary item per climb.</p>
+        <div class="cardrow">
+          {options.map((id, i) => {
+            const part = PARTS[id];
+            return (
+              <button key={id} class="card legendarycard" data-testid={`legendary-option-${i}`} data-id={id} onClick={() => takeLegendary(id)}>
+                <span class="cname">{part ? part.name : trinketDef(id).name}</span>
+                <TierMark rarity="legendary" />
+                <span class="cfam">{part ? 'Legendary part' : 'Legendary trinket'}</span>
+                <span class="ctext">{part ? part.text : trinketDef(id).text}</span>
+                {part && <span class="ctext plus">Upgraded: {part.textPlus}</span>}
+              </button>
+            );
+          })}
+        </div>
+      </section>
     </Shell>
   );
 }

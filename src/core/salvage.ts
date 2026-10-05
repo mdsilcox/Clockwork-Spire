@@ -1,6 +1,7 @@
 // Salvage (docs/rules.md 2.5). B7: the 'salvage' Pending replaces the part reward after fights and elites;
 // Scrap in the climb (run.scrap); v1 runs without it still pay Cogs.
 import { PARTS } from './content/parts';
+import { partOpen } from './pool';
 import { addScrap, newPart, recordOffers, markOfferTaken } from './rewards';
 import type { CombatState, RunState, SalvageItem } from './types';
 
@@ -13,7 +14,7 @@ export function isPartUnlocked(run: RunState, partId: string): boolean {
   if (partId === 'spire-key') return true;
   const def = PARTS[partId];
   if (!def) return false;
-  return !def.locked || run.config.unlockedParts.includes(partId) || run.stats.blueprintsFound.includes(partId);
+  return partOpen(run, partId);
 }
 
 /** The salvage items of a won combat, with `locked` set from the run's pool. */
