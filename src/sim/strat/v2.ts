@@ -128,7 +128,9 @@ export interface WardenFightStats {
   bot: V2Bot;
   warden: 'foreman' | 'boilermaker' | 'clockmaker';
   fights: number;
-  turnsMedian: number; // median player turns over the fights
+  /** Fights the bot won (BV4 needs at least 30 of 100, or the median means little). */
+  wins: number;
+  turnsMedian: number; // median player turns over the WON fights (a loss on turn 5 is not the fight's length)
   /** Per phase index, the fewest turns any fight of this cell spent in that phase (a fight that won in a phase counts the turns it took there). */
   phaseTurnsMin: number[];
 }
@@ -173,7 +175,7 @@ export function wardenStatsFromBins(o: WardenFightOpts, bins: FightSnapshot[]): 
       const phases = enemyDef(warden).frame?.phases?.length ?? 1;
       const won = rows.filter((r) => r.won);
       const min = Array.from({ length: phases }, (_, k) => (won.length ? Math.min(...won.map((r) => r.phaseStartTurns[k] ?? 0)) : 0));
-      out.push({ bot, warden, fights: rows.length, turnsMedian: median(rows.map((r) => r.turns)), phaseTurnsMin: min });
+      out.push({ bot, warden, fights: rows.length, wins: won.length, turnsMedian: median(won.map((r) => r.turns)), phaseTurnsMin: min });
     }
   }
   return out;

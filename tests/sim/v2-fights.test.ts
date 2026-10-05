@@ -33,7 +33,7 @@ describe('v2 fights: strategy bots', () => {
     });
   }
 
-  it('BV4: expert medians Foreman 6 to 9, Queen 7 to 10, Clockmaker 8 to 12 turns; expert and max-burst spend 2+ turns in every phase and 3+ in the last (100 fights each)', { timeout: 600_000 }, () => {
+  it('BV4: expert medians (over won fights) Foreman 6 to 9, Queen 7 to 10, Clockmaker 8 to 12 turns, from at least 30 won fights per bot and warden; expert and max-burst spend 2+ turns in every phase and 3+ in the last (100 fights each)', { timeout: 600_000 }, () => {
     const rows = wardenStatsV2({ seed: 1, fights: 100, bots: ['expert', 'maxburst'] });
     const cell = (bot: string, warden: string) => {
       const r = rows.find((x) => x.bot === bot && x.warden === warden);
@@ -50,6 +50,7 @@ describe('v2 fights: strategy bots', () => {
       for (const warden of Object.keys(medians)) {
         const r = cell(bot, warden);
         expect(r.fights, `${bot} vs ${warden} fights`).toBe(100);
+        expect(r.wins, `${bot} vs ${warden} won fights (the median and the phase minimums are over won fights)`).toBeGreaterThanOrEqual(30);
         const phases = enemyDef(warden).frame?.phases?.length ?? 0;
         expect(phases, `${warden} has phases`).toBeGreaterThan(0);
         expect(r.phaseTurnsMin).toHaveLength(phases);

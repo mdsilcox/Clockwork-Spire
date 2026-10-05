@@ -214,7 +214,7 @@ Test harness addition: `combatWith` accepts `enemies: [{ core: 40, parts: [{ id:
 | BV1 | expert bot, no meta, Journeyman | 300 runs | win rate under 5%; greedy under 2% | S | |
 | BV2 | 100 expert careers on the sensible path | until first win (cap 30) | median first win between run 8 and 12 | S | |
 | BV3 | every elite and warden, and each act's normal fights, bins from expert runs | turtle and burst bots play them | each loses at least 1.5x the expert's mean HP on every elite and warden, and at least 10% of max HP on average in each act's normal fights | S | |
-| BV4 | the expert, and the max-burst bot, against each warden | 100 fights each | expert median turns Foreman 6 to 9, Queen 7 to 10, Clockmaker 8 to 12; for both bots every phase at least 2 turns and the last at least 3 | S | |
+| BV4 | the expert, and the max-burst bot, against each warden | 100 fights each | expert median turns of won fights Foreman 6 to 9, Queen 7 to 10, Clockmaker 8 to 12 (at least 30 won fights per bot and warden); for both bots every phase at least 2 turns and the last at least 3 | S | |
 | BV5 | the per-part table | offer-based impact | highest at most 2x the median | S | |
 | BV6 | the expert bot | a career | under 50 ms per turn on average | S | |
 | BV7 | a fixed seed | run any sim mode twice | identical reports (v1 BS1, kept) | S | |
