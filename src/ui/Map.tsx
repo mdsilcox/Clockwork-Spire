@@ -4,6 +4,7 @@ import { abandonClimb, availableNow, goNode, runToTitle, runView } from '../app/
 import { binOpen, colorBlind, openGlossary, openHowTo, openSettings, setColorBlind } from '../app/prefs';
 import { partName } from '../core/content/parts';
 import { trinketDef } from '../core/content/trinkets';
+import { scrapOf } from '../core/rewards';
 import type { MapNode, NodeType, RunState } from '../core/types';
 import { unlockAudio } from '../audio/synth';
 import { PartCard } from './PartCard';
@@ -39,7 +40,17 @@ export function TrinketBar({ run }: { run: RunState }) {
   );
 }
 
-/** HP, Cogs, parts, trinkets and the menu: the top bar of every run screen except combat. */
+/** The run bar's second line: the floor of the room you stand in (a climb), or the v1 floor count. */
+function floorLine(run: RunState): string {
+  if (run.section) {
+    const here = run.section.rooms.find((r) => r.id === run.roomId);
+    const top = Math.max(...run.section.rooms.map((r) => r.floor)) + 1;
+    return here ? `Floor ${here.floor + 1} of ${top}` : '';
+  }
+  return run.floor > 0 ? `Floor ${run.floor} of 13` : 'Before the first floor';
+}
+
+/** HP, Scrap, parts, trinkets and the menu: the top bar of every run screen except combat. */
 export function RunBar({ run, title }: { run: RunState; title?: string }) {
   const [menu, setMenu] = useState(false);
   const [sure, setSure] = useState(false);
@@ -48,7 +59,7 @@ export function RunBar({ run, title }: { run: RunState; title?: string }) {
     <header class="runbar" data-testid="runbar">
       <div class="rtitle">
         <b data-testid="act-title">{title ?? ACT_TITLE[run.act]}</b>
-        <span class="rfloor">{run.floor > 0 ? `Floor ${run.floor} of 13` : 'Before the first floor'}</span>
+        <span class="rfloor">{floorLine(run)}</span>
       </div>
       <div class="pill hp" data-testid="run-hp">
         <span class="lbl">HP</span>
@@ -59,10 +70,23 @@ export function RunBar({ run, title }: { run: RunState; title?: string }) {
           {run.hp}/{run.maxHp}
         </b>
       </div>
-      <div class="pill" data-testid="run-cogs">
-        <span class="lbl">Cogs</span>
-        <b>{run.cogs}</b>
-      </div>
+      {run.section ? (
+        <div class="pill" data-testid="run-scrap">
+          <span class="lbl">Scrap</span>
+          <b>{scrapOf(run)}</b>
+        </div>
+      ) : (
+        <div class="pill" data-testid="run-cogs">
+          <span class="lbl">Cogs</span>
+          <b>{run.cogs}</b>
+        </div>
+      )}
+      {run.section && (run.keys ?? 0) > 0 && (
+        <div class="pill" data-testid="run-keys">
+          <span class="lbl">Keys</span>
+          <b>{run.keys}</b>
+        </div>
+      )}
       <button class="pill pillbtn" data-testid="open-bin" onClick={() => (binOpen.value = true)}>
         <span class="lbl">Parts</span>
         <b>{run.bin.length}</b>
@@ -186,9 +210,9 @@ function Motif({ act }: { act: number }) {
   );
 }
 
-function ActCard({ run }: { run: RunState }) {
+export function ActCard({ run }: { run: RunState }) {
   const key = `${run.config.seed}-${run.act}`;
-  const [show, setShow] = useState(run.floor === 0 && !shownActs.has(key));
+  const [show, setShow] = useState((run.section ? (run.hour ?? 0) === 0 : run.floor === 0) && !shownActs.has(key));
   useEffect(() => {
     if (!show) return;
     shownActs.add(key);

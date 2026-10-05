@@ -5,6 +5,7 @@ import { CombatScreen } from './Combat';
 import { EndScreen } from './End';
 import { GlossaryScreen } from './Glossary';
 import { BinViewer, MapScreen } from './Map';
+import { ActScreen, DoorScreen, OilRoomScreen, TraderScreen, WorkbenchScreen } from './Climb';
 import { EventScreen, ForgeScreen, OilScreen, RewardScreen, SalvageScreen, ShopScreen } from './Nodes';
 import { HowToScreen } from './HowTo';
 import { PortraitCard } from './PortraitCard';
@@ -18,7 +19,7 @@ import { Title } from './Title';
 function UpdateToast() {
   const scr = screen.value;
   const rv = runView.value;
-  const calm = scr === 'title' || scr === 'slots' || scr === 'workshop' || (scr === 'run' && rv?.phase === 'map');
+  const calm = scr === 'title' || scr === 'slots' || scr === 'workshop' || (scr === 'run' && (rv?.phase === 'map' || rv?.phase === 'section'));
   if (!showUpdate.value || !calm) return null;
   return (
     <div class="updatetoast" role="status" data-testid="update-toast">
@@ -39,8 +40,16 @@ function RunScreens() {
   switch (run.phase) {
     case 'map':
       return <MapScreen />;
+    case 'section':
+      return <ActScreen />;
+    case 'workbench':
+      return <WorkbenchScreen key={nodeKey.value} />;
+    case 'trader':
+      return <TraderScreen key={nodeKey.value} />;
+    case 'door':
+      return <DoorScreen />;
     case 'combat':
-      return combat.value ? <CombatScreen key={nodeKey.value} /> : <MapScreen />;
+      return combat.value ? <CombatScreen key={nodeKey.value} /> : run.section ? <ActScreen /> : <MapScreen />;
     case 'reward':
       return run.pending?.kind === 'salvage' ? <SalvageScreen /> : <RewardScreen />;
     case 'event':
@@ -50,7 +59,7 @@ function RunScreens() {
     case 'forge':
       return <ForgeScreen />;
     case 'oil':
-      return <OilScreen />;
+      return run.section ? <OilRoomScreen /> : <OilScreen />;
     default:
       return <EndScreen />;
   }

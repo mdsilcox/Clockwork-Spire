@@ -10,6 +10,10 @@ import type { CombatState, GameEvent, PartInstance, RunState, SalvageItem, Targe
 import { frontOf, setOrder, toggleTarget as toggleOrder } from '../core/frames';
 import { takeSalvage } from '../core/salvage';
 import * as core from '../core/run';
+import * as sect from '../core/section';
+import * as rooms from '../core/rooms';
+import { int } from '../core/rng';
+import { sectionFixture } from '../core/testkit';
 import { generateActMap } from '../core/map';
 import { partName } from '../core/content/parts';
 import { enemyDef } from '../core/content/enemies';
@@ -636,6 +640,231 @@ export const leave = (): boolean => runAction((r) => core.leaveNode(r)) ?? false
 export const availableNow = (): string[] => (liveRun ? core.availableNodes(liveRun) : []);
 export const brassNow = (): number => (liveRun ? core.brassFor(liveRun) : 0);
 
+// ---------- the climb (B8): the act screen, walking, doors and the room screens ----------
+
+/** The walk in progress (1x and 2x speed): the walkers animate from `from` to `to`, then the screen catches up. */
+export const walk = signal<{ from: string; to: string } | null>(null);
+/** The workbench's fuse offer for the two chosen parts: the candidate part ids, or why not. */
+export const fuseOffer = signal<{ a: number; b: number; candidates: string[]; reason?: string } | null>(null);
+
+const WALK_MS: Record<Speed, number> = { '1x': 900, '2x': 450, skip: 0 };
+
+const roomAt = (r: RunState, id: string | undefined) => r.section?.rooms.find((x) => x.id === id);
+
+function lockedBetween(r: RunState, a: string, b: string): number {
+  return r.section ? r.section.passages.findIndex((p) => p.locked && ((p.a === a && p.b === b) || (p.a === b && p.b === a))) : -1;
+}
+
+/** Tap a room: walk to it when connected; the far room of a locked passage opens the door screen; anything else does nothing. */
+export function moveRoom(id: string): boolean {
+  if (!liveRun || !liveRun.section || liveRun.phase !== 'section' || isBusy() || id === liveRun.roomId) return false;
+  const r = liveRun;
+  const from = r.roomId ?? r.section!.entry;
+  let near: string[] = [];
+  try {
+    near = sect.connectedRooms(r);
+  } catch {
+    near = [];
+  }
+  if (!near.includes(id)) {
+    const p = lockedBetween(r, from, id);
+    if (p >= 0) {
+      r.phase = 'door';
+      r.pending = { kind: 'door', passage: p };
+      afterRun(true);
+    }
+    return false;
+  }
+  let ok = false;
+  try {
+    ok = sect.moveTo(r, id);
+  } catch {
+    ok = false;
+  }
+  if (!ok) return false;
+  const ms = WALK_MS[speed.value];
+  if (ms === 0) {
+    afterRun(true);
+    return true;
+  }
+  walk.value = { from, to: id };
+  window.setTimeout(() => {
+    walk.value = null;
+    afterRun(true);
+  }, ms);
+  return true;
+}
+
+export const ringBell = (): boolean => runAction((r) => sect.ringBell(r)) ?? false;
+export const useKey = (passage: number): boolean =>
+  runAction((r) => {
+    const ok = sect.useKey(r, passage);
+    if (ok && r.phase === 'door') {
+      r.phase = 'section';
+      r.pending = null;
+    }
+    return ok;
+  }) ?? false;
+export const pickLock = (passage: number): boolean =>
+  runAction((r) => {
+    const ok = sect.pickLock(r, passage);
+    if (ok && r.phase === 'door') {
+      r.phase = 'section';
+      r.pending = null;
+    }
+    return ok;
+  }) ?? false;
+/** Cancel at a locked door: back to the section, no hour. */
+export const cancelDoor = (): boolean =>
+  runAction((r) => {
+    if (r.phase !== 'door') return false;
+    r.phase = 'section';
+    r.pending = null;
+    return true;
+  }) ?? false;
+/** Done with a room's screen (workbench, trader, oil): back to the act screen, the midnight check follows. */
+export const leaveRoom = (): boolean =>
+  runAction((r) => {
+    if (!['workbench', 'trader', 'oil'].includes(r.phase)) return false;
+    r.phase = 'section';
+    r.pending = null;
+    r.combat = null;
+    fuseOffer.value = null;
+    sect.afterRoom(r);
+    return true;
+  }) ?? false;
+export const benchUpgrade = (uid: number): boolean => runAction((r) => rooms.workbenchUpgrade(r, uid)) ?? false;
+export const benchRemove = (uid: number): boolean => runAction((r) => rooms.workbenchRemove(r, uid)) ?? false;
+/** Ask for the two fuse candidates for the chosen parts; they show on the workbench until one is picked. */
+export function benchFuse(a: number, b: number): boolean {
+  if (!liveRun) return false;
+  const out = rooms.fuseCandidates(liveRun, a, b);
+  afterRun(false);
+  fuseOffer.value = 'candidates' in out ? { a, b, candidates: out.candidates } : { a, b, candidates: [], reason: out.reason };
+  return 'candidates' in out;
+}
+export const benchFusePick = (a: number, b: number, pick: number): boolean =>
+  runAction((r) => {
+    const ok = rooms.fuse(r, a, b, pick);
+    if (ok) fuseOffer.value = null;
+    return ok;
+  }) ?? false;
+export const traderBuy = (index: number, offerUid: number | null): boolean => runAction((r) => rooms.barter(r, index, offerUid)) ?? false;
+export const oilRest = (): boolean => runAction((r) => rooms.rest(r)) ?? false;
+export const oilPolish = (): boolean => runAction((r) => rooms.polish(r)) ?? false;
+
+/** The Scrap you would pay for a trader's item now (rules 4.5): its value less the offered part's, or value + 25% alone. */
+export function tradeCost(r: RunState, index: number, offerUid: number | null): number {
+  const item = r.pending?.kind === 'trader' ? r.pending.stock[index] : undefined;
+  if (!item) return 0;
+  const offer = offerUid === null ? undefined : r.bin.find((p) => p.uid === offerUid);
+  const v = offer ? (rooms.PART_VALUE[PARTS[offer.defId]?.rarity ?? 'common'] ?? 0) : null;
+  return rooms.barterPrice(r, item, v);
+}
+
+type TraderPending = Extract<NonNullable<RunState['pending']>, { kind: 'trader' }>;
+
+/** Test cheat: arrive in a room as if walked there, at no hour. */
+function cheatGotoRoom(id: string): void {
+  const r = liveRun;
+  const room = r ? roomAt(r, id) : undefined;
+  if (!r || !r.section || !room) return;
+  r.roomId = id;
+  room.visited = true;
+  room.revealed = true;
+  for (const p of r.section.passages) {
+    const other = p.a === id ? p.b : p.b === id ? p.a : undefined;
+    const o = roomAt(r, other);
+    if (o) o.revealed = true;
+  }
+  r.combat = null;
+  r.pending = null;
+  r.phase = 'section';
+  fuseOffer.value = null;
+  if (room.kind === 'workbench') {
+    r.pending = { kind: 'workbench', usedUpgrade: false, usedRemove: false, usedFuse: false };
+    r.phase = 'workbench';
+  } else if (room.kind === 'trader') {
+    let stock: TraderPending['stock'] = [];
+    try {
+      stock = rooms.traderStock(r);
+    } catch {
+      stock = [];
+    }
+    r.pending = { kind: 'trader', stock };
+    r.phase = 'trader';
+  } else if (room.kind === 'oil') {
+    r.phase = 'oil';
+  } else if (room.kind === 'event' && room.eventId) {
+    r.pending = { kind: 'event', eventId: room.eventId };
+    r.phase = 'event';
+  } else if (room.kind === 'fight' && room.encounter) {
+    const opts: CreateCombatOpts & { chassis: string } = {
+      seed: int(r.rng, 'enemy', 0x7fffffff),
+      bin: r.bin,
+      enemies: room.encounter,
+      hp: r.hp,
+      maxHp: r.maxHp,
+      kind: 'fight',
+      trinkets: r.trinkets,
+      handSize: r.config.handSize,
+      chassis: r.config.chassis,
+    };
+    r.combat = createCombat(opts);
+    r.phase = 'combat';
+  }
+  afterRun(true);
+}
+
+/** Test cheat: a new run on the fixture section. */
+function cheatFixtureSection(o: { at?: string; hour?: number; clear?: string[] } = {}): void {
+  newRun(1);
+  const r = liveRun;
+  if (!r) return;
+  const fx = sectionFixture();
+  r.section = fx.section;
+  r.elites = fx.elites;
+  r.hour = o.hour ?? 0;
+  r.hours = 12;
+  r.scrap = 0;
+  r.keys = 0;
+  for (const id of o.clear ?? []) {
+    const rm = roomAt(r, id);
+    if (rm) {
+      rm.cleared = true;
+      rm.visited = true;
+    }
+  }
+  r.roomId = o.at ?? 'r0';
+  const here = roomAt(r, r.roomId);
+  if (here) {
+    here.visited = true;
+    here.revealed = true;
+  }
+  for (const p of r.section.passages) {
+    const other = p.a === r.roomId ? p.b : p.b === r.roomId ? p.a : undefined;
+    const rm = roomAt(r, other);
+    if (rm) rm.revealed = true;
+  }
+  r.phase = 'section';
+  r.pending = null;
+  afterRun(true);
+}
+
+function cheatStartClimb(seed: number): void {
+  newRun(seed);
+  if (!liveRun) return;
+  sect.startAct(liveRun, 1);
+  liveRun.phase = 'section';
+  afterRun(true);
+}
+
+function cheatSet(fn: (r: RunState) => void): void {
+  if (!liveRun) return;
+  fn(liveRun);
+  afterRun(false);
+}
+
 /** Test cheat: jump to a floor of an act. With `type`, a reachable node of that type is made available there. */
 function cheatGoto(act: 1 | 2 | 3, floor: number, type?: string): void {
   if (!liveRun) return;
@@ -712,7 +941,7 @@ export function autoplay(opts: AutoOpts = {}): Promise<AutoResult> {
 }
 
 export function isBusy(): boolean {
-  return replaying.value !== null;
+  return replaying.value !== null || walk.value !== null;
 }
 
 function clockSeed(): number {
@@ -1224,7 +1453,42 @@ export function installDebug(): void {
     forge: (kind: 'upgrade' | 'remove', uid: number): boolean => forge(kind, uid),
     oil: (kind: 'repair' | 'polish'): boolean => oil(kind),
     leave: (): boolean => leave(),
+    /** B8: the same as tapping the room on the act screen. */
+    move: (id: string): boolean => moveRoom(id),
     cheat: {
+      startClimb: (seed: number): void => cheatStartClimb(seed),
+      fixtureSection: (o?: { at?: string; hour?: number; clear?: string[] }): void => cheatFixtureSection(o),
+      gotoRoom: (id: string): void => cheatGotoRoom(id),
+      setScrap: (n: number): void =>
+        cheatSet((r) => {
+          r.scrap = n;
+        }),
+      setHour: (n: number): void =>
+        cheatSet((r) => {
+          r.hour = n;
+        }),
+      setKeys: (n: number): void =>
+        cheatSet((r) => {
+          r.keys = n;
+        }),
+      giveParts: (ids: string[]): number[] => {
+        const uids: number[] = [];
+        cheatSet((r) => {
+          for (const id of ids) {
+            const uid = r.nextUid++;
+            r.bin.push({ uid, defId: id.replace(/\+$/, ''), plus: id.endsWith('+') });
+            uids.push(uid);
+          }
+        });
+        return uids;
+      },
+      openTrader: (stock: { kind: 'part' | 'trinket' | 'oil'; id?: string; value: number; sold: boolean }[]): void => {
+        if (!liveRun) return;
+        liveRun.combat = null;
+        liveRun.pending = { kind: 'trader', stock };
+        liveRun.phase = 'trader';
+        afterRun(true);
+      },
       /** Make the next render throw, to see the error boundary. */
       crash: (): void => {
         crashNow.value = true;

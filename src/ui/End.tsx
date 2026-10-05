@@ -108,7 +108,7 @@ export function EndScreen() {
         <p class="eyebrow">{ACT_TITLE[run.act]}</p>
         <h1>The machine winds down.</h1>
         <p class="lede" data-testid="end-floor">
-          You reached act {run.act}, floor {run.floor}. {run.killedBy ? `${killer(run.killedBy)} had the last word.` : 'The climb ends here.'}
+          {run.section ? `You reached act ${run.act}, at hour ${run.hour ?? 0} of ${run.hours ?? 12}.` : `You reached act ${run.act}, floor ${run.floor}.`} {run.killedBy ? `${killer(run.killedBy)} had the last word.` : 'The climb ends here.'}
         </p>
         <dl class="stats" data-testid="end-stats">
           {rows.map(([k, v]) => (
