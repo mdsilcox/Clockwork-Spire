@@ -1,15 +1,54 @@
 // The combat bot: greedy search over placements using the real machine (docs/rules.md section 7).
 // Deterministic: ties go to the lowest hand index, then the lowest cell. No clock, no Math.random.
 import { cloneCombat, placePart, setTarget, swapParts } from '../core/combat';
+import { refOf, setOrder } from '../core/frames';
 import { runMachine } from '../core/machine';
 import { CELLS, MAINSPRING } from '../core/types';
-import type { CombatState } from '../core/types';
+import type { CombatState, TargetRef } from '../core/types';
 
 export interface BotTurn {
   /** Applied in order; `hand` indexes the hand as it is when that placement is made. */
   placements: { hand: number; cell: number }[];
   swap?: [number, number];
+  /** v1 shortcut: aim at this enemy (its default order). Used when `order` is absent. */
   target: number;
+  /** v2: the target order (rules 2.3). Wins over `target`. */
+  order?: TargetRef[];
+}
+
+/** Apply a turn's swap and aim (placements are applied by the caller, in order, before this). */
+export function applyAim(c: CombatState, turn: BotTurn): void {
+  if (turn.order) setOrder(c, turn.order);
+  else setTarget(c, turn.target);
+}
+
+/** The acting part of enemy `i` that hits hardest or punishes Plating (Pierce, Siphon, Corrode) first. */
+export function worstPart(c: CombatState, i: number): string | null {
+  const e = c.enemies[i];
+  if (!e || e.hp <= 0) return null;
+  let best: string | null = null;
+  let bestRank = 0;
+  for (const it of e.intents) {
+    if (it.partId === 'core') continue;
+    let rank = 0;
+    for (const a of it.actions) {
+      const n = (a.amount ?? 0) * (a.hits ?? 1);
+      if (a.kind === 'pierce' || a.kind === 'siphon') rank += 1000 + n;
+      else if (a.kind === 'corrode') rank += 1000 + (a.pct ?? 0);
+      else if (a.kind === 'attack') rank += n;
+    }
+    if (rank > bestRank) {
+      bestRank = rank;
+      best = it.partId;
+    }
+  }
+  return best;
+}
+
+/** v1 greedy's order: the enemy's worst acting part, then its core. */
+export function simpleOrder(c: CombatState, i: number): TargetRef[] {
+  const w = worstPart(c, i);
+  return w ? [refOf(i, w), refOf(i, 'core')] : [refOf(i, 'core')];
 }
 
 /** Counts machine previews made by the bot (for speed reporting). */
@@ -39,6 +78,12 @@ export function score(c: CombatState): number {
     const dealt = Math.min(pre.damageByEnemy[i] ?? 0, e.hp);
     s += dealt;
     if (sim.enemies[i] && sim.enemies[i].hp <= 0) s += 10 + incomingOf(c, i);
+  }
+  // v2: damage to enemy parts counts, and a part that breaks cancels its intent.
+  for (const key in pre.byTarget) {
+    if (key.endsWith('.core')) continue;
+    const t = pre.byTarget[key];
+    s += 0.7 * t.damage + (t.breaks ? 4 : 0);
   }
   const incoming = totalIncoming(c);
   const plating = sim.plating;
@@ -142,5 +187,6 @@ export function chooseTurn(c: CombatState): BotTurn {
       target = i;
     }
   }
-  return swap ? { placements, swap, target } : { placements, target };
+  const order = simpleOrder(work, target);
+  return swap ? { placements, swap, target, order } : { placements, target, order };
 }

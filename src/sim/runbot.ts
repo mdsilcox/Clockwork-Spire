@@ -19,6 +19,7 @@ import {
   takeRewardPart,
   takeRewardTrinket,
 } from '../core/run';
+import { takeSalvage } from '../core/salvage';
 import { initStreams, next } from '../core/rng';
 import type { RngState } from '../core/rng';
 import type { Family, MapNode, PartInstance, RunState } from '../core/types';
@@ -187,8 +188,35 @@ export function rewardPick(run: RunState, m: BotMemory): { part?: number | null;
   return out;
 }
 
+/** Which salvage items to keep: unlocked parts worth taking by the same value as a reward pick (keys always). */
+export function salvageKeep(run: RunState, m: BotMemory): number[] {
+  const p = run.pending;
+  if (!p || p.kind !== 'salvage') return [];
+  const keep: number[] = [];
+  let size = run.bin.length;
+  p.items.forEach((it, i) => {
+    if (it.locked) return;
+    if (it.salvage === 'spire-key') {
+      keep.push(i);
+      return;
+    }
+    if (size >= 22) return;
+    if (partValue(run, it.salvage, m) >= 3) {
+      keep.push(i);
+      size += 1;
+    }
+  });
+  return keep;
+}
+
 export function doReward(run: RunState, m: BotMemory): void {
   const p = run.pending;
+  if (p && p.kind === 'salvage') {
+    if (!p.done) check(m, 'takeSalvage', takeSalvage(run, salvageKeep(run, m)));
+    if (p.trinkets.length > 0 && !p.trinketTaken) check(m, 'takeRewardTrinket', takeRewardTrinket(run, roll(m) < EXPLORE ? pickIdx(m, p.trinkets.length) : 0));
+    check(m, 'leaveNode', leaveNode(run));
+    return;
+  }
   if (!p || p.kind !== 'reward') return;
   const pick = rewardPick(run, m);
   if (pick.part !== undefined) check(m, 'takeRewardPart', takeRewardPart(run, pick.part));

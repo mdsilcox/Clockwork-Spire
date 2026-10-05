@@ -198,12 +198,12 @@ Rules 7.4 (7): at least 30% of each act's regular expected damage per turn must 
 
 | Act 3 regular | Damage per turn | Pierce | Siphon | Corrode credit | Notes |
 |---|---|---|---|---|---|
-| Bell Ringer | 12.0 | 7.0 | 0 | 0 | Clapper Pierce 14 every other turn, Fist 10 on the others |
+| Bell Ringer | 12.0 | 7.0 | 5.0 | 0 | Clapper Pierce 14 every other turn, Fist Siphon 10 on the others (B7.5) |
 | Chime Moth (each) | 4.0 | 4.0 | 0 | 0 | Pierce 4 x2, every other turn |
 | Hour Hand Knight | 13.3 | 0 | 0 | 0 | Attack 20, turns 1 and 3 of 3 |
 | Echo Sprite | 10.0 | 10.0 | 0 | 0 | Echo Pierce, min 6 max 18, taken as 10 *(tune)* |
 | Pendulum Blade | 16.0 | 0 | 0 | 0 | Attack 8, 12, 16, 20, 24; Ratchet grows it |
-| **Act 3 total** | **55.3** | **21.0** | 0 | 0 | **Share 38% (Pierce alone 38%)** |
+| **Act 3 total** | **55.3** | **21.0** | 5.0 | 13.3 | **Share 47% (Pierce alone 38%); B7.5 tune** |
 
 Reading it: v1's per-turn damage is kept (act 1 about 23 across the roster against v1's 27, act 2 36 against 38, act 3 55 against 63). Against the spike's turtle (loses 7 percent of max HP in act 1), act 1's Pierce alone is about 3 to 4 HP a turn per enemy that survives, so a pure Plating stack loses HP in every act 1 fight longer than 3 turns. Elites and wardens add Corrode at 50% to 75% on their big hitters (below), which does bite: Corrode 75% on a 59 stack leaves 15, so an Attack 24 lands 9. The sim reports this share, the Pierce and Corrode parts of it, and turtle HP lost per act (rules 7.4 targets 3 and 7).
 
@@ -252,7 +252,7 @@ Punishes: Plating stacking (the Tail Pierces, a little more each time) and slow 
 Punishes: Plating stacking (the Haunch Pierces on turn 3) and slow builds (Magnetize). Answer: the Haunch first, before turn 3; then the Fangs. Sealed until Fangs and Haunch are broken.
 | id | Name | HP | Action | Cadence | R | Salvage | Key | Anchor |
 |---|---|---|---|---|---|---|---|---|
-| hound-fangs | Fangs | 14 | Attack 11 x2 | 1 of 3 | U | crown | yes | the open jaws |
+| hound-fangs | Fangs | 14 | Corrode 50%, then Attack 11 x2 | 1 of 3 | U | crown | yes | the open jaws |
 | hound-snout | Magnet Snout | 10 | Magnetize a part | 2 of 3 | U | wedge | no | the nose |
 | hound-haunch | Haunch Piston | 20 | Pierce 16 | 3 of 3 | R | volute | yes | the hind leg |
 
@@ -262,7 +262,7 @@ Punishes: burst (the Tin Hat caps every Strike at 10; Mites soak splash) and Pla
 |---|---|---|---|---|---|---|---|---|
 | tinpot-horn | Barracks Horn | 9 | Summon 2 Rust Mites | once | U | Spire Key | no | the horn at its hip |
 | tinpot-bugle | Bugle | 10 | Buff allies +3 | every | U | recoil | yes | the bugle in its hand |
-| tinpot-sabre | Sabre | 14 | Corrode 50%, then Attack 13 | every | U | trap | yes | the sabre arm |
+| tinpot-sabre | Sabre | 14 | Corrode 75%, then Attack 13 | every | U | trap | yes | the sabre arm |
 | tinpot-hat | Tin Hat | 12 | Governor 10 (passive) | passive | R | governor | no | the dented hat |
 
 **The Foreman** (`foreman`): core 60 (sealed in phase 1), Scrap 30, Bump 6. Warden, two phases. Sizes (tune): keystones 26 and 22, Braced to 13 and 11 per turn; core 60 Braced to 20 per turn. **Floor: 2 + 3 = 5 turns for any build; expert about 7** (about 3 in phase 1, 4 in phase 2).
@@ -293,7 +293,7 @@ Punishes: Plating stacking (Siphon heals it by the Plating it eats). Answer: bre
 Punishes: burst (the Valve's Shell 15 swallows a Coil). Answer: break the Valve (9 HP) or strike on odd turns when it isn't shelling; a Pry Bar finds it.
 | id | Name | HP | Action | Cadence | R | Salvage | Key | Anchor |
 |---|---|---|---|---|---|---|---|---|
-| crab-pincer | Pincer | 11 | Attack 14 | odd | C | piston | - | the big pincer |
+| crab-pincer | Pincer | 11 | Corrode 50%, then Attack 14 | odd | C | piston | - | the big pincer |
 | crab-valve | Shell Valve | 9 | Shell 15 | even | C | safety-valve | - | the brass valve on its back |
 
 **Furnace Golem** (`furnace-golem`): core 36 of 60, Scrap 5, Bump 5.
@@ -324,14 +324,14 @@ Punishes: Pressure (the Dome Shells for half your Pressure), burst, and Plating 
 | id | Name | HP | Action | Cadence | R | Salvage | Key | Anchor |
 |---|---|---|---|---|---|---|---|---|
 | pw-dome | Pressure Dome | 20 | Shell equal to half your Pressure | every | U | soothing-valve | yes | the glass dome on its head |
-| pw-fist | Piston Fist | 16 | Corrode 50%, then Attack 18 | every | R | steam-hammer | yes | the piston fist |
+| pw-fist | Piston Fist | 16 | Corrode 75%, then Attack 18 | every | R | steam-hammer | yes | the piston fist |
 | pw-valve | Intake Valve | 14 | Drain 6 Pressure | even | U | Spire Key | no | the valve at its side |
 
 **Twin Pistons** (`twin-pistons`): two frames, each core 29, Scrap 9 each, Bump 5. Patrols as a pair. Each frame is its own enemy, 65 HP (65 plus 65, as v1).
 Punishes: burst (one shells while the other hits; kill one and the other enrages) and Plating (the right Ram Pierces). Answer: Link first on one twin, then its core. Left twin: Ram odd, Shield even. Right twin: Shield odd, Ram even.
 | id | Name | HP | Action | Cadence | R | Salvage | Key | Anchor |
 |---|---|---|---|---|---|---|---|---|
-| twinl-ram | Left Ram | 16 | Attack 19 | odd | U | auger | - | the left piston rod |
+| twinl-ram | Left Ram | 16 | Corrode 50%, then Attack 19 | odd | U | auger | - | the left piston rod |
 | twinl-shield | Left Shield | 12 | Shell 10 | even | U | torsion | - | the left cylinder cap |
 | twinl-link | Left Linkage | 8 | Enrage 8 (passive: if the right twin's core falls) | passive | U | none | - | the crossbar between them |
 | twinr-ram | Right Ram | 16 | Pierce 14 | even | R | flywheel | - | the right piston rod |
@@ -364,7 +364,7 @@ Punishes: Plating stacking (the Clapper Pierces) and every plan that needs the M
 | id | Name | HP | Action | Cadence | R | Salvage | Key | Anchor |
 |---|---|---|---|---|---|---|---|---|
 | ringer-clapper | Clapper | 10 | Pierce 14 | odd | C | bell-hammer | - | the iron clapper |
-| ringer-fist | Ringer's Fist | 6 | Attack 10 | even | C | metronome | - | the ringing fist |
+| ringer-fist | Ringer's Fist | 6 | Siphon 10 | even | C | metronome | - | the ringing fist |
 | ringer-rope | Bell Rope | 8 | Jam the Mainspring | even | C | Spire Key | - | the rope over its shoulder |
 
 **Chime Moth** (`chime-moth`): core 22 of 36, Scrap 3 each, Bump 3. Comes in pairs.
@@ -378,7 +378,7 @@ Punishes: Plating stacking (the chime Pierces) and burst (two bodies split a big
 Punishes: burst (the Visor caps Strikes at 12; the Shield soaks the middle turn). Answer: Drill the Visor away (12 HP) or hit with several small Strikes.
 | id | Name | HP | Action | Cadence | R | Salvage | Key | Anchor |
 |---|---|---|---|---|---|---|---|---|
-| knight-sword | Hand Sword | 12 | Attack 20 | 1,3 of 3 | U | pendulum | - | the hour-hand sword |
+| knight-sword | Hand Sword | 12 | Corrode 50%, then Attack 20 | 1,3 of 3 | U | pendulum | - | the hour-hand sword |
 | knight-shield | Dial Shield | 8 | Shell 14 | 2 of 3 | U | balance-wheel | - | the clock-dial shield |
 | knight-visor | Visor | 12 | Governor 12 (passive) | passive | U | none | - | the visored helm |
 

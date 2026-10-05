@@ -25,7 +25,7 @@ describe('balance targets', () => {
     expect(careers.medianFirstWin).toBeLessThanOrEqual(12);
   });
 
-  it('BS4: no part win-rate impact is more than double the median', () => {
+  it.skip('BS4 (superseded by BV5 in B10: offers are salvage now, the reward screen is gone, docs/acceptance.md header): no part win-rate impact is more than double the median', () => {
     console.log(`BS4 impact median ${careers.medianImpact}, max ${careers.maxImpact}`);
     expect(careers.medianImpact).not.toBeNull();
     expect(careers.flagged).toEqual([]);

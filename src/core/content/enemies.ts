@@ -187,7 +187,7 @@ const list: EnemyDef[] = [
     punishes: ['plating', 'slow'],
     bestiary: 'The Haunch Pierces on turn 3: break it first, then the Fangs. Sealed until both fall.',
     parts: [
-      part({ id: 'hound-fangs', name: 'Fangs', hp: 14, r: 'U', cadence: of3(1), actions: [hit(11, 2)], salvage: 'crown', key: true, anchor: 'the open jaws' }),
+      part({ id: 'hound-fangs', name: 'Fangs', hp: 14, r: 'U', cadence: of3(1), actions: [corrode(50), hit(11, 2)], salvage: 'crown', key: true, anchor: 'the open jaws' }),
       part({ id: 'hound-snout', name: 'Magnet Snout', hp: 10, r: 'U', cadence: of3(2), actions: [{ kind: 'magnetize', count: 1 }], salvage: 'wedge', anchor: 'the nose' }),
       part({ id: 'hound-haunch', name: 'Haunch Piston', hp: 20, r: 'R', cadence: of3(3), actions: [pierce(16)], salvage: 'volute', key: true, anchor: 'the hind leg' }),
     ],
@@ -202,7 +202,7 @@ const list: EnemyDef[] = [
     parts: [
       part({ id: 'tinpot-horn', name: 'Barracks Horn', hp: 9, r: 'U', cadence: 'once', actions: [{ kind: 'summon', summon: 'rust-mite', count: 2 }], salvage: 'spire-key', anchor: 'the horn at its hip' }),
       part({ id: 'tinpot-bugle', name: 'Bugle', hp: 10, r: 'U', cadence: every, actions: [{ kind: 'buff', amount: 3, target: 'allies' }], salvage: 'recoil', key: true, anchor: 'the bugle in its hand' }),
-      part({ id: 'tinpot-sabre', name: 'Sabre', hp: 14, r: 'U', cadence: every, actions: [corrode(50), hit(13)], salvage: 'trap', key: true, anchor: 'the sabre arm' }),
+      part({ id: 'tinpot-sabre', name: 'Sabre', hp: 14, r: 'U', cadence: every, actions: [corrode(75), hit(13)], salvage: 'trap', key: true, anchor: 'the sabre arm' }),
       part({ id: 'tinpot-hat', name: 'Tin Hat', hp: 12, r: 'R', cadence: passive, passive: { kind: 'governor', cap: 10 }, salvage: 'governor', anchor: 'the dented hat' }),
     ],
   }),
@@ -235,7 +235,7 @@ const list: EnemyDef[] = [
     punishes: ['burst'],
     bestiary: 'The Valve shells for 15 and swallows a Coil. Break it, or strike on the odd turns. A Pry Bar finds it.',
     parts: [
-      part({ id: 'crab-pincer', name: 'Pincer', hp: 11, r: 'C', cadence: odd, actions: [hit(14)], salvage: 'piston', anchor: 'the big pincer' }),
+      part({ id: 'crab-pincer', name: 'Pincer', hp: 11, r: 'C', cadence: odd, actions: [corrode(50), hit(14)], salvage: 'piston', anchor: 'the big pincer' }),
       part({ id: 'crab-valve', name: 'Shell Valve', hp: 9, r: 'C', cadence: even, actions: [shell(15)], salvage: 'safety-valve', anchor: 'the brass valve on its back' }),
     ],
   }),
@@ -283,7 +283,7 @@ const list: EnemyDef[] = [
     bestiary: 'The Dome shells for half your Pressure: break it first, or keep Pressure low. Sealed until Dome and Fist fall.',
     parts: [
       part({ id: 'pw-dome', name: 'Pressure Dome', hp: 20, r: 'U', cadence: every, actions: [{ kind: 'shell', pct: 50, target: 'self' }], salvage: 'soothing-valve', key: true, anchor: 'the glass dome on its head' }),
-      part({ id: 'pw-fist', name: 'Piston Fist', hp: 16, r: 'R', cadence: every, actions: [corrode(50), hit(18)], salvage: 'steam-hammer', key: true, anchor: 'the piston fist' }),
+      part({ id: 'pw-fist', name: 'Piston Fist', hp: 16, r: 'R', cadence: every, actions: [corrode(75), hit(18)], salvage: 'steam-hammer', key: true, anchor: 'the piston fist' }),
       part({ id: 'pw-valve', name: 'Intake Valve', hp: 14, r: 'U', cadence: even, actions: [{ kind: 'drain', amount: 6 }], salvage: 'spire-key', anchor: 'the valve at its side' }),
     ],
   }),
@@ -301,7 +301,7 @@ const list: EnemyDef[] = [
       bestiary: 'One shells while the other hits; kill one and the other enrages. Link first on one twin, then its core.',
       startSummons: ['twin-pistons-r'],
       parts: [
-        part({ id: 'twinl-ram', name: 'Left Ram', hp: 16, r: 'U', cadence: odd, actions: [hit(19)], salvage: 'auger', anchor: 'the left piston rod' }),
+        part({ id: 'twinl-ram', name: 'Left Ram', hp: 16, r: 'U', cadence: odd, actions: [corrode(50), hit(19)], salvage: 'auger', anchor: 'the left piston rod' }),
         part({ id: 'twinl-shield', name: 'Left Shield', hp: 12, r: 'U', cadence: even, actions: [shell(10)], salvage: 'torsion', anchor: 'the left cylinder cap' }),
         part({ id: 'twinl-link', name: 'Left Linkage', hp: 8, r: 'U', cadence: passive, passive: { kind: 'enrage', x: 8 }, salvage: null, anchor: 'the crossbar between them' }),
       ],
@@ -360,7 +360,7 @@ const list: EnemyDef[] = [
     bestiary: 'The Rope jams your Mainspring and drops a Spire Key. Rope first, then the Clapper.',
     parts: [
       part({ id: 'ringer-clapper', name: 'Clapper', hp: 10, r: 'C', cadence: odd, actions: [pierce(14)], salvage: 'bell-hammer', anchor: 'the iron clapper' }),
-      part({ id: 'ringer-fist', name: "Ringer's Fist", hp: 6, r: 'C', cadence: even, actions: [hit(10)], salvage: 'metronome', anchor: 'the ringing fist' }),
+      part({ id: 'ringer-fist', name: "Ringer's Fist", hp: 6, r: 'C', cadence: even, actions: [{ kind: 'siphon', amount: 10 }], salvage: 'metronome', anchor: 'the ringing fist' }),
       part({ id: 'ringer-rope', name: 'Bell Rope', hp: 8, r: 'C', cadence: even, actions: [{ kind: 'jam' }], salvage: 'spire-key', anchor: 'the rope over its shoulder' }),
     ],
   }),
@@ -382,7 +382,7 @@ const list: EnemyDef[] = [
     punishes: ['burst'],
     bestiary: 'The Visor caps every Strike at 12 and the Shield soaks the middle turn. Drill the Visor, or hit small and often.',
     parts: [
-      part({ id: 'knight-sword', name: 'Hand Sword', hp: 12, r: 'U', cadence: of3(1, 3), actions: [hit(20)], salvage: 'pendulum', anchor: 'the hour-hand sword' }),
+      part({ id: 'knight-sword', name: 'Hand Sword', hp: 12, r: 'U', cadence: of3(1, 3), actions: [corrode(50), hit(20)], salvage: 'pendulum', anchor: 'the hour-hand sword' }),
       part({ id: 'knight-shield', name: 'Dial Shield', hp: 8, r: 'U', cadence: of3(2), actions: [shell(14)], salvage: 'balance-wheel', anchor: 'the clock-dial shield' }),
       part({ id: 'knight-visor', name: 'Visor', hp: 12, r: 'U', cadence: passive, passive: { kind: 'governor', cap: 12 }, salvage: null, anchor: 'the visored helm' }),
     ],

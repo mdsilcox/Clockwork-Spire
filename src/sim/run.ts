@@ -1,8 +1,8 @@
 // Plays one complete run with the bot and the real rules (docs/rules.md section 7).
-import { placePart, runTurn, setTarget, swapParts } from '../core/combat';
+import { placePart, runTurn, swapParts } from '../core/combat';
 import { abandonRun, newRun, runRecord, settleCombat } from '../core/run';
 import type { RunConfig, RunRecord, RunState } from '../core/types';
-import { chooseTurn } from './bot';
+import { applyAim, chooseTurn } from './bot';
 import { check, doEvent, doForge, doMap, doOil, doReward, doShop, newMemory } from './runbot';
 import type { BotMemory } from './runbot';
 
@@ -33,7 +33,7 @@ function playCombat(run: RunState, m: BotMemory): void {
     const turn = chooseTurn(c);
     for (const p of turn.placements) check(m, 'placePart', placePart(c, p.hand, p.cell));
     if (turn.swap) check(m, 'swapParts', swapParts(c, turn.swap[0], turn.swap[1]));
-    setTarget(c, turn.target);
+    applyAim(c, turn);
     const res = runTurn(c);
     for (const e of res.events) {
       if (e.kind === 'power' && e.uid !== undefined) {

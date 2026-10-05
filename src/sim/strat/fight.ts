@@ -1,6 +1,7 @@
 // One instrumented combat: plays a CombatState to its end with a policy and records what the report needs.
-import { placePart, runTurn, setTarget, swapParts } from '../../core/combat';
+import { placePart, runTurn, swapParts } from '../../core/combat';
 import type { CombatState } from '../../core/types';
+import { applyAim } from '../bot';
 import type { Policy } from './combat';
 import { incomingOf } from './common';
 
@@ -19,6 +20,11 @@ export interface FightStats {
   absorbStreak: number;
   /** Turns the enemies attacked. */
   attackTurns: number;
+  /** v2: enemy turns that tried to damage you, and those where Plating took all of it (no HP lost). */
+  damageTurns: number;
+  absorbedTurns: number;
+  /** Total time spent deciding, in ms (timing only). */
+  decideMs: number;
   /** Turn on which the boss phase counter first became 1 and 2 (Clockmaker): turns each phase lasted. */
   phaseTurns: number[];
   /** Times each part id was powered. */
@@ -36,6 +42,9 @@ export function playCombatWith(c: CombatState, policy: Policy, turnCap = TURN_CA
     peakPlating: 0,
     absorbStreak: 0,
     attackTurns: 0,
+    damageTurns: 0,
+    absorbedTurns: 0,
+    decideMs: 0,
     phaseTurns: [],
     fired: {},
   };
@@ -45,10 +54,12 @@ export function playCombatWith(c: CombatState, policy: Policy, turnCap = TURN_CA
   for (let t = 0; t < turnCap && c.outcome === 'ongoing'; t++) {
     const attacking = c.enemies.some((_e, i) => incomingOf(c, i) > 0);
     const hp0 = c.playerHp;
+    const d0 = performance.now();
     const turn = policy(c);
+    st.decideMs += performance.now() - d0;
     for (const p of turn.placements) placePart(c, p.hand, p.cell);
     if (turn.swap) swapParts(c, turn.swap[0], turn.swap[1]);
-    setTarget(c, turn.target);
+    applyAim(c, turn);
     const res = runTurn(c);
     st.turns += 1;
     if (res.preview.plating > st.peakPlating) st.peakPlating = res.preview.plating;
@@ -57,6 +68,18 @@ export function playCombatWith(c: CombatState, policy: Policy, turnCap = TURN_CA
         const id = c.parts[e.uid]?.defId;
         if (id) st.fired[id] = (st.fired[id] ?? 0) + 1;
       }
+    }
+    let tried = 0;
+    let lostHp = 0;
+    for (const e of res.events) {
+      if (e.kind !== 'playerHit') continue;
+      const ab = /absorbed:(\d+)/.exec(e.note ?? '');
+      lostHp += e.amount ?? 0;
+      tried += (e.amount ?? 0) + (ab ? Number(ab[1]) : 0);
+    }
+    if (tried > 0) {
+      st.damageTurns += 1;
+      if (lostHp === 0) st.absorbedTurns += 1;
     }
     if (attacking) {
       st.attackTurns += 1;

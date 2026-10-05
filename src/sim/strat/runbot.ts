@@ -15,6 +15,7 @@ import {
   takeRewardPart,
   takeRewardTrinket,
 } from '../../core/run';
+import { takeSalvage } from '../../core/salvage';
 import type { Family, MapNode, PartInstance, RunState } from '../../core/types';
 import { check, eventChoice, doOil } from '../runbot';
 import type { BotMemory } from '../runbot';
@@ -173,8 +174,49 @@ function doMap(run: RunState, m: BotMemory): void {
 
 // ---------- Reward ----------
 
+/** Salvage to keep: unlocked parts above the take bar (each kept part joins the bin), the Spire key always. */
+function salvageKeep(run: RunState): number[] {
+  const p = run.pending;
+  if (!p || p.kind !== 'salvage') return [];
+  const keep: number[] = [];
+  let extra = 0;
+  const bar = takeBar(run);
+  // Best first, so a big bin keeps the best items.
+  const order = p.items.map((_, i) => i).sort((a, b) => value(run, p.items[b].salvage) - value(run, p.items[a].salvage));
+  for (const i of order) {
+    const it = p.items[i];
+    if (it.locked) continue;
+    if (it.salvage === 'spire-key') {
+      keep.push(i);
+      continue;
+    }
+    if (value(run, it.salvage) >= bar + 0.07 * extra) {
+      keep.push(i);
+      extra += 1;
+    }
+  }
+  return keep;
+}
+
 function doReward(run: RunState, m: BotMemory): void {
   const p = run.pending;
+  if (p && p.kind === 'salvage') {
+    if (!p.done) check(m, 'takeSalvage', takeSalvage(run, salvageKeep(run)));
+    if (p.trinkets.length > 0 && !p.trinketTaken) {
+      let idx = 0;
+      let bestV = -Infinity;
+      p.trinkets.forEach((id, i) => {
+        const v = trinketValue(run, id);
+        if (v > bestV) {
+          bestV = v;
+          idx = i;
+        }
+      });
+      check(m, 'takeRewardTrinket', takeRewardTrinket(run, idx));
+    }
+    check(m, 'leaveNode', leaveNode(run));
+    return;
+  }
   if (!p || p.kind !== 'reward') return;
   if (p.parts.length > 0 && !p.partTaken) {
     let idx: number | null = null;

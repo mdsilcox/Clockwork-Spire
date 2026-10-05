@@ -69,8 +69,8 @@ describe('EA11: every regular answers Plating or burst, by its actions', () => {
 });
 
 describe('BV9: each act\'s regular pool carries at least 30% Pierce or Siphon damage', () => {
-  // docs/content.md section 3.0: act 1 35%, act 2 64%, act 3 38% (the code must agree with the doc within 1 point).
-  const doc = { 1: 0.35, 2: 0.64, 3: 0.38 } as const;
+  // docs/content.md section 3.0: act 1 35%, act 2 64%, act 3 47% after the B7.5 tune (the code must agree with the doc within 1 point).
+  const doc = { 1: 0.35, 2: 0.64, 3: 0.47 } as const;
   for (const act of [1, 2, 3] as const) {
     it(`act ${act}`, () => {
       const s = bypassShare(act);

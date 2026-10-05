@@ -1,7 +1,7 @@
 // Plays one whole combat with the bot and the real rules.
-import { createCombat, runTurn, setTarget, placePart, swapParts } from '../core/combat';
+import { createCombat, runTurn, placePart, swapParts } from '../core/combat';
 import type { PartInstance } from '../core/types';
-import { chooseTurn } from './bot';
+import { applyAim, chooseTurn } from './bot';
 
 export const TURN_CAP = 30;
 
@@ -33,7 +33,7 @@ export function playFight(o: FightOpts): FightResult {
     const t = chooseTurn(c);
     for (const p of t.placements) placePart(c, p.hand, p.cell);
     if (t.swap) swapParts(c, t.swap[0], t.swap[1]);
-    setTarget(c, t.target);
+    applyAim(c, t);
     const res = runTurn(c);
     turns += 1;
     for (const e of res.events) {
