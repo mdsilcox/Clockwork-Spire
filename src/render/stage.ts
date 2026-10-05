@@ -565,6 +565,24 @@ export class Stage {
     f.big = big;
   }
 
+  /** B9b: a short label naming an item's effect, kept inside the stage. */
+  private cue(e: GameEvent, x: number, y: number): void {
+    const amt = e.amount ?? 0;
+    const text =
+      e.item === 'night-watchman' ? 'Watchman!'
+      : e.item === 'skewframe' ? 'Diagonal'
+      : e.item === 'mirror-gear' ? 'Mirrored'
+      : e.item === 'resonance-rod' ? 'Echo'
+      : e.item === 'perpetual-engine' ? 'Again!'
+      : e.item === 'bottled-dusk' ? '+2 ticks'
+      : e.item === 'carry' ? `Carried ${amt}`
+      : e.item === 'shared' ? 'Shared'
+      : '';
+    if (!text) return;
+    const pad = 44;
+    this.addFloat(Math.max(pad, Math.min(this.layout.w - pad, x)), Math.max(14, y), text, COLOR.lamp, false);
+  }
+
   private addPulse(from: number, to: number): void {
     const p = this.pulses[this.qcursor];
     this.qcursor = (this.qcursor + 1) % PULSES;
@@ -627,6 +645,7 @@ export class Stage {
       case 'pulse': {
         if (e.from !== undefined && e.cell !== undefined) {
           this.addPulse(e.from, e.cell);
+          if (e.item && v) this.cue(e, cx, cy - cs * 0.35);
           if (e.from === MAINSPRING) {
             const m = this.vis[MAINSPRING];
             m.glow = 1;
@@ -684,6 +703,7 @@ export class Stage {
         if (look) look.hit = 1;
         if ((e.amount ?? 0) > 0) this.cueRig(ti, 'hurt');
         const amt = e.amount ?? 0;
+        if (e.item) this.cue(e, ex, ey - es * 0.55);
         const blocked = amt === 0;
         this.addFloat(ex + ((this.fcursor % 3) - 1) * es * 0.15, ey - es * 0.35, blocked ? 'Blocked' : String(amt), blocked ? COLOR.inkSoft : amt >= 7 ? COLOR.lamp : COLOR.hurt, amt >= 7);
         if (blocked) this.sparks(ex - es * 0.4, ey, 6, '#f0cf7a', 70, 60);
@@ -702,6 +722,7 @@ export class Stage {
         if (ti < 0) break;
         const at = this.partAt(ti, e.part);
         this.addFloat(at.x, at.y - 18, String(e.amount ?? 0), COLOR.hurt, (e.amount ?? 0) >= 7);
+        if (e.item) this.cue(e, at.x, at.y - 40);
         this.sparks(at.x, at.y, 5 + Math.min(10, e.amount ?? 0), '#ff9a70', 90, 150);
         if (snd) audio.strike(e.amount ?? 0);
         break;
@@ -784,7 +805,10 @@ export class Stage {
         break;
       }
       case 'tickAdded':
-        if (e.cell !== undefined && v) this.addFloat(cx, cy - cs * 0.3, '+1 tick', COLOR.lamp, false);
+        if (e.cell !== undefined && v) {
+          if (e.item) this.cue(e, cx, cy - cs * 0.3);
+          else this.addFloat(cx, cy - cs * 0.3, '+1 tick', COLOR.lamp, false);
+        }
         break;
       case 'overpressure': {
         const mx = this.cx[MAINSPRING];
@@ -803,6 +827,7 @@ export class Stage {
         if (v) {
           v.echo = 1;
           this.ring(cx, cy, cs * 0.6, '255, 255, 255', 0.5);
+          if (e.item) this.cue(e, cx, cy - cs * 0.35);
         }
         if (snd) audio.echo();
         break;

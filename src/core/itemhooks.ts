@@ -6,7 +6,7 @@ import { damageEnemy, damageTarget } from './enemy';
 import type { EventBase } from './enemy';
 import { frameOf } from './framelib';
 import { isStanding, parseRef, refOf } from './frames';
-import { hasTrinket } from './machine';
+import { hasTrinket, tagItem } from './machine';
 import type { CombatState, GameEvent, PlacedPart } from './types';
 
 const BASE = { tick: 0, step: 0 };
@@ -50,7 +50,9 @@ export function beforeEnemyTurn(c: CombatState, events: GameEvent[]): void {
       if (!isStanding(c, ref)) continue;
       const t = parseRef(ref);
       const grit = c.playerStatuses.grit ?? 0;
+      const from = events.length;
       hit(c, events, t.enemy, t.part, (p.plus ? 10 : 7) + grit, 'strike', { tick: 0, step: 0, cell: watch });
+      tagItem(events, from, 'night-watchman');
       return;
     }
   }
