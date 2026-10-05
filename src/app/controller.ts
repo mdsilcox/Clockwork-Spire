@@ -44,6 +44,7 @@ import type { Plan, Profile, RunRecord, Settings, SprocketMood } from '../core/t
 import type { SprocketPose } from '../ui/Sprocket';
 import { colorBlind } from './prefs';
 import { markTutorialDone, tutorialDone, setColorBlind } from './prefs';
+import { markTutorialV2Seen, setTutorialStarter, TUTORIAL_SCRIPT } from './tutorial';
 
 export type Screen = 'loading' | 'title' | 'combat' | 'practice' | 'run' | 'slots' | 'bellfoot';
 
@@ -702,6 +703,7 @@ export async function deleteSlot(n: SlotNo): Promise<void> {
 
 /** Title: into the active slot's Workshop, or the slot screen. */
 export function enterWorkshop(): void {
+  if (!active && !tutorialDone()) return beginTutorial('climb'); // B10d: a fresh profile's first Climb runs the tutorial, then the slot screen
   if (active) {
     screen.value = 'bellfoot';
     poke();
@@ -1052,101 +1054,102 @@ export function startPractice(o: { enemies?: string[]; bin?: BinSpec; seed?: num
   persist();
 }
 
-// ---------- the guided first fight ----------
+// ---------- the guided first fight (B10d: the v2 tutorial; the script is data in ./tutorial.ts) ----------
 
 export interface TutorialState {
+  /** 1 to 6: the index into TUTORIAL_SCRIPT.steps, plus one. */
   step: number;
   /** The turn on which the current step began. */
   turn: number;
+  /** Where to go when it ends: the slot screen (started by Climb on a fresh profile), or back where it began. */
+  origin: 'climb' | 'title' | 'bellfoot';
+  /** After the tray: Sprocket's closing line. */
+  closing: boolean;
 }
 export const tutorial = signal<TutorialState | null>(null);
 /** Set after a tutorial turn that would have knocked the player out. */
 export const gentle = signal(false);
-export const TUTORIAL_LAST = 8;
 let stash: CombatState | null = null;
 
-/** Scripted bin: uids 1 to 3 are the first hand, 4 to 6 the second. */
-const TUTORIAL_BIN = ['spur', 'spur', 'escapement', 'escapement', 'coil', 'spur', 'spur', 'escapement', 'idler', 'spur'];
+const STEPS = TUTORIAL_SCRIPT.steps;
+const STRUT = (STEPS.find((x) => x.expect.kind === 'target')?.expect as { ref: TargetRef }).ref;
+const PLACE = STEPS.filter((x) => x.expect.kind === 'place').map((x) => (x.expect as { cell: string }).cell);
 
-export function startTutorial(): void {
+function beginTutorial(origin: TutorialState['origin']): void {
   if (!tutorial.value) stash = live && live.outcome === 'ongoing' ? live : stash;
+  if (stage?.isPlaying()) stage.setSpeed('skip');
   resetView();
-  const enemy = ENEMIES['tutorial-automaton'] ? 'tutorial-automaton' : 'rust-mite';
-  // noShuffle is added to createCombat by the content lane; the hands are also forced below so the script holds either way.
-  const opts: CreateCombatOpts & { noShuffle?: boolean } = {
-    seed: 7,
-    bin: toBin(TUTORIAL_BIN),
-    enemies: [enemy],
-    hp: 40,
-    maxHp: 40,
-    kind: 'practice',
-    noShuffle: true,
-  };
-  const c = createCombat(opts);
-  c.hand = [1, 2, 3];
-  c.draw = [10, 9, 8, 7, 6, 5, 4];
+  const bin = toBin(STEPS[0].hand ?? []);
+  const c = createCombat({ seed: TUTORIAL_SCRIPT.seed, bin, enemies: [TUTORIAL_SCRIPT.enemy], hp: TUTORIAL_SCRIPT.hp, maxHp: TUTORIAL_SCRIPT.hp, kind: 'practice', noShuffle: true });
+  c.hand = bin.map((b) => b.uid);
+  c.draw = [];
   c.discard = [];
-  // Tougher than its fight stat, so the guided fight lasts until the Rust intent has been shown (turn 3).
-  c.enemies[0].hp = 36;
-  c.enemies[0].maxHp = 36;
+  setOrder(c, []); // an empty order: the player's tap on the Strut is what aims the Strikes
   live = c;
-  tutorial.value = { step: 1, turn: 1 };
+  markTutorialV2Seen();
+  tutorial.value = { step: 1, turn: 1, origin, closing: false };
   screen.value = 'combat';
   publish();
-  advanceTutorial(false);
 }
 
-/** Leave the tutorial. `silent` skips going back to the title. */
+/** The v2 tutorial from the title, the Bellfoot menu or a test: it returns to where it began. */
+export function startTutorial(): void {
+  beginTutorial(screen.value === 'bellfoot' ? 'bellfoot' : 'title');
+}
+setTutorialStarter(startTutorial);
+
+/** Leave the tutorial (finished or skipped). `silent` leaves the screen alone (another screen is taking over). */
 export function endTutorial(silent = false): void {
-  if (!tutorial.value) return;
+  const t = tutorial.value;
+  if (!t) return;
   tutorial.value = null;
   markTutorialDone();
+  markTutorialV2Seen();
   gentle.value = false;
   live = stash;
   stash = null;
-  if (!silent) {
-    combat.value = live ? cloneCombat(live) : null;
-    screen.value = 'title';
-  }
+  if (silent) return;
+  publish();
+  if (t.origin === 'climb') void openSlots();
+  else screen.value = t.origin;
 }
 
+/** The guided fight takes only what the script asks: a Spur Gear on the next cell of its path. */
+function tutorialAllowsPlace(handIndex: number, idx: number): boolean {
+  if (!live) return false;
+  const next = PLACE.find((n) => live?.board[cellIndex(n)] == null);
+  const inst = live.parts[live.hand[handIndex]];
+  return !!next && idx === cellIndex(next) && inst?.defId === 'spur';
+}
+
+/** The coach's acknowledge button: the break step moves on to the tray. */
 export function tutorialAck(): void {
   const t = tutorial.value;
   if (!t) return;
-  if (t.step === 2 || t.step === 4 || t.step === 7) setStep(t.step + 1);
-  else if (t.step === TUTORIAL_LAST) endTutorial();
+  if (STEPS[t.step - 1]?.expect.kind === 'continue') tutorial.value = { ...t, step: t.step + 1, turn: live?.turn ?? 1 };
 }
 
-function setStep(step: number): void {
-  const turn = live?.turn ?? 1;
-  tutorial.value = { step, turn };
-  advanceTutorial(false);
+/** The tray's Done: Sprocket's closing line. */
+export function tutorialTrayDone(): void {
+  const t = tutorial.value;
+  if (t) tutorial.value = { ...t, closing: true };
 }
 
-/** Move the tutorial on when the player has done what the current step asked for. */
+/** Move the tutorial on when the player has done what the current step asked for (never backwards). */
 function advanceTutorial(afterRun: boolean): void {
   const t = tutorial.value;
   if (!t || !live) return;
   const c = live;
-  const on = (defId: string): boolean => c.board.some((p) => p?.defId === defId);
-  if (c.outcome === 'won' && t.step < TUTORIAL_LAST) return void setStep(TUTORIAL_LAST);
-  if (afterRun && c.turn > t.turn && t.step <= 3) return void setStep(4); // they pressed Run early: that is fine
-  switch (t.step) {
-    case 1:
-      if ([0, 6, 10].some((i) => c.board[i]?.defId === 'spur')) setStep(2);
-      break;
-    case 3:
-      if (afterRun) setStep(4);
-      break;
-    case 5:
-      if (on('escapement')) setStep(6);
-      break;
-    case 6:
-      if (afterRun && c.turn > t.turn) setStep(c.enemies.some((e) => e.hp > 0 && e.intent.kind === 'sabotage') ? 7 : TUTORIAL_LAST);
-      break;
-    default:
-      break;
-  }
+  const at = (cellName: string): boolean => c.board[cellIndex(cellName)]?.defId === 'spur';
+  const aimed = c.order.length === 1 && c.order[0] === STRUT;
+  const strutId = STRUT.slice(STRUT.indexOf('.') + 1);
+  const broke = c.enemies[0]?.parts?.some((p) => p.id === strutId && p.broken) ?? false;
+  let want = 1;
+  if (at(PLACE[0])) want = 2;
+  if (want === 2 && at(PLACE[1])) want = 3;
+  if (want === 3 && aimed) want = 4;
+  if (t.step === 4 && afterRun && broke) want = 5; // the order is pruned once the Strut is gone, so this reads the break itself
+  if (want > t.step && t.step <= 4) tutorial.value = { ...t, step: want, turn: c.turn };
 }
 
 /** Test and debug: where the tutorial stands (0 when it is not running). */
@@ -1157,6 +1160,7 @@ export function tutorialStep(): number {
 export function place(handIndex: number, target: number | string): boolean {
   if (!live || isBusy()) return false;
   const idx = typeof target === 'string' ? cellIndex(target) : target;
+  if (tutorial.value && !tutorialAllowsPlace(handIndex, idx)) return false;
   const cold = (live.overwind ?? 0) >= 4 && !live.flags?.coldJoints;
   const ok = placePart(live, handIndex, idx);
   if (ok) {
@@ -1196,7 +1200,7 @@ export function acceptDefeat(): void {
 
 /** B9b: Two Left Hands: trade the board part at `cell` with a part in your hand. */
 export function swapHand(cell: number | string, handIndex: number): boolean {
-  if (!live || isBusy()) return false;
+  if (!live || isBusy() || tutorial.value) return false;
   const ok = swapWithHand(live, typeof cell === 'string' ? cellIndex(cell) : cell, handIndex);
   if (ok) {
     publish();
@@ -1206,7 +1210,7 @@ export function swapHand(cell: number | string, handIndex: number): boolean {
 }
 
 export function swap(a: number | string, b: number | string): boolean {
-  if (!live || isBusy()) return false;
+  if (!live || isBusy() || tutorial.value) return false;
   const ia = typeof a === 'string' ? cellIndex(a) : a;
   const ib = typeof b === 'string' ? cellIndex(b) : b;
   const ok = swapParts(live, ia, ib);
@@ -1229,10 +1233,12 @@ export function target(idx: number): void {
 /** v2: tap a part or core: add it to the target order, or remove it. */
 export function toggleTarget(ref: TargetRef): boolean {
   if (!live || isBusy() || live.outcome !== 'ongoing') return false;
+  if (tutorial.value && (ref !== STRUT || tutorial.value.step !== 3)) return false; // the guided fight aims at the Strut, once
   const changed = toggleOrder(live, ref);
   if (changed) {
     publish();
     persist();
+    advanceTutorial(false);
   }
   return changed;
 }
@@ -1318,6 +1324,7 @@ export function preview(): TurnPreview | null {
 
 export async function run(): Promise<TurnResult | null> {
   if (!live || isBusy() || live.outcome !== 'ongoing') return null;
+  if (tutorial.value && tutorial.value.step !== 4) return null; // the guided fight runs when the script says so
   const before = cloneCombat(live);
   let gentleRun = false;
   gentle.value = false;
@@ -1529,8 +1536,6 @@ export async function init(): Promise<void> {
     screen.value = 'combat';
   // B10d first-launch (tutorial lane): becomes "show the title"; a fresh profile's first `climb` runs the v2 tutorial
   // (`startTutorial` in src/app/tutorial.ts), then the name prompt, then Bellfoot. Unchanged until the lane builds it.
-  } else if (!tutorialDone()) {
-    startTutorial(); // the very first launch: a guided fight, skippable
   // end B10d first-launch
   } else {
     screen.value = 'title';
@@ -1759,7 +1764,7 @@ export function installDebug(): void {
         afterRun(false);
       },
     },
-    /** The current tutorial step (1 to 8), or 0 when it is not running. */
+    /** The current tutorial step (1 to 6), or 0 when it is not running. */
     tutorial: (): number => tutorialStep(),
     startTutorial: (): void => startTutorial(),
     /** Start a sandbox fight: enemy ids and a bin ('tinker', 'random10' or part ids). */

@@ -1,12 +1,21 @@
 // The v2 tutorial (B10d; docs/briefs/B10d-front-door.md "Round 2"). B10d.0 CONTRACT: the frozen interfaces and the script as
 // data. The tutorial lane owns the body of `startTutorial`; the title lane calls it. Nothing here touches saves: the first-launch
 // key stays `cs.tutorialDone === '1'` (the 21 specs that skip the tutorial set it) and the v2 tutorial also sets `cs.tutorialV2Seen`.
+// The fight itself lives in the controller (it owns the live combat); it registers its starter here, so this module stays free of
+// the browser and the unit tests can import the script alone.
 import { markTutorialV2Seen as markSeen, tutorialDone as done, tutorialV2Seen as seen } from './prefs';
 import { TUTORIAL_CLOSING } from '../core/content/story';
 
+let starter: (() => void) | null = null;
+
+/** The controller registers the real starter at load. */
+export function setTutorialStarter(fn: () => void): void {
+  starter = fn;
+}
+
 /** Start the v2 tutorial (a guided fight against `tutorial-rig`; skippable, replayable). Stashes and restores an in-progress practice fight. */
 export function startTutorial(): void {
-  throw new Error('B10d');
+  starter?.();
 }
 
 /** True once the tutorial (v1's or v2's) was finished or skipped: `cs.tutorialDone`. */
