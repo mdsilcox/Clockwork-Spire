@@ -1,6 +1,6 @@
 // The save slot screen: three cards. Each slot keeps its own profile and run.
-import { useState } from 'preact/hooks';
-import { deleteSlot, goTitle, newSlot, slotCards, useSlot } from '../app/controller';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { deleteSlot, goTitle, newSlot, slotCards, slotsHint, useSlot } from '../app/controller';
 import type { SlotCard } from '../app/controller';
 import type { SlotNo } from '../app/save';
 import { unlockAudio } from '../audio/synth';
@@ -73,12 +73,24 @@ export function SlotsScreen() {
   const [name, setName] = useState('Tinkerer');
   const [confirm, setConfirm] = useState<SlotCard | null>(null);
   const [busy, setBusy] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+
+  // focus the name field once the dialog is on screen (the autofocus attribute is blocked by the browser)
+  useEffect(() => {
+    if (naming === null) return;
+    const el = input.current;
+    if (el) {
+      el.focus();
+      el.select();
+    }
+  }, [naming]);
 
   const begin = async (): Promise<void> => {
     if (naming === null || busy) return;
     setBusy(true);
     unlockAudio();
-    await newSlot(naming, name);
+    slotsHint.value = false;
+    await newSlot(naming, input.current?.value ?? name); // what is in the field, typed or not yet through onInput
     setBusy(false);
     setNaming(null);
   };
@@ -86,11 +98,16 @@ export function SlotsScreen() {
   return (
     <main class="slotscreen" data-testid="slots">
       <header class="slothead">
-        <button class="ghostbtn" data-testid="slots-back" onClick={goTitle}>
+        <button class="ghostbtn" data-testid="slots-back" onClick={() => ((slotsHint.value = false), goTitle())}>
           Back
         </button>
         <h2>Choose a save</h2>
       </header>
+      {slotsHint.value && (
+        <p class="slots-hint" data-testid="slots-hint">
+          Name your tinker to start your first climb.
+        </p>
+      )}
       <div class="slotgrid">
         {cards === null && <p class="empty">Looking at the shelves...</p>}
         {cards?.map((c) => (
@@ -115,7 +132,7 @@ export function SlotsScreen() {
             }}
           >
             <h3>Who is climbing?</h3>
-            <input class="nameinput" data-testid="name-input" maxLength={20} value={name} onInput={(e) => setName((e.currentTarget as HTMLInputElement).value)} aria-label="Name" autoFocus />
+            <input class="nameinput" data-testid="name-input" maxLength={20} value={name} onInput={(e) => setName((e.currentTarget as HTMLInputElement).value)} aria-label="Name" ref={input} />
             <div class="slotbtns">
               <button type="button" class="secondary" data-testid="name-cancel" onClick={() => setNaming(null)}>
                 Cancel

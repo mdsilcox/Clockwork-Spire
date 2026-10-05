@@ -1,12 +1,13 @@
 // The v2 guided fight (B10d): a one-sentence coach banner, the keys of the things it asks you to touch, the salvage tray built from
 // the rig's broken part (held here, in UI state: not a run, nothing saved) and Sprocket's closing line.
-import { useState } from 'preact/hooks';
-import { combat, endTutorial, gentle, tutorial, tutorialAck, tutorialTrayDone } from '../app/controller';
+import { useEffect, useState } from 'preact/hooks';
+import { combat, endTutorial, gentle, tutorial, tutorialAck, tutorialNote, tutorialTrayDone } from '../app/controller';
 import { TUTORIAL_SCRIPT } from '../app/tutorial';
 import { cell } from '../core/board';
 import { partName, partText } from '../core/content/parts';
 import { SCRAP_PER_SCRAPPED } from '../core/salvage';
 import type { CombatState, SalvageItem } from '../core/types';
+import { Sprocket } from './Sprocket';
 import { TierMark } from './TierMark';
 import './tutorial.css';
 
@@ -39,7 +40,8 @@ function Tray({ items }: { items: SalvageItem[] }) {
   const scrapped = items.length - keep.length;
   return (
     <section class="tut-tray rewardbox salvagebox" data-testid="salvage-tray" aria-label="Salvage tray">
-      <p class="salvage-note">Keep any of these parts for your bin. What you leave is scrapped for {SCRAP_PER_SCRAPPED} Scrap each.</p>
+      <p class="salvage-note">Keep it and it goes into your bin of parts for the climb.</p>
+      <p class="salvage-note">Leave it and it is scrapped for {SCRAP_PER_SCRAPPED} Scrap: the Spire's coin for traders and the workbench.</p>
       <div class="salvage-list">
         {items.map((it, n) => {
           const kept = keep.includes(n);
@@ -72,11 +74,20 @@ function Tray({ items }: { items: SalvageItem[] }) {
 
 export function Coach() {
   const t = tutorial.value;
+  const stepId = t ? (t.closing ? 'closing' : STEPS[t.step - 1]?.id) : '';
+  // the step id on <body> lets tutorial.css point at the Strut, the Mainspring and the Run button
+  useEffect(() => {
+    if (stepId) document.body.dataset.tut = stepId;
+    return () => {
+      delete document.body.dataset.tut;
+    };
+  }, [stepId]);
   if (!t) return null;
   if (t.closing) {
     return (
       <div class="tut-overlay" data-testid="tutorial-closing-wrap">
         <div class="tut-closing" data-testid="tutorial-closing">
+          <Sprocket mood="happy" size={96} />
           <p>{TUTORIAL_SCRIPT.closing}</p>
           <button class="primary" data-testid="tutorial-finish" onClick={() => endTutorial()}>
             Finish
@@ -107,6 +118,11 @@ export function Coach() {
           Skip
         </button>
       </aside>
+      {tutorialNote.value && !tray && (
+        <p class="tut-note" role="status" data-testid="coach-note">
+          {tutorialNote.value}
+        </p>
+      )}
       {tray && (
         <div class="tut-overlay">
           <Tray items={trayItems(combat.value)} />
