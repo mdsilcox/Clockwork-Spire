@@ -14,6 +14,7 @@ import { generateActMap } from '../core/map';
 import { partName } from '../core/content/parts';
 import { enemyDef } from '../core/content/enemies';
 import type { Speed, Stage } from '../render/stage';
+import { sharedRigHub } from '../render/rig';
 import type { StageView } from '../render/replay';
 import * as audio from '../audio/synth';
 import { intentRows } from './intents';
@@ -1345,4 +1346,9 @@ export function installDebug(): void {
   };
   // the music module's own view of the sound: current track, volumes, mute
   Object.defineProperty(w.__game, 'audio', { configurable: true, get: () => audioDebug() });
+  // painted enemies (B8 AR4): the RigHub's frame stats and a simulated WebGL context loss
+  Object.defineProperty(w.__game, 'rig', {
+    configurable: true,
+    value: { stats: () => sharedRigHub().stats(), reset: () => sharedRigHub().resetStats(), loseContext: () => sharedRigHub().loseContext(), restoreContext: () => sharedRigHub().restoreContext() },
+  });
 }

@@ -1,0 +1,265 @@
+// @ts-nocheck
+// cog-rat: converted from art/cog-rat/cog-rat.template.html by scripts/rig-convert.mjs, then fixed by hand (D-033).
+// The rig code is the template's own (loose types on purpose: it is animation code, checked by looking at it);
+// the typed surface is the CharacterDef export at the bottom. Mesh grid is half the template's.
+import { band, finishDef, makeView, rad, rot, smooth } from './kit';
+import type { CharacterDef } from './types';
+
+
+const GROUND = 758, EYE = [310, 162], JAW = [118, 216], PLATE = [690, 420], TAILC = [1060, 560];
+const HINGE = [290, 248], NECK = [430, 262], EARP = [500, 175], TAILP = [880, 370], TAIL2 = [1050, 520];
+const VENTS = [[680, 238], [775, 292]];
+
+const LEGS = [
+  { hip: [487, 575], hw: 40, pts: [[487, 575], [440, 658], [393, 705], [330, 728], [300, 740]] },
+  { hip: [546, 585], hw: 40, pts: [[546, 585], [516, 658], [487, 728], [440, 760], [410, 768]] },
+  { hip: [700, 600], hw: 55, pts: [[700, 600], [700, 658], [687, 716], [640, 735], [590, 742]] },
+];
+function centerX(pts, y) {
+  if (y <= pts[0][1]) return pts[0][0];
+  for (let i = 1; i < pts.length; i++) if (y <= pts[i][1]) { const a = pts[i - 1], b = pts[i], t = (y - a[1]) / (b[1] - a[1]); return a[0] + (b[0] - a[0]) * t; }
+  return pts[pts.length - 1][0];
+}
+const rig0 = {
+  size: [1216, 832], grid: [76, 52], pad: [190, 100],
+  anchors: { "rat-jaw": [JAW[0], JAW[1], 34], "rat-plate": [PLATE[0], PLATE[1], 130], "rat-tail": [TAILC[0], TAILC[1], 80], core: [600, 470, 110], eyes: [EYE[0], EYE[1], 36] },
+  weights(x, y) {
+    const tail = smooth(865, 895, x) * smooth(330, 380, y);
+    const cable = smooth(560, 700, y) * smooth(815, 850, x) * smooth(985, 940, x);
+    const tailW = Math.min(1, tail + 0.9 * cable);
+    const mouth = 217 + (x - 120) * 0.1;
+    const w = {
+      jaw: smooth(-6, 14, y - mouth) * smooth(330, 240, x) * smooth(330, 285, y),
+      head: smooth(450, 380, x) * smooth(330, 270, y),
+      ear: smooth(250, 190, y) * smooth(470, 520, x) * smooth(790, 740, x),
+      tail: tailW,
+      tail2: smooth(1000, 1040, x) * smooth(420, 520, y),
+      low: smooth(560, 620, y),
+      torso: smooth(560, 460, y) * smooth(330, 420, x) * smooth(860, 800, x),
+      body: Math.max(smooth(770, 600, y), tailW),
+    };
+    w.legs = LEGS.map(l => band(x, centerX(l.pts, y) - l.hw, centerX(l.pts, y) + l.hw, 14) * smooth(l.hip[1] - 10, l.hip[1] + 70, y) * (1 - tailW));
+    return w;
+  },
+  deform(x, y, w, P) {
+    [x, y] = rot(x, y, ...TAIL2, rad(P.tail2), w.tail2);
+    [x, y] = rot(x, y, ...TAILP, rad(P.tail), w.tail);
+    [x, y] = rot(x, y, ...EARP, rad(P.ear), w.ear);
+    [x, y] = rot(x, y, ...HINGE, rad(P.jaw), w.jaw);
+    [x, y] = rot(x, y, ...NECK, rad(P.head), w.head);
+    x += P.hx * w.head;
+    LEGS.forEach((l, i) => { [x, y] = rot(x, y, ...l.hip, rad(P.legs[i]), w.legs[i]); });
+    const b = P.breath * w.torso;
+    x = 600 + (x - 600) * (1 + 0.4 * b); y = 480 + (y - 480) * (1 + b);
+    const k = 1 - P.crouch, drop = (GROUND - 600) * (1 - k), yc = GROUND - (GROUND - y) * k;
+    y = y + (yc - y) * w.low + drop * (1 - w.low);
+    // dxb: body shears over planted feet (windup, jolt). dx: whole body incl. feet (pounce).
+    x += P.dxb * w.body + P.dx; y -= P.hop;
+    [x, y] = rot(x, y, 520, 640, rad(P.lean), w.body);
+    return [x, y];
+  },
+  moods: { idle: { s: 1 }, attack: { s: 1 }, hurt: { s: 1 }, death: { s: 1 } },
+  ease: 40,
+  onMood(m, api) { api.state = { start: undefined, rng: mulberry(7), puffs: [], sparks: [], cogs: [], cyc: -1 }; },
+  pose(L, t, dt, S, mood, api = makeView(rig0, mood, S)) {
+    if (!S.rng) S.rng = mulberry(7);
+    if (S.start === undefined) { S.start = t - dt; S.puffs = S.puffs || []; S.sparks = S.sparks || []; S.cogs = S.cogs || []; S.cyc = -1; S.tv = 0; S.tv2 = 0; }
+    const u = t - S.start, T = 2 * Math.PI, now = t, R = S.rng;
+    const P = { jaw: 0, head: 0, hx: 0, ear: 0, tail: 0, tail2: 0, legs: [0, 0, 0], breath: 0, crouch: 0, dx: 0, dxb: 0, hop: 0, lean: 0, flash: 0, glow: 1, dim: 0, shake: null, t };
+    const sparkBurst = (at, n, v) => { for (let i = 0; i < n; i++) { const a = Math.PI + (R() - 0.5) * 2.6, s = v * (0.4 + R()); S.sparks.push({ x: at[0], y: at[1], vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, born: now, life: 0.35 + R() * 0.35 }); } };
+    const puffs = (at, n, sp) => { for (let i = 0; i < n; i++) S.puffs.push({ x: at[0] + (R() - 0.5) * 16, y: at[1], vx: (R() - 0.5) * 70 * sp, vy: -50 - R() * 90 * sp, r: 18 + R() * 16 * sp, born: now, life: 1.2 + R() * 0.7, lumps: [0, 1, 2, 3].map(k => ({ a: k * 1.57 + R(), d: 0.45 + R() * 0.3, s: 0.55 + R() * 0.25 })) }); };
+    const cog = (at, vx, vy, bounce) => S.cogs.push({ x: at[0], y: at[1], vx, vy, a: R() * 6, va: (R() - 0.5) * 14, r: 18 + R() * 12, born: now, bounce, rest: false });
+    const kf = K;
+    const bump = (x, a, b) => x > a && x < b ? Math.sin(Math.PI * (x - a) / (b - a)) : 0;
+    const cyc = (x, a, b, n) => bump(x, a, b) * Math.sin(T * n * (x - a) / (b - a));
+    // Scamper: the legs swing in step with how fast the body travels, so feet step instead of gliding.
+    const gait = fn => { const v = Math.abs(fn(u) - fn(u - 0.03)) / 0.03, amp = Math.min(1, v / 450), ph = T * 7 * u; return [15 * amp * Math.sin(ph), 15 * amp * Math.sin(ph + Math.PI), 15 * amp * Math.sin(ph + 1.7)]; };
+    // The tail trails the body: it follows the body's velocity through a slow spring.
+    const trail = fn => { const v = (fn(u) - fn(u - 0.03)) / 0.03, tg = Math.max(-22, Math.min(22, v * 0.02)); S.tv += (tg - S.tv) * (1 - Math.exp(-dt * 8)); S.tv2 += (1.5 * tg - S.tv2) * (1 - Math.exp(-dt * 5)); P.tail += S.tv; P.tail2 += S.tv2; return Math.abs(v); };
+
+    if (api.mood === "idle") {
+      // Mostly still. Quick sniffs, an ear twitch, a weight shift and a tail flick, then stillness again.
+      const x = u % 3;
+      P.breath = 0.009 * Math.sin(T * u);
+      P.head = 4 * cyc(x, 0.5, 0.65, 2) + 2.5 * cyc(x, 0.72, 0.84, 2) - 1.5 * bump(x, 2.0, 2.5);
+      P.jaw = 3 * cyc(x, 0.5, 0.65, 2.5) + 2 * cyc(x, 0.72, 0.84, 2.5);
+      P.ear = 16 * bump(x, 1.5, 1.64);
+      P.lean = 2.5 * bump(x, 2.0, 2.5); P.crouch = 0.025 * bump(x, 2.0, 2.5);
+      P.legs = [0, 9 * bump(x, 2.05, 2.3), 0];
+      P.tail2 = 14 * cyc(x, 2.6, 2.85, 1);
+      P.glow = 0.78 + 0.07 * Math.sin(T * 7 * u / 3) - 0.4 * kf(x, [[0, 0], [1.88, 0], [1.95, 1], [2.03, 0], [3, 0]]) + 0.2 * bump(x, 0.5, 0.65);
+      const c = Math.floor(u / 1.5); if (S.cyc !== c) { S.cyc = c; puffs(VENTS[c % 2], 2, 0.5); }
+    } else if (api.mood === "attack") {
+      // Tense crouch (hold about 5 frames), a fast low dart with the head leading, jaw snap at the end, quick skitter back.
+      const c = Math.floor(u / 2), u2 = u % 2;
+      const dxF = uu => kf(uu % 2 - 0.04, [[0, 0], [0.38, 0], [0.47, 10], [0.7, -120], [0.85, -120], [1.25, 0], [2, 0]]);
+      P.dx = dxF(u);
+      P.hx = kf(u2, [[0, 0], [0.47, 0], [0.66, -26], [0.78, -10], [0.9, 0], [2, 0]]);
+      P.crouch = kf(u2 - 0.03, [[0, 0], [0.3, 0.24], [0.36, 0.24], [0.47, 0.32], [0.62, 0.03], [0.85, 0.03], [1.2, 0], [2, 0]]);
+      P.lean = kf(u2 - 0.04, [[0, 0], [0.3, -3], [0.47, -3], [0.68, -7], [0.9, -3], [1.3, 0], [2, 0]]);
+      P.head = kf(u2, [[0, 0], [0.3, -7], [0.47, -7], [0.62, -3], [0.7, -10], [0.78, 2], [1.0, 5], [1.4, 0], [2, 0]]);
+      P.jaw = kf(u2, [[0, 0], [0.4, -2], [0.55, -4], [0.62, -20], [0.68, -22], [0.72, 5], [0.85, 0], [2, 0]]);
+      P.ear = kf(u2 - 0.06, [[0, 0], [0.3, 12], [0.47, 12], [0.66, -14], [0.9, 6], [1.3, 0], [2, 0]]);
+      P.legs = gait(dxF).map((a, i) => a + [-8, 8, 6][i] * bump(u2, 0.38, 0.52));  // gather: feet push off
+      const spd = trail(dxF);
+      P.tail += kf(u2 - 0.12, [[0, 0], [0.3, 8], [0.47, 8], [0.7, -6], [1.2, 0], [2, 0]]);
+      P.hop = 12 * bump(u2, 0.49, 0.7) + 4 * Math.min(1, spd / 450) * Math.abs(Math.sin(T * 3.5 * u));
+      P.breath = 0.009 * Math.sin(T * u);
+      P.glow = 1 + 0.6 * kf(u2, [[0, 0], [0.47, 0.4], [0.7, 1], [1.2, 0.2], [2, 0]]);
+      const sh = u2 > 0.7 ? 6 * Math.exp(-(u2 - 0.7) * 10) : 0;
+      if (sh > 0.1) P.shake = [(R() - 0.5) * sh, (R() - 0.5) * sh * 0.6];
+      if (u2 >= 0.7 && S.cyc !== c) { S.cyc = c; sparkBurst([JAW[0] + P.dx + P.hx - 6, JAW[1] + 8], 14, 420); }
+    } else if (api.mood === "hurt") {
+      // Sharp flinch away, small hop, freeze, then it skitters back and turns its head toward the player.
+      P.flash = u < 0.1 ? 0.2 * (1 - u / 0.1) : 0;
+      const dxF = uu => kf(uu - 0.02, [[0, 0], [0.07, 45], [0.4, 45], [0.8, 0], [1.5, 0]]);
+      P.dx = dxF(u);
+      P.hx = kf(u, [[0, 0], [0.05, 14], [0.4, 14], [0.8, 0], [1.5, 0]]);
+      P.head = kf(u, [[0, 0], [0.05, 20], [0.25, 14], [0.5, -6], [0.8, -3], [1.1, 0], [1.5, 0]]);
+      P.jaw = -14 * Math.exp(-u * 6);
+      P.crouch = kf(u - 0.03, [[0, 0], [0.1, 0.1], [0.3, 0.12], [0.6, 0.04], [0.9, 0], [1.5, 0]]);
+      P.lean = kf(u - 0.04, [[0, 0], [0.08, 6], [0.35, 4], [0.8, 0], [1.5, 0]]);
+      P.hop = 18 * bump(u, 0.02, 0.2) + 5 * bump(u, 0.5, 0.65);
+      P.ear = 30 * Math.exp(-4 * u) * Math.cos(20 * u);
+      P.legs = gait(dxF);
+      trail(dxF);
+      P.glow = u < 0.4 ? (Math.sin(u * 70) > 0 ? 1 : 0.25) : 0.9;
+      P.breath = 0.012 * Math.sin(T * u);
+      const d = Math.exp(-u * 10); P.shake = [(R() - 0.5) * 8 * d, (R() - 0.5) * 5 * d];
+      if (S.cyc !== 0 && u > 0.02) { S.cyc = 0; S.hit = { born: now }; S.spring = { x: 740, y: 330, vx: 110, vy: -430, born: now }; }
+    } else if (api.mood === "death") {
+      // Shudder, fold and dim; the head drops last and the tail twitches once after the body settles.
+      const uu = Math.min(u, 3);
+      const sh = 5 * smooth(0, 0.3, uu) * (1 - smooth(0.9, 1.2, uu));
+      P.dx = sh * Math.sin(u * 95);
+      P.hop = sh * 0.5 * Math.abs(Math.sin(u * 60));
+      P.crouch = kf(uu - 0.03, [[0, 0], [0.5, 0.04], [1.0, 0.28], [1.5, 0.4], [1.9, 0.44], [3, 0.44]]);
+      P.legs = [kf(uu, [[0, 0], [0.8, 6], [1.4, 10], [1.9, 12], [3, 12]]), kf(uu, [[0, 0], [0.8, -6], [1.4, -8], [1.9, -10], [3, -10]]), kf(uu, [[0, 0], [0.8, 5], [1.4, -8], [1.9, -12], [3, -12]])];
+      P.lean = kf(uu - 0.05, [[0, 0], [1.2, 0], [1.9, -8], [3, -8]]);
+      P.head = kf(uu, [[0, 0], [1.6, 0], [2.4, -10], [3, -10]]); P.jaw = kf(uu, [[0, 0], [1.8, 0], [2.5, -9], [3, -9]]);
+      P.ear = kf(uu - 0.06, [[0, 0], [0.8, 4], [1.6, 28], [3, 28]]);
+      P.tail = kf(uu - 0.15, [[0, 0], [0.8, 6], [1.7, 20], [3, 22]]);
+      P.tail2 = kf(uu - 0.25, [[0, 0], [0.8, 8], [1.7, 30], [2.4, 36], [3, 36]]) + 14 * cyc(uu, 2.5, 2.8, 1);
+      P.glow = uu < 0.9 ? 0.8 * (Math.sin(uu * 40) > 0 ? 1 : 0.2) * (1 - uu / 0.9) : 0;
+      P.dim = smooth(0.5, 1.0, uu);
+      if (u > 0.05 && u < 1.1) P.shake = [(R() - 0.5) * sh * 0.8, 0];
+      if (S.cyc < 0 && u >= 1.1) { S.cyc = 0; for (const s of VENTS) puffs(s, 5, 1.3); puffs([620, 320], 4, 1.3);
+        for (let i = 0; i < 6; i++) cog([560 + R() * 160, 300], (R() - 0.5) * 420, -380 - R() * 260, 0.35); }
+    }
+    P.t = t;
+    return P;
+  },
+  under(c, P, t) {
+    c.fillStyle = "rgba(0,0,0,0.35)"; c.beginPath(); c.ellipse(560, GROUND + 8, 420 + 40 * P.crouch, 22, 0, 0, 2 * Math.PI); c.fill();
+    if (P.dim > 0.01) {  // belly shadow once it lies down
+      c.fillStyle = `rgba(8,12,12,${0.28 * P.dim})`; c.beginPath(); c.ellipse(540, GROUND - 4, 340, 38, 0, 0, 2 * Math.PI); c.fill();
+      c.fillStyle = `rgba(8,12,12,${0.3 * P.dim})`; c.beginPath(); c.ellipse(540, GROUND, 250, 24, 0, 0, 2 * Math.PI); c.fill();
+    }
+  },
+  over(c, P, t, api) {
+    const S = api.state, at = p => api.point(p[0], p[1], P);
+    const eye = at(EYE);
+    // Dimmed glass: tint the green eye toward gray-teal with a faded highlight, never a black hole.
+    if (P.dim > 0.01 || P.glow < 0.6) {
+      const d = Math.min(0.85, P.dim * 0.85 + Math.max(0, 0.6 - P.glow) * 0.5);
+      c.fillStyle = `rgba(52,78,70,${d})`; c.beginPath(); c.ellipse(eye[0], eye[1], 31, 28, 0, 0, 2 * Math.PI); c.fill();
+      c.fillStyle = `rgba(190,215,200,${0.35 * P.dim})`; c.beginPath(); c.ellipse(eye[0] - 9, eye[1] - 9, 9, 6, -0.6, 0, 2 * Math.PI); c.fill();
+    }
+    // A thin dark ink line down each leg's path keeps the legs readable at small sizes.
+    c.save(); c.strokeStyle = "rgba(20,16,12,0.55)"; c.lineWidth = 3.5; c.lineCap = "round"; c.lineJoin = "round";
+    for (const l of LEGS) { c.beginPath(); l.pts.slice(0, 4).forEach((p, i) => { const q = at(p); i ? c.lineTo(q[0], q[1]) : c.moveTo(q[0], q[1]); }); c.stroke(); }
+    c.restore();
+    c.globalCompositeOperation = "lighter";
+    glow(c, eye, 90, [120, 255, 190], 0.4 * Math.max(0, P.glow) * (1 - P.dim));
+    glow(c, eye, 34, [220, 255, 220], 0.4 * Math.max(0, P.glow) * (1 - P.dim));
+    S.sparks = (S.sparks || []).filter(s => t - s.born < s.life);
+    const sparks = [];
+    for (const s of S.sparks) {
+      const dt = t - s.born, a = dt / s.life, x = s.x + s.vx * dt, y = s.y + s.vy * dt + 700 * dt * dt;
+      sparks.push([x, y, Math.atan2(s.vy + 1400 * dt, s.vx), a]);
+    }
+    c.globalCompositeOperation = "source-over";
+    // Sparks: flat two-tone diamonds with an ink edge, shrinking in steps.
+    for (const [x, y, ang, a] of sparks) {
+      const L = [20, 15, 10][Math.min(2, Math.floor(a * 3))];
+      c.save(); c.translate(x, y); c.rotate(ang); c.beginPath(); c.moveTo(-L, 0); c.lineTo(0, -L * 0.4); c.lineTo(L, 0); c.lineTo(0, L * 0.4); c.closePath();
+      c.fillStyle = "#FFB547"; c.fill(); c.strokeStyle = "#14100C"; c.lineWidth = 2; c.stroke();
+      c.beginPath(); c.moveTo(-L * 0.4, 0); c.lineTo(L * 0.5, 0); c.lineWidth = 2.5; c.strokeStyle = "#FFE9A8"; c.stroke(); c.restore();
+    }
+    for (const g of S.cogs || []) {
+      const dt = t - g.born; if (dt < 0) continue;
+      if (!g.last) g.last = t;
+      const h = Math.min(0.05, t - g.last); g.last = t;
+      if (!g.rest) {
+        g.vy += 1500 * h; g.x += g.vx * h; g.y += g.vy * h; g.a += g.va * h;
+        if (g.y > GROUND - g.r * 0.4 && g.vy > 0) {
+          if (g.bounce && Math.abs(g.vy) > 140) { g.y = GROUND - g.r * 0.4; g.vy *= -g.bounce; g.vx *= 0.6; g.va *= 0.6; }
+          else if (g.bounce) { g.y = GROUND - g.r * 0.4; g.rest = true; }
+        }
+        if (!g.bounce && dt > 1.3) g.gone = true;
+      }
+      if (g.gone) continue;
+      drawCog(c, g.x, g.y, g.r, g.a, g.bounce ? 1 : Math.max(0, 1 - Math.max(0, dt - 0.9) / 0.4));
+    }
+    if (S.spring) {
+      const s = S.spring, dt = t - s.born;
+      if (dt < 1.1) { const x = s.x + s.vx * dt, y = s.y + s.vy * dt + 750 * dt * dt; drawSpring(c, x, y, dt * 12, Math.max(0, 1 - Math.max(0, dt - 0.7) / 0.4)); }
+    }
+    // Steam: lumpy flat circles, ink edge, two tones; growth and fade move in steps, no blur.
+    S.puffs = (S.puffs || []).filter(p => t - p.born < p.life);
+    for (const p of S.puffs) {
+      const a = (t - p.born) / p.life, dt = t - p.born, step = Math.min(4, Math.floor(a * 5)), r = p.r * (0.6 + 0.3 * step), x = p.x + p.vx * dt, y = p.y + p.vy * dt;
+      c.save(); c.globalAlpha = [0.95, 0.85, 0.65, 0.45, 0.25][step];
+      const circles = [[0, 0, 1], ...p.lumps.map(l => [Math.cos(l.a) * l.d, Math.sin(l.a) * l.d, l.s])];
+      for (const [fill, grow, dx, dy, k] of [["#14100C", 2.2, 0, 0, 1], ["#B9C6C9", 0, 0, 0, 1], ["#E8EEF0", 0, -0.12, -0.12, 0.8]])
+        for (const [ox, oy, s] of circles) { c.fillStyle = fill; c.beginPath(); c.arc(x + (ox + dx * s) * r, y + (oy + dy * s) * r, r * s * k + grow, 0, 2 * Math.PI); c.fill(); }
+      c.restore();
+    }
+    // Hit burst at the plate: ink-edged two-tone star.
+    if (S.hit && t - S.hit.born < 0.3) {
+      const at0 = at(PLATE), k = Math.floor((t - S.hit.born) / 0.1), r = [70, 100, 90][k];
+      for (const [fill, rr, ln] of [["#FFB547", r, 3], ["#FFE9A8", r * 0.55, 0]]) {
+        c.beginPath(); for (let i = 0; i < 16; i++) { const ang = i * Math.PI / 8 + 0.2, q = i % 2 ? rr * 0.5 : rr; c.lineTo(at0[0] + Math.cos(ang) * q, at0[1] + Math.sin(ang) * q); } c.closePath();
+        c.fillStyle = fill; c.fill(); if (ln) { c.strokeStyle = "#14100C"; c.lineWidth = ln; c.lineJoin = "round"; c.stroke(); }
+      }
+    }
+  },
+};
+function K(u, pts) {
+  if (u <= pts[0][0]) return pts[0][1];
+  for (let i = 1; i < pts.length; i++) if (u <= pts[i][0]) { const a = pts[i - 1], b = pts[i], t = (u - a[0]) / (b[0] - a[0]); return a[1] + (b[1] - a[1]) * t * t * (3 - 2 * t); }
+  return pts[pts.length - 1][1];
+}
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function glow(c, [x, y], r, [R, G, B], a) {
+  if (a <= 0) return;
+  const g = c.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(${R},${G},${B},${Math.min(1, a)})`); g.addColorStop(1, `rgba(${R},${G},${B},0)`);
+  c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 2 * Math.PI); c.fill();
+}
+// Ink-style cog: heavy dark outline, two-tone brass (lit upper left, shaded lower right), dark hub.
+function drawCog(c, x, y, r, a, fade) {
+  c.save(); c.globalAlpha = fade; c.translate(x, y); c.rotate(a);
+  const path = () => { c.beginPath(); for (let i = 0; i < 16; i++) { const ang = i * Math.PI / 8, rr = i % 2 ? r : r * 1.28; c.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr); } c.closePath(); };
+  path(); c.fillStyle = "#8E6B2A"; c.fill();
+  c.save(); path(); c.clip(); c.fillStyle = "#D9B35C"; c.beginPath(); c.arc(-r * 0.25, -r * 0.25, r * 1.05, 0, 2 * Math.PI); c.fill(); c.restore();
+  path(); c.strokeStyle = "#14100C"; c.lineWidth = 2.5; c.lineJoin = "round"; c.stroke();
+  c.fillStyle = "#14100C"; c.beginPath(); c.arc(0, 0, r * 0.38, 0, 2 * Math.PI); c.fill();
+  c.fillStyle = "#C9A24A"; c.beginPath(); c.arc(0, 0, r * 0.18, 0, 2 * Math.PI); c.fill(); c.restore();
+}
+function drawSpring(c, x, y, a, fade) {
+  c.save(); c.globalAlpha = fade; c.translate(x, y); c.rotate(a); c.lineJoin = "round"; c.lineCap = "round";
+  const zig = () => { c.beginPath(); for (let i = 0; i <= 8; i++) c.lineTo(-32 + i * 8, i % 2 ? 10 : -10); };
+  c.strokeStyle = "#14100C"; c.lineWidth = 8; zig(); c.stroke();
+  c.strokeStyle = "#C9A24A"; c.lineWidth = 5; zig(); c.stroke(); c.restore();
+}
+
+const def: CharacterDef = {
+  ...rig0,
+  id: 'cog-rat',
+  grid: [58, 40],
+  facing: 'left',
+  durations: {"idle":3,"attack":2,"hurt":1.5,"death":3},
+  texture: { regular: 'art/cog-rat/cut.webp' },
+};
+export default finishDef(def);

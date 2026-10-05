@@ -1,0 +1,358 @@
+// @ts-nocheck
+// rust-mite: converted from art/rust-mite/rust-mite.template.html by scripts/rig-convert.mjs, then fixed by hand (D-033).
+// The rig code is the template's own (loose types on purpose: it is animation code, checked by looking at it);
+// the typed surface is the CharacterDef export at the bottom. Mesh grid is half the template's.
+import { band, finishDef, makeView, rad, rot, smooth } from './kit';
+import type { CharacterDef } from './types';
+
+
+const T2 = 2 * Math.PI;
+function K(u, pts) {
+  if (u <= pts[0][0]) return pts[0][1];
+  for (let i = 1; i < pts.length; i++) if (u <= pts[i][0]) { const a = pts[i - 1], b = pts[i], t = (u - a[0]) / (b[0] - a[0]); return a[1] + (b[1] - a[1]) * t * t * (3 - 2 * t); }
+  return pts[pts.length - 1][1];
+}
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const bump = (x, a, b) => x > a && x < b ? Math.sin(Math.PI * (x - a) / (b - a)) : 0;
+const cyc = (x, a, b, n) => bump(x, a, b) * Math.sin(T2 * n * (x - a) / (b - a));
+function glow(c, [x, y], r, [R, G, B], a) {
+  if (a <= 0) return;
+  const g = c.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(${R},${G},${B},${Math.min(1, a)})`); g.addColorStop(1, `rgba(${R},${G},${B},0)`);
+  c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 2 * Math.PI); c.fill();
+}
+// Distance from a point to a polyline: limb weights follow the limb's path.
+function distPoly(pts, x, y) {
+  let best = 1e9;
+  for (let i = 1; i < pts.length; i++) {
+    const [ax, ay] = pts[i - 1], [bx, by] = pts[i], dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / L));
+    best = Math.min(best, Math.hypot(x - ax - dx * t, y - ay - dy * t));
+  }
+  return best;
+}
+const limbW = (pts, hw, soft, x, y) => 1 - smooth(hw, hw + soft, distPoly(pts, x, y));
+// Alternating tripods (or diagonal pairs): angle +forward (left), a stance foot sweeps back while planted, a swing foot lifts.
+// fwd = forward speed in px per s (negative when backing up); returns [angles, lifts].
+function gait(legs, fwd, u, f, len, maxAmp, liftPx) {
+  const amp = Math.min(maxAmp, Math.abs(fwd) / (0.64 * len * T2 * f)), sg = fwd >= 0 ? 1 : -1, ph = T2 * f * u;
+  const ang = [], lift = [];
+  legs.forEach((l, i) => { const p = ph + l.g * Math.PI; ang.push(sg * amp * Math.cos(p) * 57.3); lift.push(liftPx * Math.min(1, amp / 0.06) * Math.max(0, -Math.sin(p))); });
+  return [ang, lift];
+}
+// Ink-style cog: heavy dark outline, two-tone brass, dark hub.
+function drawCog(c, x, y, r, a, fade) {
+  c.save(); c.globalAlpha = fade; c.translate(x, y); c.rotate(a);
+  const path = () => { c.beginPath(); for (let i = 0; i < 16; i++) { const ang = i * Math.PI / 8, rr = i % 2 ? r : r * 1.28; c.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr); } c.closePath(); };
+  path(); c.fillStyle = "#8E6B2A"; c.fill();
+  c.save(); path(); c.clip(); c.fillStyle = "#D9B35C"; c.beginPath(); c.arc(-r * 0.25, -r * 0.25, r * 1.05, 0, 2 * Math.PI); c.fill(); c.restore();
+  path(); c.strokeStyle = "#14100C"; c.lineWidth = 2.5; c.lineJoin = "round"; c.stroke();
+  c.fillStyle = "#14100C"; c.beginPath(); c.arc(0, 0, r * 0.38, 0, 2 * Math.PI); c.fill();
+  c.fillStyle = "#C9A24A"; c.beginPath(); c.arc(0, 0, r * 0.18, 0, 2 * Math.PI); c.fill(); c.restore();
+}
+// Deterministic jagged damage at an anchor: missing chunks with an ember interior, ink cracks with a bright edge, loose facets.
+function crack(c, [x, y], r, id, aspect, ring, rays) {
+  if (ring === undefined) ring = true; if (rays === undefined) rays = 8;
+  const ry = r * (aspect || 1);
+  let seed = 7; for (const ch of id) seed = (seed * 31 + ch.charCodeAt(0)) % 9973;
+  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  c.save(); c.translate(x, y);
+  c.beginPath(); c.ellipse(0, 0, r * 0.95, ry * 0.95, 0, 0, 2 * Math.PI); c.clip();
+  const E = (px, py) => [px * r, py * ry];
+  const g = c.createRadialGradient(0, 0, 0, 0, 0, r);
+  g.addColorStop(0, "rgba(255,120,40,0.55)"); g.addColorStop(0.5, "rgba(120,40,16,0.4)"); g.addColorStop(1, "rgba(20,10,6,0)");
+  const chunk = (cx, cy, rad_, n) => {
+    c.beginPath();
+    for (let i = 0; i < n; i++) { const an = i / n * 2 * Math.PI, rr = rad_ * (0.55 + 0.6 * rnd()); const [px, py] = E(cx + Math.cos(an) * rr, cy + Math.sin(an) * rr); i ? c.lineTo(px, py) : c.moveTo(px, py); }
+    c.closePath(); c.fillStyle = "rgba(18,10,6,0.96)"; c.fill(); c.fillStyle = g; c.fill();
+    c.strokeStyle = "rgba(255,170,80,0.9)"; c.lineWidth = 2; c.lineJoin = "round"; c.stroke();
+  };
+  chunk(-0.05, 0.0, 0.42, 9); chunk(0.5, -0.35, 0.22, 6); chunk(-0.45, 0.42, 0.2, 6);
+  c.fillStyle = "rgba(255,225,170,0.2)"; c.strokeStyle = "rgba(14,10,8,0.8)"; c.lineWidth = 2;
+  for (const [a0, a1] of [[-2.6, -1.9], [0.3, 1.0], [2.1, 2.8]]) { c.beginPath(); c.moveTo(0, 0); c.lineTo(...E(Math.cos(a0) * 0.9, Math.sin(a0) * 0.9)); c.lineTo(...E(Math.cos(a1) * 0.9, Math.sin(a1) * 0.9)); c.closePath(); c.fill(); c.stroke(); }
+  const paths = [];
+  for (let i = 0; i < rays; i++) {
+    let an = i / rays * 2 * Math.PI + rnd() * 0.5, px = 0, py = 0; const pts = [[0, 0]];
+    for (let k = 0; k < 4; k++) { an += (rnd() - 0.5) * 0.9; const len = 0.2 + rnd() * 0.18; px += Math.cos(an) * len; py += Math.sin(an) * len; pts.push([px, py]); }
+    paths.push(pts);
+  }
+  c.lineCap = "round"; c.lineJoin = "miter";
+  for (const [col, lw, off] of [["#14100C", 4, 0], ["rgba(255,205,130,0.9)", 1.5, -1.5]]) {
+    c.strokeStyle = col; c.lineWidth = lw;
+    for (const pts of paths) { c.beginPath(); pts.forEach(([a, b], j) => { const [qx, qy] = E(a, b); j ? c.lineTo(qx + off, qy + off) : c.moveTo(qx + off, qy + off); }); c.stroke(); }
+  }
+  c.restore();
+  if (ring) { c.save(); c.translate(x, y); c.strokeStyle = "#14100C"; c.lineWidth = 4; c.beginPath(); c.ellipse(0, 0, r * 0.95, ry * 0.95, 0, 0, 2 * Math.PI); c.stroke(); c.restore(); }
+}
+// Effects shared by the moods: ink-edged two-tone sparks, steam puffs, bouncing cogs and the hit star.
+function mkFx(S, R, now) {
+  return {
+    sparks(at, n, v, dir) { for (let i = 0; i < n; i++) { const a = (dir === undefined ? Math.PI : dir) + (R() - 0.5) * 2.6, s = v * (0.4 + R()); S.sparks.push({ x: at[0], y: at[1], vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, born: now, life: 0.35 + R() * 0.35 }); } },
+    puffs(at, n, sp, tint) { for (let i = 0; i < n; i++) S.puffs.push({ x: at[0] + (R() - 0.5) * 16, y: at[1], vx: (R() - 0.5) * 70 * sp, vy: -50 - R() * 90 * sp, r: 18 + R() * 16 * sp, born: now, life: 1.2 + R() * 0.7, tint, lumps: [0, 1, 2, 3].map(k => ({ a: k * 1.57 + R(), d: 0.45 + R() * 0.3, s: 0.55 + R() * 0.25 })) }); },
+    cog(at, vx, vy, bounce) { S.cogs.push({ x: at[0], y: at[1], vx, vy, a: R() * 6, va: (R() - 0.5) * 14, r: 14 + R() * 10, born: now, bounce, rest: false }); },
+  };
+}
+function drawFx(c, S, t, GROUND, at, hitPt) {
+  S.sparks = (S.sparks || []).filter(s => t - s.born < s.life);
+  for (const s of S.sparks) {
+    const dt = t - s.born, a = dt / s.life, x = s.x + s.vx * dt, y = s.y + s.vy * dt + 700 * dt * dt, ang = Math.atan2(s.vy + 1400 * dt, s.vx);
+    const L = [20, 15, 10][Math.min(2, Math.floor(a * 3))];
+    c.save(); c.translate(x, y); c.rotate(ang); c.beginPath(); c.moveTo(-L, 0); c.lineTo(0, -L * 0.4); c.lineTo(L, 0); c.lineTo(0, L * 0.4); c.closePath();
+    c.fillStyle = "#FFB547"; c.fill(); c.strokeStyle = "#14100C"; c.lineWidth = 2; c.stroke();
+    c.beginPath(); c.moveTo(-L * 0.4, 0); c.lineTo(L * 0.5, 0); c.lineWidth = 2.5; c.strokeStyle = "#FFE9A8"; c.stroke(); c.restore();
+  }
+  for (const g of S.cogs || []) {
+    const dt = t - g.born; if (dt < 0) continue;
+    if (!g.last) g.last = t;
+    const h = Math.min(0.05, t - g.last); g.last = t;
+    if (!g.rest) {
+      g.vy += 1500 * h; g.x += g.vx * h; g.y += g.vy * h; g.a += g.va * h;
+      if (g.y > GROUND - g.r * 0.4 && g.vy > 0) {
+        if (g.bounce && Math.abs(g.vy) > 140) { g.y = GROUND - g.r * 0.4; g.vy *= -g.bounce; g.vx *= 0.6; g.va *= 0.6; }
+        else if (g.bounce) { g.y = GROUND - g.r * 0.4; g.rest = true; }
+      }
+    }
+    drawCog(c, g.x, g.y, g.r, g.a, 1);
+  }
+  // Steam: lumpy flat circles, ink edge, two tones; growth and fade move in steps, no blur.
+  S.puffs = (S.puffs || []).filter(p => t - p.born < p.life);
+  for (const p of S.puffs) {
+    const a = (t - p.born) / p.life, dt = t - p.born, step = Math.min(4, Math.floor(a * 5)), r = p.r * (0.6 + 0.3 * step), x = p.x + p.vx * dt, y = p.y + p.vy * dt;
+    const tones = p.tint ? p.tint : ["#B9C6C9", "#E8EEF0"];
+    c.save(); c.globalAlpha = [0.95, 0.85, 0.65, 0.45, 0.25][step];
+    const circles = [[0, 0, 1], ...p.lumps.map(l => [Math.cos(l.a) * l.d, Math.sin(l.a) * l.d, l.s])];
+    for (const [fill, grow, dx, dy, k] of [["#14100C", 2.2, 0, 0, 1], [tones[0], 0, 0, 0, 1], [tones[1], 0, -0.12, -0.12, 0.8]])
+      for (const [ox, oy, s] of circles) { c.fillStyle = fill; c.beginPath(); c.arc(x + (ox + dx * s) * r, y + (oy + dy * s) * r, r * s * k + grow, 0, 2 * Math.PI); c.fill(); }
+    c.restore();
+  }
+  // Hit star at the hit anchor: ink-edged, two-tone, stepped sizes, 0.3 s.
+  if (S.hit && t - S.hit.born < 0.3) {
+    const p = hitPt(), k = Math.floor((t - S.hit.born) / 0.1), r = [60, 85, 75][k];
+    for (const [fill, rr, ln] of [["#FFB547", r, 3], ["#FFE9A8", r * 0.55, 0]]) {
+      c.beginPath(); for (let i = 0; i < 16; i++) { const ang = i * Math.PI / 8 + 0.2, q = i % 2 ? rr * 0.5 : rr; c.lineTo(p[0] + Math.cos(ang) * q, p[1] + Math.sin(ang) * q); } c.closePath();
+      c.fillStyle = fill; c.fill(); if (ln) { c.strokeStyle = "#14100C"; c.lineWidth = ln; c.lineJoin = "round"; c.stroke(); }
+    }
+  }
+}
+// The broken flag survives mood changes: rig.state.broken = { "mite-pincers": true }; ?broken=id,id on the page sets it for review.
+let BROKEN = {};
+function keepBroken(S) { if (!S.broken) S.broken = BROKEN; else BROKEN = S.broken; return S.broken; }
+
+// ---- Broken look: a jagged bite is erased from the painting's own alpha (scissor clears on the rig's GL canvas), so the silhouette changes.
+// An ember cavity is drawn behind it on the under layer; ink cracks, a bright ember rim and a dangling flap go on the overlay.
+let AV = null; // the hub view of the frame being drawn: its painting and alpha
+const solid = (x, y) => !AV || !AV.image || AV.alpha(x, y) > 128;
+function rndSeed(id) { let s = 7; for (const ch of id) s = (s * 31 + ch.charCodeAt(0)) % 9973; return () => (s = (s * 9301 + 49297) % 233280) / 233280; }
+// Build the geometry of a notch once from its spec {c, r, n, dir, flap}.
+function buildNotch(id, sp) {
+  const rnd = rndSeed(id), poly = [];
+  for (let i = 0; i < sp.n; i++) { const a = i / sp.n * 2 * Math.PI, rr = sp.r * (i % 2 ? 0.55 + 0.2 * rnd() : 0.95 + 0.25 * rnd()); poly.push([sp.c[0] + Math.cos(a) * rr, sp.c[1] + Math.sin(a) * rr]); }
+  const cracks = [];
+  for (let k = 0; k < 3; k++) {
+    let a = sp.dir + (k - 1) * 0.55 + (rnd() - 0.5) * 0.3, x = sp.c[0], y = sp.c[1]; const pts = [[x, y]];
+    for (let j = 0; j < 4; j++) { a += (rnd() - 0.5) * 1.1; const len = sp.r * (0.5 + 0.35 * rnd()); x += Math.cos(a) * len; y += Math.sin(a) * len; pts.push([x, y]); }
+    cracks.push(pts);
+  }
+  let low = poly[0]; for (const p of poly) if (p[1] > low[1]) low = p;
+  return { c: sp.c, poly, cracks, low, fit: false, inner: poly.map(p => [sp.c[0] + (p[0] - sp.c[0]) * 0.6, sp.c[1] + (p[1] - sp.c[1]) * 0.6]) };
+}
+// under layer: the ember cavity behind the bite.
+function notchUnder(c, api, P, t, geo) {
+  if (!geo.fit && AV && AV.image) {  // pull the cavity inside the painting's silhouette, once
+    geo.fit = true;
+    geo.inner = geo.inner.map(p => { let x = p[0], y = p[1]; for (let i = 0; i < 80 && !solid(x, y); i++) { x += (geo.c[0] - x) * 0.06; y += (geo.c[1] - y) * 0.06; } return [x + (geo.c[0] - x) * 0.12, y + (geo.c[1] - y) * 0.12]; });
+  }
+  const pts = geo.inner.map(p => api.point(p[0], p[1], P)), fl = 0.85 + 0.15 * Math.sin(t * 9 + geo.low[0]);
+  const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+  const path = k => { c.beginPath(); pts.forEach((p, i) => { const x = cx + (p[0] - cx) * k, y = cy + (p[1] - cy) * k; i ? c.lineTo(x, y) : c.moveTo(x, y); }); c.closePath(); };
+  path(1); c.fillStyle = "#3A1308"; c.fill(); c.strokeStyle = "#14100C"; c.lineWidth = 4; c.lineJoin = "round"; c.stroke();
+  c.globalAlpha = fl; path(0.7); c.fillStyle = "#FF7A1E"; c.fill(); path(0.38); c.fillStyle = "#FFD27A"; c.fill(); c.globalAlpha = 1;
+}
+// overlay: ink and ember rim along the bite edge (only where the painting is), ink cracks into the part, a dangling flap.
+function notchOver(c, api, P, t, geo, flap) {
+  const q = p => api.point(p[0], p[1], P), n = geo.poly.length;
+  c.save(); c.lineJoin = "round"; c.lineCap = "round";
+  for (const [col, lw] of [["#14100C", 6], ["#FF9A3C", 2.2]]) {
+    c.strokeStyle = col; c.lineWidth = lw;
+    for (let i = 0; i < n; i++) { const a = geo.poly[i], b = geo.poly[(i + 1) % n]; if (!solid((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)) continue; const A = q(a), B = q(b); c.beginPath(); c.moveTo(A[0], A[1]); c.lineTo(B[0], B[1]); c.stroke(); }
+  }
+  for (const [col, lw, off] of [["#14100C", 5, 0], ["rgba(255,205,130,0.9)", 1.8, -1.8]]) {
+    c.strokeStyle = col; c.lineWidth = lw;
+    for (const cr of geo.cracks) for (let i = 1; i < cr.length; i++) { if (!solid((cr[i - 1][0] + cr[i][0]) / 2, (cr[i - 1][1] + cr[i][1]) / 2)) continue; const A = q(cr[i - 1]), B = q(cr[i]); c.beginPath(); c.moveTo(A[0] + off, A[1] + off); c.lineTo(B[0] + off, B[1] + off); c.stroke(); }
+  }
+  if (flap) {
+    const A = q(geo.low), sw = 0.35 * Math.sin(t * 3.2 + A[0]) + 0.1;
+    c.translate(A[0], A[1]); c.rotate(sw);
+    c.beginPath(); c.moveTo(-8, 0); c.lineTo(10, 2); c.lineTo(14, 26); c.lineTo(2, 34); c.lineTo(-10, 22); c.closePath();
+    c.fillStyle = "#B8651F"; c.fill(); c.strokeStyle = "#14100C"; c.lineWidth = 4; c.stroke();
+    c.beginPath(); c.moveTo(-3, 4); c.lineTo(6, 6); c.lineTo(8, 20); c.strokeStyle = "#E8A55A"; c.lineWidth = 2.5; c.stroke();
+  }
+  c.restore();
+}
+function brokenSet(S, NOTCH) { keepBroken(S); return Object.keys(S.broken).filter(k => S.broken[k] && NOTCH[k]); }
+const GROUND = 750, ROOT = [352, 452], GLAND = [720, 255], EYES = [418, 488], CORE = [610, 410];
+const HORN = [[352, 452], [305, 432], [255, 436], [215, 468], [198, 530]];
+// Six legs, left to right (the mite faces left). g is the tripod: A = front-left, middle-right, rear-right; B = the others.
+const LEGS = [
+  { hip: [305, 480], hw: 30, pts: [[305, 480], [290, 545], [280, 572], [245, 612], [200, 640], [165, 645]], g: 0 },
+  { hip: [420, 545], hw: 26, pts: [[420, 545], [415, 590], [418, 620], [405, 635]], g: 1 },
+  { hip: [555, 505], hw: 42, pts: [[555, 505], [555, 600], [552, 660], [520, 700], [490, 745]], g: 1 },
+  { hip: [668, 510], hw: 42, pts: [[668, 510], [670, 600], [668, 680], [686, 750]], g: 0 },
+  { hip: [820, 500], hw: 30, pts: [[820, 500], [850, 570], [872, 650], [890, 700], [950, 715]], g: 0 },
+  { hip: [890, 455], hw: 28, pts: [[890, 455], [925, 550], [955, 615], [1020, 650], [1080, 655]], g: 1 },
+];
+const ANCHORS = { "mite-pincers": [265, 480, 78], "mite-gland": [725, 255, 150], core: [CORE[0], CORE[1], 90], eyes: [EYES[0], EYES[1], 38] };
+const DOME = [[610, 110], [690, 108], [780, 140], [840, 210], [870, 300], [868, 380], [760, 385], [650, 350], [600, 250]];
+const NOTCH_SPEC = {
+  "mite-pincers": { c: [230, 436], r: 30, n: 10, dir: 1.6, flap: false },
+  "mite-gland": { c: [816, 222], r: 78, n: 12, dir: 3.1, flap: true },
+};
+const NOTCH = {}; for (const id in NOTCH_SPEC) NOTCH[id] = buildNotch(id, NOTCH_SPEC[id]);
+const rig0 = {
+  size: [1216, 832], grid: [76, 52], pad: [200, 110], anchors: ANCHORS,
+  weights(x, y) {
+    const rootR = smooth(8, 70, Math.hypot(x - ROOT[0], y - ROOT[1]));
+    const w = {
+      horn: limbW(HORN, 28, 14, x, y) * rootR,
+      body: smooth(560, 500, y),
+      low: smooth(540, 620, y),
+      legs: [], lift: [],
+    };
+    LEGS.forEach(l => {
+      const lw = limbW(l.pts, l.hw, 12, x, y) * smooth(l.hip[1] + 5, l.hip[1] + 70, y) * (1 - w.horn);
+      w.legs.push(lw); w.lift.push(lw * smooth(l.hip[1] + 40, l.hip[1] + 170, y));
+    });
+    return w;
+  },
+  deform(x, y, w, P) {
+    [x, y] = rot(x, y, ROOT[0], ROOT[1], rad(P.horn), w.horn);
+    x += P.hhx * w.horn;
+    LEGS.forEach((l, i) => { [x, y] = rot(x, y, l.hip[0], l.hip[1], rad(P.legs[i]), w.legs[i]); y -= P.lift[i] * w.lift[i]; });
+    const b = P.breath * w.body;
+    x = 640 + (x - 640) * (1 + 0.3 * b); y = 420 + (y - 420) * (1 + b);
+    const k = 1 - P.crouch, drop = (GROUND - 600) * (1 - k), yc = GROUND - (GROUND - y) * k;
+    y = y + (yc - y) * w.low + drop * (1 - w.low);
+    x += P.dx; y -= P.hop;
+    [x, y] = rot(x, y, 640, 600, rad(P.lean), w.body);
+    return [x, y];
+  },
+  moods: { idle: { s: 1 }, attack: { s: 1 }, hurt: { s: 1 }, death: { s: 1 } },
+  ease: 40,
+  onMood(m, api) { const S = api.state; keepBroken(S); S.start = undefined; S.rng = mulberry(7); S.puffs = []; S.sparks = []; S.cogs = []; S.cyc = -1; S.hit = null; S.k = 0; },
+  pose(L, t, dt, S, mood, api = makeView(rig0, mood, S)) {
+    AV = api;
+    keepBroken(S);
+    if (S.start === undefined) { S.start = t - dt; S.rng = S.rng || mulberry(7); S.puffs = []; S.sparks = []; S.cogs = []; S.cyc = -1; S.hit = null; }
+    const u = t - S.start, now = t, R = S.rng, fx = mkFx(S, R, now), kf = K;
+    const P = { horn: 0, hhx: 0, legs: [0, 0, 0, 0, 0, 0], lift: [0, 0, 0, 0, 0, 0], breath: 0, crouch: 0, dx: 0, hop: 0, lean: 0, flash: 0, glow: 1, eyeGlow: 1, dim: 0, shake: null, t };
+    const tip = () => api.point(HORN[4][0], HORN[4][1], api.lastP || P);
+    const walk = (fn, f) => { const v = -(fn(u) - fn(u - 0.03)) / 0.03; const [a, l] = gait(LEGS, v, u, f, 230, 0.3, 34); a.forEach((q, i) => P.legs[i] += q); l.forEach((q, i) => P.lift[i] += q); return Math.abs(v); };
+    if (api.mood === "idle") {
+      // Wary and low: a slow breath, two pincer clicks, one leg re-planted, the gland pulsing.
+      const x = u % 2.4;
+      P.breath = 0.007 * Math.sin(T2 * u / 1.2); P.crouch = 0.05 + 0.008 * Math.sin(T2 * u / 1.2);
+      P.horn = 6 * cyc(x, 0.5, 0.72, 2) + 3 * bump(x, 1.2, 1.9) - 2 * bump(x, 2.0, 2.3);
+      P.hhx = -4 * cyc(x, 0.5, 0.72, 2);
+      P.legs[0] += 8 * bump(x, 1.3, 1.8); P.lift[0] += 20 * bump(x, 1.3, 1.8);
+      P.legs[3] += -6 * bump(x, 1.9, 2.3); P.lift[3] += 14 * bump(x, 1.9, 2.3);
+      P.lean = 1.6 * bump(x, 1.3, 1.8);
+      P.glow = 0.55 + 0.4 * Math.sin(T2 * u / 1.2);
+      P.eyeGlow = 0.8 - 0.4 * kf(x, [[0, 0], [0.98, 0], [1.02, 1], [1.08, 0], [2.4, 0]]) + 0.2 * bump(x, 0.5, 0.7);
+      const c = Math.floor(u / 2.4); if (S.cyc !== c) { S.cyc = c; fx.puffs([GLAND[0], GLAND[1] - 90], 1, 0.4, ["#B07A44", "#E0A868"]); }
+    } else if (api.mood === "attack") {
+      // Rear back and raise the pincers, a fast tripod dash with the pincers leading, a downward stab, then a scuttle back.
+      const u2 = u % 2;
+      const dxF = uu => kf(uu % 2, [[0, 0], [0.3, 26], [0.5, 26], [0.72, -150], [1.0, -150], [1.6, 0], [2, 0]]);
+      P.dx = dxF(u);
+      P.hhx = kf(u2 + 0.04, [[0, 0], [0.5, 0], [0.7, -34], [0.78, -14], [1.0, 0], [2, 0]]);
+      P.horn = kf(u2, [[0, 0], [0.25, 26], [0.5, 28], [0.64, 2], [0.72, -14], [0.9, -6], [1.3, 0], [2, 0]]);
+      P.crouch = kf(u2 - 0.03, [[0, 0], [0.25, 0.14], [0.5, 0.16], [0.6, 0.04], [1.0, 0.02], [1.4, 0], [2, 0]]);
+      P.lean = kf(u2 - 0.04, [[0, 0], [0.25, 5], [0.5, 6], [0.72, -4], [1.0, -2], [1.4, 0], [2, 0]]);
+      walk(dxF, 2.6);
+      P.legs[0] += -10 * bump(u2, 0.28, 0.5); P.legs[4] += 8 * bump(u2, 0.28, 0.5);  // gather: feet push off
+      P.hop = 6 * bump(u2, 0.55, 0.72);
+      P.breath = 0.007 * Math.sin(T2 * u);
+      P.glow = 0.6 + 0.8 * kf(u2, [[0, 0], [0.3, 0.4], [0.72, 1], [1.2, 0.1], [1.5, 0], [2, 0]]);
+      P.eyeGlow = 1 + 0.5 * bump(u2, 0.3, 0.9);
+      const sh = u2 > 0.72 ? 6 * Math.exp(-(u2 - 0.72) * 12) : 0;
+      if (sh > 0.1) P.shake = [(R() - 0.5) * sh, (R() - 0.5) * sh * 0.6];
+      const c = Math.floor(u / 2); if (u2 >= 0.72 && S.cyc !== c) { S.cyc = c; fx.sparks(tip(), 12, 380, Math.PI * 0.9); }
+    } else if (api.mood === "hurt") {
+      // Flinch away on two frames, a hop, a freeze, then a tripod scuttle back; the pincers rattle.
+      P.flash = u < 0.1 ? 0.2 * (1 - u / 0.1) : 0;
+      const dxF = uu => kf(uu - 0.02, [[0, 0], [0.07, 48], [0.4, 48], [0.8, 0], [1.5, 0]]);
+      P.dx = dxF(u);
+      P.horn = 22 * Math.exp(-5 * u) * Math.cos(18 * u) + 8 * kf(u, [[0, 0], [0.05, 1], [0.5, 0.4], [1.0, 0]]);
+      P.hhx = 14 * kf(u, [[0, 0], [0.05, 1], [0.4, 1], [0.8, 0], [1.5, 0]]);
+      P.crouch = kf(u - 0.03, [[0, 0], [0.1, 0.1], [0.3, 0.12], [0.6, 0.05], [0.9, 0], [1.5, 0]]);
+      P.lean = kf(u - 0.04, [[0, 0], [0.08, 7], [0.35, 4], [0.8, 0], [1.5, 0]]);
+      P.hop = 18 * bump(u, 0.02, 0.2);
+      walk(dxF, 2.6);
+      P.glow = u < 0.4 ? (Math.sin(u * 70) > 0 ? 0.6 : 0.25) : 0.55;
+      P.breath = 0.01 * Math.sin(T2 * u);
+      const d = Math.exp(-u * 10); P.shake = [(R() - 0.5) * 8 * d, (R() - 0.5) * 5 * d];
+      if (!S.hit && u > 0.02) S.hit = { born: now };
+    } else if (api.mood === "death") {
+      // Shudder, the glow gutters out, the legs splay and the body sinks; one leg twitches after it settles.
+      const uu = Math.min(u, 2.6);
+      const sh = 5 * smooth(0, 0.3, uu) * (1 - smooth(0.9, 1.2, uu));
+      P.dx = sh * Math.sin(u * 95); P.hop = sh * 0.5 * Math.abs(Math.sin(u * 60));
+      P.crouch = kf(uu - 0.03, [[0, 0], [0.5, 0.04], [1.0, 0.26], [1.5, 0.4], [1.9, 0.44], [3, 0.44]]);
+      const sp = kf(uu, [[0, 0], [0.7, 0.3], [1.4, 0.8], [1.9, 1], [3, 1]]);
+      P.legs = [26, 10, 16, -14, -26, -32].map((a, i) => a * sp + (i === 1 ? 0 : 0));
+      P.lean = kf(uu - 0.05, [[0, 0], [1.2, 0], [1.9, 5], [3, 5]]);
+      P.horn = kf(uu - 0.05, [[0, 0], [1.0, 0], [1.9, -12], [3, -12]]);
+      P.hhx = kf(uu, [[0, 0], [1.9, 8], [3, 8]]);
+      P.lift[1] += 12 * cyc(uu, 2.15, 2.5, 2); P.legs[1] += 8 * cyc(uu, 2.15, 2.5, 2);
+      P.glow = uu < 0.9 ? 0.8 * (Math.sin(uu * 40) > 0 ? 1 : 0.2) * (1 - uu / 0.9) : 0;
+      P.eyeGlow = uu < 0.9 ? P.glow : 0; P.dim = smooth(0.5, 1.0, uu);
+      if (u > 0.05 && u < 1.1) P.shake = [(R() - 0.5) * sh * 0.8, 0];
+      if (S.cyc < 0 && u >= 1.1) { S.cyc = 0; fx.puffs([GLAND[0], GLAND[1] - 60], 4, 1.2, ["#B07A44", "#E0A868"]); fx.puffs([GLAND[0] - 120, GLAND[1] + 20], 2, 1, ["#B07A44", "#E0A868"]);
+        for (let i = 0; i < 5; i++) fx.cog([560 + R() * 260, 330], (R() - 0.5) * 380, -380 - R() * 240, 0.35); }
+    }
+    P.t = t;
+    return P;
+  },
+  under(c, P, t, api) {
+    AV = api;
+    for (const id of brokenSet(api.state, NOTCH)) notchUnder(c, api, P, t, NOTCH[id]);
+    c.fillStyle = "rgba(0,0,0,0.35)"; c.beginPath(); c.ellipse(660, GROUND + 6, 480, 24, 0, 0, 2 * Math.PI); c.fill();
+    if (P.dim > 0.01) { c.fillStyle = `rgba(8,12,12,${0.3 * P.dim})`; c.beginPath(); c.ellipse(660, GROUND - 2, 380, 30, 0, 0, 2 * Math.PI); c.fill(); }
+  },
+  over(c, P, t, api) {
+    AV = api;
+    const S = api.state, at = p => api.point(p[0], p[1], P), bk = keepBroken(S);
+    const eyes = at(EYES), gland = at(GLAND), alive = 1 - P.dim;
+    // The rust gland: a hard-edged, two-tone, ink-outlined glow shape clipped inside the dome; it swells in steps.
+    const gb = bk["mite-gland"] ? 0.35 + 0.25 * Math.max(0, Math.sin(t * 23) * Math.sin(t * 7.3)) : 1;
+    const gl_ = P.glow * gb * alive;
+    if (gl_ > 0.06) {
+      const R0 = Math.round((28 + 24 * Math.min(1.5, gl_)) / 4) * 4;
+      c.save(); c.beginPath(); DOME.forEach((p, i) => { const q = at(p); i ? c.lineTo(q[0], q[1]) : c.moveTo(q[0], q[1]); }); c.closePath(); c.clip();
+      const blob = r => { c.beginPath(); for (let i = 0; i < 16; i++) { const a = i / 16 * 2 * Math.PI, rr = r * (i % 2 ? 0.92 : 1); const x = gland[0] + Math.cos(a) * rr, y = gland[1] + Math.sin(a) * rr * 0.9; i ? c.lineTo(x, y) : c.moveTo(x, y); } c.closePath(); };
+      blob(R0); c.fillStyle = "#FF8A2A"; c.fill(); c.strokeStyle = "#14100C"; c.lineWidth = 4; c.lineJoin = "round"; c.stroke();
+      blob(R0 * 0.55); c.fillStyle = "#FFD27A"; c.fill();
+      c.restore();
+    }
+    c.globalCompositeOperation = "lighter";
+    glow(c, eyes, 80, [255, 190, 120], 0.35 * P.eyeGlow * alive);
+    c.globalCompositeOperation = "source-over";
+    if (P.dim > 0.01 || P.eyeGlow < 0.5) {  // the eye orb dims to a gray-brown glass, never a black hole
+      const d = Math.min(0.85, P.dim * 0.85 + Math.max(0, 0.5 - P.eyeGlow) * 0.4);
+      c.fillStyle = `rgba(70,50,44,${d})`; c.beginPath(); c.ellipse(eyes[0], eyes[1], 22, 28, 0, 0, 2 * Math.PI); c.fill();
+    }
+    for (const id of brokenSet(S, NOTCH)) { notchOver(c, api, P, t, NOTCH[id], NOTCH_SPEC[id].flap); }
+    drawFx(c, S, t, GROUND, at, () => at(CORE));
+  },
+};
+
+const def: CharacterDef = {
+  notches: Object.fromEntries(Object.entries(NOTCH).map(([k, g]) => [k, g.poly])),
+  ...rig0,
+  id: 'rust-mite',
+  grid: [58, 40],
+  facing: 'left',
+  durations: {"idle":2.4,"attack":2,"hurt":1.5,"death":2.6},
+  texture: { regular: 'art/rust-mite/cut.webp' },
+};
+export default finishDef(def);

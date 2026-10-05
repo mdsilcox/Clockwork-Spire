@@ -1,0 +1,286 @@
+// @ts-nocheck
+// spring-imp: converted from art/spring-imp/spring-imp.template.html by scripts/rig-convert.mjs, then fixed by hand (D-033).
+// The rig code is the template's own (loose types on purpose: it is animation code, checked by looking at it);
+// the typed surface is the CharacterDef export at the bottom. Mesh grid is half the template's.
+import { band, finishDef, makeView, rad, rot, smooth } from './kit';
+import type { CharacterDef } from './types';
+
+
+const clamp = v => Math.min(1, Math.max(0, v)), ease = v => v * v * (3 - 2 * v);
+const kf = (u, T, V) => { if (u <= T[0]) return V[0]; for (let i = 1; i < T.length; i++) if (u <= T[i]) return V[i - 1] + (V[i] - V[i - 1]) * ease((u - T[i - 1]) / (T[i] - T[i - 1])); return V[V.length - 1]; };
+
+// Painting 1216x832, facing left. Feet at y 745. Ground shadow is code (the painted streak was removed).
+const KEY = [680, 365], HING = [530, 310], FIN = [568, 208], TAIL = [808, 385], BULB = [942, 425], HIPA = [487, 445], HIPB = [690, 610];
+const LENS = [310, 195], SNOUT = [185, 205], CORE = [680, 430], BULBC = [940, 600];
+const INK = "#14100C", BRASS = "#C9A24A", FURN = "#FFB547";
+
+const imp = {
+  size: [1216, 832], grid: [304, 208], pad: [220, 120],
+  anchors: { "imp-tail": [1045, 520, 95], "imp-key": [680, 365, 58], core: [680, 430, 100], eyes: [310, 195, 75] },
+  weights(x, y) {
+    const w = {};
+    w.key = 1 - smooth(40, 48, Math.hypot(x - KEY[0], y - KEY[1]));
+    w.tail = smooth(806, 832, x) * smooth(300, 380, y);
+    w.bulb = band(x, 905, 980, 8) * smooth(430, 480, y) * smooth(660, 640, y);
+    w.fin = smooth(545, 568, x) * smooth(244, 224, y);
+    w.H = smooth(585, 550, x) * smooth(430, 395, y) * (1 - w.fin);
+    w.la = band(x, 285, 508, 8) * smooth(450, 520, y);
+    w.lfa = band(x, 285, 470, 8) * smooth(650, 720, y);
+    w.lb = band(x, 630, 745, 8) * smooth(605, 640, y);
+    w.lfb = band(x, 630, 745, 8) * smooth(690, 735, y);
+    w.b = 1 - smooth(600, 720, y);
+    return w;
+  },
+  deform(x, y, w, P) {
+    [x, y] = rot(x, y, ...KEY, rad(P.key), w.key);
+    [x, y] = rot(x, y, ...BULB, rad(P.bulb), w.bulb);
+    const s = w.tail * Math.min(1.3, Math.max(0, (x - TAIL[0]) / 260));
+    x += P.tailX * s; y += P.tailY * Math.pow(s, 1.4);
+    [x, y] = rot(x, y, ...FIN, rad(P.fin), w.fin);
+    [x, y] = rot(x, y, ...HING, rad(P.head), w.H);
+    y += P.hy * w.H;
+    [x, y] = rot(x, y, ...HIPA, rad(P.la), w.la); y -= P.lyA * w.lfa; x += P.lxA * w.lfa;
+    [x, y] = rot(x, y, ...HIPB, rad(P.lb), w.lb); y -= P.lyB * w.lfb;
+    [x, y] = rot(x, y, 620, 745, rad(P.pitch), w.b);
+    return [x + P.bx * w.b + P.dx, y + P.by * w.b - P.dy];
+  },
+  moods: { idle: { eye: 0.9 }, attack: { eye: 1.1 }, hurt: { eye: 0.9 }, death: { eye: 0.9 } },
+  ease: 3,
+  onMood(m, api) { const S = api.state; S.start = undefined; S.cycle = undefined; S.did = {}; },
+  pose(L, t, dt, S, mood, api = makeView(imp, mood, S)) {
+    AV = api;
+    if (S.start === undefined) { S.start = t; S.sparks = []; S.puffs = []; S.bursts = []; S.rings = []; S.broken = S.broken || {}; S.did = {}; S.next = {}; S.sp = S.sp || { ty: 0, tv: 0, tx: 0, txv: 0, bl: 0, blv: 0, pbx: 0, pby: 0, pdx: 0, pdy: 0, pvx: 0, pvy: 0 }; }
+    const u = t - S.start, m = api.mood, sp = S.sp;
+    const P = { key: 0, bulb: 0, tailX: 0, tailY: 0, fin: 0, head: 0, hy: 0, la: 0, lyA: 0, lxA: 0, lb: 0, lyB: 0, pitch: 0, bx: 0, by: 0, dx: 0, dy: 0, flash: 0, shake: null, eye: L.eye, dead: 0, blink: 0, bulbOn: 1, keyOn: 1, tailKick: 0 };
+    const once = (k, cond, fn) => { if (cond && !S.did[k]) { S.did[k] = true; fn(); } };
+    const every = (k, period, from, fn) => { const n = Math.floor((u - from) / period); if (u >= from && S.next[k] !== n) { S.next[k] = n; fn(n); } };
+    const buzz = (f, a) => Math.sin(u * f) * a;
+    if (m === "idle") {
+      const c = u % 4, n = Math.floor(u / 4);
+      // Twitch and hold: a head snap, a fin flick, a foot tap, a lens blink, a ticking key. Otherwise still.
+      const snap = (t0, len) => c > t0 && c < t0 + len ? 1 : 0;
+      P.head = 5 * snap(0.6, 0.13) - 3.5 * snap(2.2, 0.15) + 1.2 * Math.sin(u * 1.1);
+      P.hy = 3 * snap(2.2, 0.15);
+      const fl = c > 1.4 && c < 1.9 ? Math.sin((c - 1.4) * 55) * Math.exp(-(c - 1.4) * 6) : 0;
+      P.fin = 9 * fl + 2 * Math.sin(u * 1.7);
+      const tap = (c > 3.0 && c < 3.12) || (c > 3.26 && c < 3.38);
+      P.lyA = tap ? 10 : 0; P.la = tap ? -2 : 0; P.lxA = tap ? -4 : 0;
+      once("tap" + n, c > 3.0, () => {});
+      P.by = 1.2 * Math.sin(u * Math.PI * 2 / 4);
+      const jolt = c > 0.6 && c < 0.75 ? 1 : 0; P.bx = 2.5 * jolt * 1; P.by -= 2 * jolt;
+      const f = (u * 2) % 1, tick = Math.floor(u * 2) + ease(clamp(f / 0.14));
+      P.key = 15 * (Math.floor(tick) % 4 + (tick % 1));
+      P.blink = c > 2.2 && c < 2.34 ? 0.85 : 0;
+      P.eye = L.eye * (0.93 + 0.07 * Math.sin(u * 13));
+    } else if (m === "attack") {
+      const c = u % 2.3, T = [0, 0.35, 0.8, 0.92, 1.02, 1.14, 1.3, 1.5, 1.75, 2.3];
+      // Coil: crouch back, key winds, tail draws up; vibrate; spring forward head first; bonk; skitter back.
+      P.by = kf(c, T, [0, 14, 22, 22, 4, 0, 0, 0, 0, 0]); P.bx = kf(c, T, [0, 10, 16, 10, -6, 0, 0, 0, 0, 0]);
+      P.pitch = kf(c, T, [0, -2, -3.5, 3, 2.5, 0, 0, 0, 0, 0]);
+      P.head = kf(c, T, [0, 5, 9, -9, -12, -2, 0, 0, 0, 0]); P.hy = kf(c, T, [0, -4, -7, 6, 8, 0, 0, 0, 0, 0]);
+      P.fin = kf(c, T, [0, 6, 12, -10, -6, 1, 0, 0, 0, 0]);
+      P.la = kf(c, T, [0, 5, 7, -6, -4, 0, 0, 0, 0, 0]); P.lb = kf(c, T, [0, 4, 6, -5, -3, 0, 0, 0, 0, 0]);
+      // Travel: forward spring (dx negative is left), a hop, then a stepped skitter home.
+      const hop = kf(c, [0, 0.8, 0.92, 1.05, 1.18, 1.3, 1.5, 1.62, 1.75, 2.3], [0, 0, 0, 62, 0, 0, 22, 0, 8, 0]);
+      const hop2 = c > 1.3 && c < 1.75 ? Math.abs(Math.sin((c - 1.3) / 0.225 * Math.PI)) * 24 : 0;
+      P.dy = hop + hop2 * 0;
+      P.dx = kf(c, [0, 0.8, 0.92, 1.05, 1.3, 1.75, 2.3], [0, 0, 0, -130, -130, 0, 0]);
+      const skit = c > 1.3 && c < 1.75 ? 1 : 0; if (skit) P.dy += hop2;
+      // Key spins while winding.
+      P.key = kf(c, [0, 0.35, 0.5, 0.65, 0.8, 1.0, 1.3, 2.3], [0, 28, 20, 52, 44, 75, 0, 0]) + buzz(70, c > 0.5 && c < 0.92 ? 3 : 0);
+      if (c > 0.55 && c < 0.92) P.shake = [(Math.random() - 0.5) * 5, (Math.random() - 0.5) * 3];
+      P.tailKick = c > 0.35 && c < 0.8 ? kf(c, [0.35, 0.8], [0, 1]) : 0;
+      P.eye = kf(c, [0, 0.8, 1.05, 1.4, 2.3], [1.0, 1.5, 2.0, 1.0, 1.0]);
+      const cyc = Math.floor(u / 2.3); if (S.cycle !== cyc) { S.cycle = cyc; S.did = {}; }
+      once("bonk", c >= 1.05, () => {
+        const p = at(SNOUT, P); S.bursts.push({ born: t, at: [p[0] - 24, p[1]], r: 56 });
+        for (let i = 0; i < 7; i++) S.sparks.push(spark(t, [p[0] - 20, p[1]], 18, 1));
+        sp.tv += -380;
+      });
+      once("land", c >= 1.18, () => { S.rings.push({ born: t, x: 560 + P.dx, y: 750 }); });
+      once("land2", c >= 1.75, () => { S.rings.push({ born: t, x: 560, y: 750, small: true }); });
+    } else if (m === "hurt") {
+      const c = u % 1.4, T = [0, 0.07, 0.2, 0.55, 1.4];
+      P.flash = c < 0.05 ? 0.2 : c < 0.085 ? 0.12 : c < 0.12 ? 0.05 : 0;
+      P.dx = kf(c, T, [0, 44, 30, 0, 0]); P.dy = c < 0.35 ? Math.sin(c / 0.35 * Math.PI) * 26 : 0;
+      P.head = kf(c, T, [0, 15, 8, 0, 0]); P.hy = kf(c, T, [0, -5, -2, 0, 0]); P.pitch = kf(c, T, [0, 4, 2, 0, 0]);
+      P.fin = 10 * Math.exp(-c * 5) * Math.sin(c * 40);
+      P.la = kf(c, T, [0, 6, 3, 0, 0]); P.lb = kf(c, T, [0, -5, -2, 0, 0]);
+      P.key = kf(c, [0, 0.1, 0.5, 1.4], [0, -40, 0, 0]);
+      P.eye = kf(c, [0, 0.07, 0.4, 1.4], [0.9, 1.7, 0.3, 0.9]); P.blink = c > 0.12 && c < 0.45 ? (Math.sin(c * 60) > 0 ? 0.7 : 0) : 0;
+      const d = Math.exp(-c * 6); P.shake = [(Math.random() - 0.5) * 8 * d, (Math.random() - 0.5) * 5 * d];
+      const cyc = Math.floor(u / 1.4);
+      if (S.hit !== cyc) { S.hit = cyc; S.bursts.push({ born: t, at: CORE, r: 70 }); for (let i = 0; i < 6; i++) S.sparks.push(spark(t, KEY, 40, 0.9)); sp.tv += -300; sp.txv += 400; }
+    } else if (m === "death") {
+      const c = Math.min(u, 2.999), T = [0, 0.08, 0.3, 0.9, 1.5, 2.2, 3];
+      P.flash = c < 0.05 ? 0.2 : c < 0.085 ? 0.12 : c < 0.12 ? 0.05 : 0;
+      P.dx = kf(c, T, [0, 40, 36, 36, 36, 36, 36]);
+      P.dy = c < 0.3 ? Math.sin(c / 0.3 * Math.PI) * 22 : 0;
+      P.head = kf(c, T, [0, 14, 8, 6, -14, -20, -20]); P.hy = kf(c, T, [0, -5, -2, 0, 12, 22, 22]);
+      P.fin = kf(c, T, [0, 8, 4, 0, 16, 24, 24]);
+      P.by = kf(c, T, [0, -4, 0, 4, 30, 44, 44]); P.pitch = kf(c, T, [0, 4, 2, 1, -4, -5, -5]);
+      P.la = kf(c, T, [0, 6, 3, 2, 8, 10, 10]); P.lb = kf(c, T, [0, -5, -2, -2, -7, -9, -9]); P.lxA = kf(c, T, [0, 0, 0, 0, -3, -5, -5]);
+      P.key = kf(c, [0, 0.2, 0.5, 0.8, 1.2, 1.5, 1.6, 3], [0, 40, 25, 70, 55, 62, 70, 70]);
+      if (c > 0.12 && c < 1.0) { const d = Math.exp(-(c - 0.12) * 4); P.shake = [(Math.random() - 0.5) * 10 * d, (Math.random() - 0.5) * 6 * d]; }
+      // The lamp lens, the dial and the bulb flicker, then go dull.
+      const flick = c < 0.3 ? 1 : c < 1.7 ? (Math.sin(c * 33) > -0.2 ? 1 : 0.2) * (1 - (c - 0.3) / 1.4) : 0;
+      P.eye = 0.9 * flick; P.bulbOn = c < 1.3 ? (Math.sin(c * 41) > 0 ? 1 : 0.3) * (1 - c / 1.3) : 0; P.keyOn = flick;
+      P.dead = ease(clamp((c - 0.3) / 1.4)); P.tailKick = 0;
+      once("hit", true, () => { S.bursts.push({ born: t, at: CORE, r: 80 }); for (let i = 0; i < 8; i++) S.sparks.push(spark(t, KEY, 40, 1)); sp.tv += -300; });
+      once("puff", c >= 0.9, () => { for (let i = 0; i < 3; i++) S.puffs.push(puff(t, [330 + i * 22, 70], P)); });
+      once("fizz", c >= 1.5, () => { for (let i = 0; i < 6; i++) S.sparks.push(spark(t, KEY, 30, 0.6)); });
+      once("land", c >= 1.0, () => S.rings.push({ born: t, x: 556, y: 750 }));
+      once("land3", c >= 1.7, () => S.rings.push({ born: t, x: 556, y: 750, small: true }));
+    }
+    // Spring tail: a damped spring driven by body acceleration (and kicks), the bulb hangs from it as a pendulum.
+    const vx = (P.bx + P.dx - sp.pdx) / Math.max(dt, 1e-3), vy = (P.by - P.dy - sp.pdy) / Math.max(dt, 1e-3);
+    const ax = (vx - sp.pvx) / Math.max(dt, 1e-3), ay = (vy - sp.pvy) / Math.max(dt, 1e-3);
+    sp.pvx = vx; sp.pvy = vy; sp.pdx = P.bx + P.dx; sp.pdy = P.by - P.dy;
+    const dts = Math.min(dt, 1 / 30);
+    const drive = (u > 0.05 && dt > 0) ? Math.max(-90000, Math.min(90000, ay)) : 0, drivex = (u > 0.05 && dt > 0) ? Math.max(-90000, Math.min(90000, ax)) : 0;
+    sp.tv += (-95 * sp.ty - 5.5 * sp.tv + drive * 0.012 - 260 * P.tailKick) * dts; sp.ty += sp.tv * dts;
+    sp.txv += (-85 * sp.tx - 5 * sp.txv - drivex * 0.012) * dts; sp.tx += sp.txv * dts;
+    if (m === "death") { sp.ty += (30 - sp.ty) * (1 - Math.exp(-dt * 3)) * smooth(1.2, 2.2, u); }
+    sp.blv += (-70 * sp.bl - 3.2 * sp.blv - (sp.txv - 0) * 0.5 + sp.tv * 0.06) * dts; sp.bl += sp.blv * dts;
+    P.tailY = Math.max(-140, Math.min(140, sp.ty)) + 2 * Math.sin(u * 1.3); P.tailX = Math.max(-60, Math.min(60, sp.tx));
+    P.bulb = Math.max(-35, Math.min(35, sp.bl));
+    const bk = S.broken || {};
+    if (bk["imp-key"]) every("fk", 0.45, 0, () => S.sparks.push(spark(t, [715, 335], 12, 0.5)));
+    if (bk["imp-tail"]) every("ft", 0.5, 0.2, k => { S.sparks.push(spark(t, [1075, 520], 20, 0.5)); if (k % 2) S.puffs.push(Object.assign(puff(t, [1075, 515], P), { r: 16, life: 0.9 })); });
+    P.t = t;
+    return P;
+  },
+  under(c, P, t, api) {
+    AV = api;
+    // Flat ground shadow (code): shrinks with the hop.
+    const h = Math.min(1, P.dy / 60), cx = 535 + P.dx * 0.9;
+    c.fillStyle = "rgba(10,8,6,0.4)"; c.beginPath(); c.ellipse(cx, 752, 380 * (1 - 0.2 * h), 17 * (1 - 0.3 * h), 0, 0, 2 * Math.PI); c.fill();
+  },
+  over(c, P, t, api) {
+    AV = api;
+    const S = api.state, at = p => api.point(p[0], p[1], P);
+    // Lens: a warm glow; dull gray glass over it when dead; a quick shutter blink.
+    const E = Math.max(0, P.eye), fl = 0.92 + 0.08 * Math.sin(t * 17) * Math.sin(t * 5.3);
+    c.globalCompositeOperation = "lighter";
+    glow(c, at(LENS), 110, [255, 190, 90], 0.22 * E * fl);
+    if (P.bulbOn > 0) glow(c, at(BULBC), 50, [255, 190, 90], 0.22 * P.bulbOn);
+    if (P.keyOn > 0) glow(c, at(KEY), 45, [255, 200, 110], 0.2 * P.keyOn);
+    c.globalCompositeOperation = "source-over";
+    const dull = (p, r, a) => { if (a <= 0) return; c.fillStyle = `rgba(32,42,46,${a})`; c.beginPath(); c.arc(p[0], p[1], r, 0, 2 * Math.PI); c.fill(); };
+    dull(at(LENS), 76, Math.max(P.dead * 0.8, P.blink));
+    dull(at(BULBC), 36, P.dead * 0.75); dull(at(KEY), 30, P.dead * 0.7);
+    if (P.dead > 0.5) { c.strokeStyle = "rgba(14,10,8,0.8)"; c.lineWidth = 3; const p = at(LENS); c.beginPath(); c.moveTo(p[0] - 30, p[1] - 40); c.lineTo(p[0] - 5, p[1] - 5); c.lineTo(p[0] - 20, p[1] + 20); c.moveTo(p[0] - 5, p[1] - 5); c.lineTo(p[0] + 30, p[1] + 5); c.stroke(); }
+    // Landing dust rings (flat, ink edged).
+    S.rings = (S.rings || []).filter(r => t - r.born < 0.5);
+    for (const r of S.rings) {
+      const a = (t - r.born) / 0.5; c.globalAlpha = a < 0.5 ? 1 : 0.5; const k = r.small ? 0.6 : 1;
+      const rx = (50 + 200 * a) * k, ry = (10 + 26 * a) * k;
+      for (const [col, lw] of [[INK, 18 * k + 4], ["#9FB4BB", 11 * k + 2], ["#E8EEF0", 5 * k + 1]]) { c.strokeStyle = col; c.lineWidth = lw; c.beginPath(); c.ellipse(r.x, r.y - (lw === 5 * k + 1 ? 2 : 0), rx, ry, 0, 0, 2 * Math.PI); c.stroke(); }
+      c.globalAlpha = 1;
+    }
+    // Sparks: ink-edged two-tone diamonds that shrink in steps.
+    S.sparks = (S.sparks || []).filter(s => t - s.born < s.life);
+    for (const s of S.sparks) {
+      const d = t - s.born, a = d / s.life, x = s.x + s.vx * d, y = s.y + s.vy * d + 700 * d * d, sz = s.sz * (a < 0.5 ? 1 : a < 0.8 ? 0.7 : 0.4);
+      c.save(); c.translate(x, y); c.rotate(Math.atan2(s.vy + 1400 * d, s.vx)); c.lineJoin = "miter";
+      c.fillStyle = INK; c.beginPath(); c.moveTo(-sz * 1.8 - 2, 0); c.lineTo(0, -sz * 0.8 - 2); c.lineTo(sz * 1.8 + 2, 0); c.lineTo(0, sz * 0.8 + 2); c.closePath(); c.fill();
+      c.fillStyle = s.hot ? FURN : BRASS; c.beginPath(); c.moveTo(-sz * 1.8, 0); c.lineTo(0, -sz * 0.8); c.lineTo(sz * 1.8, 0); c.lineTo(0, sz * 0.8); c.closePath(); c.fill();
+      c.restore();
+    }
+    S.puffs = (S.puffs || []).filter(p => t - p.born < p.life);
+    for (const p of S.puffs) {
+      const a = (t - p.born) / p.life, d = t - p.born, r = p.r * (0.5 + 1.1 * a), x = p.x + p.vx * d, y = p.y + p.vy * d;
+      c.globalAlpha = a < 0.55 ? 1 : a < 0.8 ? 0.65 : 0.35;
+      const lumps = p.lumps.map(([ox, oy, k]) => [x + ox * r, y + oy * r, r * k]);
+      c.fillStyle = INK; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr + 2, 0, 2 * Math.PI); c.fill(); }
+      c.fillStyle = "#9FB4BB"; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr, 0, 2 * Math.PI); c.fill(); }
+      c.fillStyle = "#E8EEF0"; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx - lr * 0.14, ly - lr * 0.16, lr * 0.84, 0, 2 * Math.PI); c.fill(); }
+      c.globalAlpha = 1;
+    }
+    S.bursts = (S.bursts || []).filter(b => t - b.born < 0.28);
+    for (const b of S.bursts) {
+      const a = (t - b.born) / 0.28, p = at(b.at), R = b.r * (0.6 + 0.7 * ease(a));
+      c.globalAlpha = a < 0.6 ? 1 : 0.6; c.lineJoin = "miter";
+      for (const [k, col, lw] of [[1, "#FFB547", 3], [0.55, "#E8EEF0", 0]]) {
+        c.beginPath();
+        for (let i = 0; i < 16; i++) { const an = i / 16 * 2 * Math.PI, rr = (i % 2 ? 0.45 : 1 + 0.25 * ((i * 7) % 3 - 1)) * R * k; i ? c.lineTo(p[0] + Math.cos(an) * rr, p[1] + Math.sin(an) * rr) : c.moveTo(p[0] + Math.cos(an) * rr, p[1] + Math.sin(an) * rr); }
+        c.closePath(); c.fillStyle = col; c.fill(); if (lw) { c.strokeStyle = INK; c.lineWidth = lw; c.stroke(); }
+      }
+      c.globalAlpha = 1;
+    }
+    drawBroken(c, at, S, t);
+  },
+};
+// ---- Broken-look kit: a jagged notch erased from the painting's silhouette (re-uploaded texture), a glowing broken edge and thick ink cracks. ----
+let AV = null; // the hub view of the frame being drawn: its painting and alpha
+function alphaAt(x, y) { return AV ? AV.alpha(x, y) : 0; }
+function seeded(seed) { return () => (seed = (seed * 9301 + 49297) % 233280) / 233280; }
+function jaggedBlob(cx, cy, r, n, j, seed) {
+  const rnd = seeded(seed), pts = [];
+  for (let i = 0; i < n; i++) { const an = i / n * 2 * Math.PI, rr = r * (i % 2 ? 1 - j * (0.4 + 0.6 * rnd()) : 1 + j * 0.5 * rnd()); pts.push([cx + Math.cos(an) * rr, cy + Math.sin(an) * rr]); }
+  return pts;
+}
+// DMG: id -> { poly: [[x, y]...] (rest-pose points to erase), c: [x, y], r, cracks: n, seed, tint }
+// Glowing broken edge (only where the painting was cut) plus thick cracks running into the intact paint, in every mood.
+function drawBroken(c, at, S, t) {
+  const bk = S.broken || {};
+  for (const id in bk) {
+    if (!bk[id] || !DMG[id]) continue;
+    const d = DMG[id], poly = d.poly, rnd = seeded(d.seed || 3);
+    const pulse = 0.75 + 0.25 * Math.sin(t * 5 + d.seed);
+    // Edge: dense samples along the polygon, kept where the original painting has paint.
+    const segs = []; let cur = [];
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i], b = poly[(i + 1) % poly.length], n = Math.max(2, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 4));
+      for (let k = 0; k < n; k++) { const x = a[0] + (b[0] - a[0]) * k / n, y = a[1] + (b[1] - a[1]) * k / n; if (alphaAt(x, y) > 128) cur.push([x, y]); else if (cur.length) { segs.push(cur); cur = []; } }
+    }
+    if (cur.length) segs.push(cur);
+    c.lineCap = "round"; c.lineJoin = "round";
+    for (const [col, lw] of [[INK, 11], ["rgba(255,140,50," + (0.55 * pulse) + ")", 7], ["rgba(255,205,130,0.95)", 3]]) {
+      c.strokeStyle = col; c.lineWidth = lw;
+      for (const s of segs) { c.beginPath(); s.forEach(([x, y], i) => { const p = at([x, y]); i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]); }); c.stroke(); }
+    }
+    // Cracks: jagged, thick, ink with a bright edge, only over paint.
+    const paths = [];
+    for (let k = 0; k < (d.cracks || 3); k++) {
+      let an = (d.crack0 || 0) + k * (d.crackStep || 1.3) + rnd() * 0.4, x = d.c[0], y = d.c[1]; const pts = [];
+      for (let s = 0; s < 14; s++) { an += (rnd() - 0.5) * 0.7; x += Math.cos(an) * 12; y += Math.sin(an) * 12; if (alphaAt(x, y) > 128 && s * 12 > d.r * 0.4) pts.push([x, y]); }
+      if (pts.length > 2) paths.push(pts);
+    }
+    for (const [col, lw, off] of [[INK, 8, 0], ["rgba(255,205,130,0.95)", 2.5, -1.5]]) {
+      c.strokeStyle = col; c.lineWidth = lw; c.lineJoin = "miter";
+      for (const pts of paths) { c.beginPath(); pts.forEach(([x, y], i) => { const p = at([x, y]); i ? c.lineTo(p[0] + off, p[1] + off) : c.moveTo(p[0] + off, p[1] + off); }); c.stroke(); }
+    }
+  }
+}
+
+const DMG = {
+  "imp-tail": { poly: jaggedBlob(1102, 520, 52, 14, 0.45, 7), c: [1058, 520], r: 30, cracks: 3, crack0: 2.2, crackStep: 1.0, seed: 7 },
+  "imp-key": { poly: jaggedBlob(726, 320, 36, 12, 0.45, 9), c: [688, 356], r: 30, cracks: 3, crack0: -2.1, crackStep: 1.3, seed: 13 },
+};
+function glow(c, [x, y], r, [R, G, B], a) {
+  if (a <= 0) return;
+  const g = c.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(${R},${G},${B},${Math.min(1, a)})`); g.addColorStop(1, `rgba(${R},${G},${B},0)`);
+  c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 2 * Math.PI); c.fill();
+}
+function at(p, P) { return imp.deform(p[0], p[1], imp.weights(p[0], p[1]), P); }
+function spark(t, [cx, cy], spread, k) {
+  const a = -Math.PI / 2 + (Math.random() - 0.5) * 3.0, v = (240 + Math.random() * 320) * k;
+  return { x: cx + (Math.random() - 0.5) * spread, y: cy + (Math.random() - 0.5) * spread, vx: Math.cos(a) * v, vy: Math.sin(a) * v, born: t, life: 0.4 + Math.random() * 0.3, sz: 5 + Math.random() * 4, hot: Math.random() < 0.5 };
+}
+function puff(born, [x, y], P) {
+  [x, y] = at([x, y], P);
+  return { x, y, vx: (Math.random() - 0.5) * 40, vy: -(50 + Math.random() * 50), r: 24 + Math.random() * 12, born, life: 1.3 + Math.random() * 0.5, lumps: [[0, 0, 1], [-0.55, 0.15, 0.62 + Math.random() * 0.15], [0.5, 0.2, 0.55 + Math.random() * 0.2], [0.05, -0.5, 0.5 + Math.random() * 0.15]] };
+}
+
+const def: CharacterDef = {
+  notches: Object.fromEntries(Object.entries(DMG).map(([k, v]) => [k, v.poly])),
+  ...imp,
+  id: 'spring-imp',
+  grid: [58, 40],
+  facing: 'left',
+  durations: {"idle":4,"attack":2.3,"hurt":1.4,"death":3},
+  texture: { regular: 'art/spring-imp/cut.webp' },
+};
+export default finishDef(def);

@@ -1,0 +1,345 @@
+// @ts-nocheck
+// oil-slick: converted from art/oil-slick/oil-slick.template.html by scripts/rig-convert.mjs, then fixed by hand (D-033).
+// The rig code is the template's own (loose types on purpose: it is animation code, checked by looking at it);
+// the typed surface is the CharacterDef export at the bottom. Mesh grid is half the template's.
+import { band, finishDef, makeView, rad, rot, smooth } from './kit';
+import type { CharacterDef } from './types';
+
+
+const clamp = v => Math.min(1, Math.max(0, v)), ease = v => v * v * (3 - 2 * v);
+const kf = (u, T, V) => { if (u <= T[0]) return V[0]; for (let i = 1; i < T.length; i++) if (u <= T[i]) return V[i - 1] + (V[i] - V[i - 1]) * ease((u - T[i - 1]) / (T[i] - T[i - 1])); return V[V.length - 1]; };
+
+// Painting 1216x832, facing left. Ground line (feet in the oil) about y 690; the puddle spans x 165 to 1090.
+const MOUTH = [288, 388], LIP = [335, 448], CORE = [620, 340];
+const RAG = [1000, 285], BP = [900, 600];
+const RIM = [[550, 142, 545, 226], [692, 132, 706, 222]];          // nozzle cap rim: x, y, landing x, y on the tank top
+const HIPS = [[440, 505], [565, 500], [715, 535], [895, 480]];      // far front, near front, far rear, near rear
+const BANDS = [[392, 474], [495, 610], [688, 765], [868, 990]];
+const LOWS = [[600, 650], [640, 700], [570, 610], [610, 660]];
+const FEET = [[430, 665], [525, 725], [725, 612], [970, 662]];
+const flashK = c => c < 0.05 ? 0.2 : c < 0.085 ? 0.12 : c < 0.12 ? 0.05 : 0;
+const INK = "#14100C", OIL = "#2A2420", SHEEN = "#8FA3A8", GLOW = "#FFB547";
+
+const slick = {
+  size: [1216, 832], grid: [152, 104], pad: [300, 100],
+  anchors: { "slick-nozzle": [620, 150, 85], "slick-spitter": [288, 388, 60], core: [620, 340, 90], eyes: [288, 388, 40] },
+  weights(x, y) {
+    const w = { l: [], f: [] };
+    for (let i = 0; i < 4; i++) {
+      const b = band(x, BANDS[i][0], BANDS[i][1], 10);
+      w.l.push(b * smooth(HIPS[i][1] + 25, HIPS[i][1] + 95, y));
+      w.f.push(b * smooth(LOWS[i][0], LOWS[i][1], y));
+    }
+    const strand = band(x, 245, 322, 8) * smooth(455, 470, y);          // the oil strand hanging from the mouth stretches
+    w.b = 1 - ((1 - strand) * smooth(570, 650, y) + strand * smooth(470, 640, y));
+    w.legm = Math.max(...BANDS.map(b => band(x, b[0], b[1], 10))) * smooth(540, 600, y);
+    w.cap = band(x, 535, 705, 10) * smooth(232, 212, y) * smooth(30, 55, y);
+    w.rag = smooth(970, 1000, x) * smooth(262, 300, y) * smooth(600, 570, y);
+    return w;
+  },
+  deform(x, y, w, P) {
+    [x, y] = rot(x, y, ...RAG, rad(P.rag), w.rag);
+    for (let i = 0; i < 4; i++) {
+      [x, y] = rot(x, y, ...HIPS[i], rad(P.lr[i]), w.l[i]);
+      y -= P.ly[i] * w.f[i]; x += P.lx[i] * w.f[i];
+    }
+    y -= P.cap * w.cap;
+    const wb = w.b + (1 - w.b) * P.sink * w.legm, sw = P.swell * w.b * smooth(560, 500, y);
+    x = 620 + (x - 620) * (1 + 0.5 * sw); y = 420 + (y - 420) * (1 + sw);
+    [x, y] = rot(x, y, ...BP, rad(P.pitch), wb);
+    return [x + P.bx * wb, y + P.by * wb];
+  },
+  moods: { idle: { eye: 0.4 }, attack: { eye: 0.6 }, hurt: { eye: 0.5 }, death: { eye: 0.4 } },
+  ease: 3,
+  onMood(m, api) { const S = api.state; S.start = undefined; S.cycle = undefined; S.hit = undefined; S.did = {}; },
+  pose(L, t, dt, S, mood, api = makeView(slick, mood, S)) {
+    AV = api;
+    if (S.start === undefined) { S.start = t; S.drops = []; S.ripples = []; S.globs = []; S.puffs = []; S.bursts = []; S.splats = []; S.broken = S.broken || {}; S.did = {}; S.bubbles = []; S.lag = S.lag || [0, 0]; S.next = {}; }
+    const u = t - S.start, m = api.mood, nz = S.broken["slick-nozzle"] ? [600, 150] : [620, 70];
+    const P = { pitch: 0, bx: 0, by: 0, lr: [0, 0, 0, 0], ly: [0, 0, 0, 0], lx: [0, 0, 0, 0], rag: 0, flash: 0, shake: null, eye: L.eye, spread: 0, stream: 0, fl: 0, sink: 0, cap: 0, swell: 0 };
+    const once = (k, cond, fn) => { if (cond && !S.did[k]) { S.did[k] = true; fn(); } };
+    const every = (k, period, from, fn) => { const n = Math.floor((u - from) / period); if (u >= from && S.next[k] !== n) { S.next[k] = n; fn(n); } };
+    if (m === "idle") {
+      const c = u % 4, n = Math.floor(u / 4);
+      // The iron sits still. It breathes a pixel or two, twitches once, and one foot lifts and plants.
+      P.by = 2.4 * Math.sin(u * Math.PI * 2 / 4); P.swell = 0.016 * (0.5 + 0.5 * Math.sin(u * Math.PI * 2 / 4 - 1.2));
+      P.cap = c > 0.95 && c < 1.2 ? 7 * Math.sin((c - 0.95) / 0.25 * Math.PI) : 0;
+      once('cap' + n, c > 0.95, () => { S.puffs.push(puff(t, nz, P)); drop(S, t, [nz[0] + 20, nz[1]], 222, 7, P, nz[0] + 90, -300); });
+      every('bub', 0.5, 0.1, () => S.bubbles.push({ born: t, x: 266 + Math.random() * 46, y: 430 }));
+      const tw = c > 1.6 && c < 2.0 ? Math.sin((c - 1.6) * 40) * Math.exp(-(c - 1.6) * 9) : 0;
+      P.pitch = 0.45 * tw; P.by += 2.2 * tw;
+      const lift = kf(c, [0, 2.3, 2.55, 2.95, 3.2, 4], [0, 0, 1, 1, 0, 0]);
+      const i = n % 2 ? 0 : 2;
+      P.ly[i] = 11 * lift; P.lx[i] = -7 * lift; P.lr[i] = -3 * lift;
+      once("plant" + n, c >= 3.2 && c < 3.5, () => S.ripples.push({ x: FEET[i][0], y: FEET[i][1] + 14, born: t, r: 46, life: 0.9 }));
+      P.eye = L.eye * (c > 2.95 && c < 3.1 ? 0.1 : 1) * (0.9 + 0.1 * Math.sin(u * 7.3));
+      every("dm", 1.2, 0.4, () => drop(S, t, LIP, 675, 7, P));
+      every("dr", 1.6, 1.1, () => drop(S, t, [1035, 566], 668, 6, P));
+      every("dn", 1.3, 0.2, k => { const r = RIM[k % 2]; drop(S, t, [r[0], r[1]], r[3], 5, P, r[2]); });
+    } else if (m === "attack") {
+      const c = u % 2.4, T = [0, 0.2, 0.45, 0.62, 0.95, 1.05, 1.5, 2.4];
+      // Gather: a dip, then the tank rocks back hard on its rear legs and swells, the nozzle puffs three times and the oil slops; then the spit.
+      P.pitch = kf(c, T, [0, -1.5, 5.5, 3, 8, -3.6, -0.8, 0]);
+      P.bx = kf(c, T, [0, -3, 8, 5, 14, 22, 6, 0]); P.by = kf(c, T, [0, 2, -7, -3, -10, 6, 1, 0]);
+      P.swell = kf(c, T, [0, 0.01, 0.03, 0.02, 0.04, 0, 0, 0]);
+      P.lr = [kf(c, T, [0, 0, -3, -2, -5, 4, 1, 0]), kf(c, T, [0, 0, -4, -2, -6, 5, 1, 0]), kf(c, T, [0, 0, 2, 1, 3, -3, 0, 0]), kf(c, T, [0, 0, 3, 1, 4, -4, 0, 0])];
+      for (const t0 of [0.22, 0.47, 0.72]) if (c > t0 && c < t0 + 0.14) P.cap = 6 * Math.sin((c - t0) / 0.14 * Math.PI);
+      P.eye = kf(c, [0, 0.5, 0.95, 1.2, 2.4], [0.5, 0.9, 1.4, 0.8, 0.5]);
+      if (c > 0.35 && c < 0.95) P.shake = [(Math.random() - 0.5) * 5 * ease((c - 0.35) / 0.6), (Math.random() - 0.5) * 3 * ease((c - 0.35) / 0.6)];
+      if (c >= 0.95) { const d = Math.exp(-(c - 0.95) * 8); P.shake = [(Math.random() - 0.5) * 12 * d, (Math.random() - 0.5) * 7 * d]; }
+      const cyc = Math.floor(u / 2.4);
+      if (S.cycle !== cyc) { S.cycle = cyc; S.did = {}; }
+      for (const [k, t0] of [["p1", 0.22], ["p2", 0.47], ["p3", 0.72]]) once(k, c > t0, () => { S.puffs.push(puff(t, nz, P)); drop(S, t, [nz[0] + (Math.random() - 0.5) * 30, nz[1]], 222, 8, P, nz[0] + (Math.random() - 0.5) * 160, -320); });
+      for (const [k, t0] of [["s1", 0.3], ["s2", 0.6], ["s3", 0.82]]) once(k, c > t0, () => { drop(S, t, LIP, 675, 10, P); drop(S, t, [LIP[0] - 25, LIP[1] - 4], 675, 8, P); });
+      once("quiver", c > 0.4, () => { for (let i = 0; i < 6; i++) drop(S, t, [nz[0] + (Math.random() - 0.5) * 50, nz[1]], 222, 8 + Math.random() * 3, P, 620 + (Math.random() - 0.5) * 220, -330 - Math.random() * 120); });
+      once("spit", c >= 0.95, () => {
+        const p = at(MOUTH, P);
+        S.globs.push({ born: t, x: p[0] - 15, y: p[1], vx: -1700, vy: -40, r: 34 });
+        for (let i = 0; i < 9; i++) S.globs.push({ born: t, x: p[0] - 20, y: p[1] + (Math.random() - 0.5) * 50, vx: -(500 + Math.random() * 800), vy: -150 + Math.random() * 300, r: 6 + Math.random() * 8, small: true });
+        S.bursts.push({ born: t, at: [p[0] - 30, p[1]], r: 44 });
+        for (let i = 0; i < 5; i++) drop(S, t, [nz[0] + (Math.random() - 0.5) * 40, nz[1]], 222, 9, P, 600 + Math.random() * 160, -380 - Math.random() * 100);
+      });
+      once("ripple", c >= 1.1, () => { S.ripples.push({ x: FEET[0][0], y: FEET[0][1] + 14, born: t, r: 70, life: 0.9 }); S.ripples.push({ x: FEET[1][0], y: FEET[1][1] + 14, born: t, r: 90, life: 1.0 }); });
+    } else if (m === "hurt") {
+      const c = u % 1.5, T = [0, 0.07, 0.2, 0.7, 1.5];
+      P.fl = flashK(c);
+      P.bx = kf(c, T, [0, 36, 28, 0, 0]); P.pitch = kf(c, T, [0, 3.2, 2, 0, 0]); P.by = kf(c, T, [0, -6, -3, 0, 0]);
+      P.lr = [kf(c, T, [0, 6, 3, 0, 0]), kf(c, T, [0, 7, 4, 0, 0]), kf(c, T, [0, -4, -2, 0, 0]), kf(c, T, [0, -5, -3, 0, 0])];
+      P.eye = kf(c, [0, 0.07, 0.3, 1.5], [0.5, 1.6, 0.3, 0.5]);
+      const d = Math.exp(-c * 6); P.shake = [(Math.random() - 0.5) * 8 * d, (Math.random() - 0.5) * 5 * d];
+      const cyc = Math.floor(u / 1.5);
+      if (S.hit !== cyc) {
+        S.hit = cyc; S.bursts.push({ born: t, at: CORE, r: 70 });
+        for (let i = 0; i < 6; i++) drop(S, t, [nz[0] + (Math.random() - 0.5) * 60, nz[1]], 222, 7 + Math.random() * 3, P, 600 + (Math.random() - 0.5) * 300, -300 - Math.random() * 140);
+        S.ripples.push({ x: FEET[1][0], y: FEET[1][1] + 14, born: t, r: 80, life: 0.9 });
+        drop(S, t, LIP, 675, 8, P); drop(S, t, [1035, 566], 668, 7, P);
+      }
+    } else if (m === "death") {
+      const c = Math.min(u, 2.999);
+      const T = [0, 0.08, 0.3, 0.9, 1.7, 2.3, 3];
+      P.fl = flashK(c);
+      P.bx = kf(c, T, [0, 34, 24, 18, 22, 22, 22]);
+      P.pitch = kf(c, T, [0, 3, 1.5, 2, -4.5, -5, -5]);
+      P.by = kf(c, T, [0, -5, -2, -4, 18, 26, 26]); P.sink = ease(clamp((c - 0.9) / 0.9));
+      const sp = kf(c, T, [0, 0, 0, 0, 1, 1.15, 1.15]);
+      P.lr = [6 * sp, 7 * sp, -5 * sp, -6 * sp]; P.lx = [-4 * sp, -5 * sp, 4 * sp, 5 * sp];
+      if (c > 0.3 && c < 0.9) { P.pitch += 0.5 * Math.sin(c * 55) * (1 - (c - 0.3) / 0.6); P.by += 1.5 * Math.sin(c * 47); }
+      P.eye = c < 0.3 ? 1.4 * Math.exp(-c * 3) + 0.4 : c < 1.6 ? 0.4 * (Math.sin(c * 31) > 0.2 ? 1 : 0.25) * (1 - (c - 0.3) / 1.3) : 0;
+      if (c > 0.12 && c < 0.9) { const d = Math.exp(-(c - 0.12) * 5); P.shake = [(Math.random() - 0.5) * 12 * d, (Math.random() - 0.5) * 8 * d]; }
+      P.spread = ease(clamp((c - 1.2) / 1.6));
+      P.stream = c > 1.0 ? ease(clamp((c - 1.0) / 0.4)) * (c > 2.7 ? 1 - (c - 2.7) / 0.3 * 0.7 : 1) : 0;
+      once("hit", c < 0.2, () => { S.bursts.push({ born: t, at: CORE, r: 80 }); for (let i = 0; i < 6; i++) drop(S, t, [nz[0] + (Math.random() - 0.5) * 60, nz[1]], 222, 7 + Math.random() * 3, P, 600 + (Math.random() - 0.5) * 340, -300 - Math.random() * 140); });
+      once("buckle", c >= 1.2, () => { for (const i of [0, 1]) S.ripples.push({ x: FEET[i][0], y: FEET[i][1] + 14, born: t, r: 90, life: 1.1 }); });
+      once("buckle2", c >= 1.7, () => { for (const i of [2, 3]) S.ripples.push({ x: FEET[i][0], y: FEET[i][1] + 14, born: t, r: 80, life: 1.1 }); });
+      every("sm", 0.3, 1.2, k => { if (c < 2.95) S.puffs.push(puff(t, [nz[0] + (Math.random() - 0.5) * 60, nz[1]], P)); });
+      if (c > 1.0 && c < 2.8) every("gush", 0.07, 1.0, () => drop(S, t, [LIP[0] + (Math.random() - 0.5) * 10, LIP[1]], 675, 9 + Math.random() * 3, P));
+      if (c > 1.0 && c < 2.7) every("rip", 0.28, 1.0, () => S.ripples.push({ x: 335 + (Math.random() - 0.5) * 30, y: 680, born: t, r: 38 + 20 * P.spread, life: 0.8 }));
+    }
+    // The hanging rag lags behind the body (overlapping action) and sways a little on its own.
+    const kk = 1 - Math.exp(-dt * 8);
+    S.lag[0] += (P.bx - S.lag[0]) * kk; S.lag[1] += (P.by - S.lag[1]) * kk;
+    P.rag = (S.lag[0] - P.bx) * -0.35 + (S.lag[1] - P.by) * 0.5 + 1.3 * Math.sin(t * 1.2) + (m === "death" ? 7 * smooth(1.2, 2.2, u) : 0);
+    // Broken parts leak.
+    const bk = S.broken || {};
+    if (bk["slick-spitter"]) every("lm", 0.1, 0, () => drop(S, t, [256 + (Math.random() - 0.5) * 8, 440], 690, 7 + Math.random() * 3, P));
+    if (bk["slick-nozzle"]) every("ln", 0.15, 0.3, () => drop(S, t, [600 + (Math.random() - 0.5) * 40, 150], 222, 8 + Math.random() * 3, P, 620 + (Math.random() - 0.5) * 200, -360 - Math.random() * 100));
+    P.t = t;
+    return P;
+  },
+  under(c, P, t, api) {
+    AV = api;
+    // Spreading oil on death: flat black lobes beyond the painted puddle (under the painting, so only the new edge shows).
+    if (P.spread > 0) {
+      const s = P.spread;
+      [[560, 735, 380 + 90 * s, 20 + 42 * s, 1], [300, 705, 130 + 60 * s, 14 + 26 * s, 2], [930, 700, 130 + 90 * s, 14 + 30 * s, 3]].forEach(([x, y, rx, ry, k]) => {
+        for (const [grow, col] of [[5, INK], [0, "#2E2928"]]) {
+          c.fillStyle = col; c.beginPath();
+          for (let i = 0; i <= 36; i++) { const an = i / 36 * 2 * Math.PI, f = 1 + 0.1 * Math.sin(3 * an + k * 2) + 0.07 * Math.sin(5 * an + k * 5); const px = x + Math.cos(an) * (rx * f + grow), py = y + Math.sin(an) * (ry * f + grow); i ? c.lineTo(px, py) : c.moveTo(px, py); }
+          c.closePath(); c.fill();
+        }
+      });
+    }
+  },
+  over(c, P, t, api) {
+    AV = api;
+    const S = api.state, at = p => api.point(p[0], p[1], P);
+    bodyFlash(c, P, P.fl);
+    // Eyes: two embers deep in the mouth's dark interior.
+    const E = Math.max(0, P.eye), fl = 0.9 + 0.1 * Math.sin(t * 19) * Math.sin(t * 6.1);
+    c.globalCompositeOperation = "lighter";
+    for (const e of [[277, 383], [298, 394]]) { const p = at(e); glow(c, p, 24, [255, 150, 50], 0.5 * E * fl); glow(c, p, 9, [255, 225, 160], 0.9 * Math.min(1, E) * fl); }
+    c.globalCompositeOperation = "source-over";
+    // Puddle ripples: flat ink-edged rings, stepped alpha.
+    S.ripples = (S.ripples || []).filter(r => t - r.born < r.life);
+    for (const r of S.ripples) {
+      const a = (t - r.born) / r.life;
+      for (const k of [0, 0.3]) {
+        const q = a - k; if (q <= 0) continue;
+        const rx = 8 + r.r * q, ry = rx * 0.26;
+        c.globalAlpha = q < 0.5 ? 1 : q < 0.8 ? 0.6 : 0.3;
+        for (const [col, lw] of [[INK, 6], [SHEEN, 2.5]]) { c.strokeStyle = col; c.lineWidth = lw; c.beginPath(); c.ellipse(r.x, r.y, rx, ry, 0, 0, 2 * Math.PI); c.stroke(); }
+      }
+      c.globalAlpha = 1;
+    }
+    // Splats on the tank top.
+    S.splats = (S.splats || []).filter(s => t - s.born < 0.5);
+    for (const s of S.splats) {
+      const a = (t - s.born) / 0.5, rx = 10 + 16 * Math.min(1, a * 2.5); c.globalAlpha = a < 0.6 ? 1 : 0.5;
+      c.fillStyle = INK; c.beginPath(); c.ellipse(s.x, s.y, rx + 3, rx * 0.35 + 3, 0, 0, 2 * Math.PI); c.fill();
+      c.fillStyle = OIL; c.beginPath(); c.ellipse(s.x, s.y, rx, rx * 0.35, 0, 0, 2 * Math.PI); c.fill();
+      c.fillStyle = SHEEN; c.beginPath(); c.ellipse(s.x - rx * 0.3, s.y - 1, rx * 0.25, 1.8, 0, 0, 2 * Math.PI); c.fill(); c.globalAlpha = 1;
+    }
+    // Drops: gravity, ink edge, a sheen speck. They ripple the puddle or splat on the tank when they land.
+    const live = [];
+    for (const d of S.drops || []) {
+      const e = t - d.born;
+      const x = d.x + d.vx * e, y = d.y + d.vy0 * e + 950 * e * e;
+      if (y >= d.land) { if (d.land > 400) S.ripples.push({ x, y: d.land + 12, born: t, r: 34 + d.r * 3, life: 0.7 }); else S.splats.push({ x, y: d.land, born: t }); continue; }
+      live.push(d);
+      c.save(); c.translate(x, y); c.rotate(Math.atan2(d.vy0 + 1900 * e, d.vx) - Math.PI / 2);
+      oilDrop(c, d.r); c.restore();
+    }
+    S.drops = live;
+    // Spat globs: a lumpy ink-edged blob with a trailing smear.
+    S.globs = (S.globs || []).filter(g => t - g.born < 0.9);
+    for (const g of S.globs) {
+      const e = t - g.born, x = g.x + g.vx * e, y = g.y + g.vy * e + (g.small ? 1100 * e * e : 150 * e * e);
+      if (g.small) { c.save(); c.translate(x, y); c.rotate(Math.atan2(g.vy + 2200 * e, g.vx) + Math.PI / 2); oilDrop(c, g.r); c.restore(); continue; }
+      for (let k = 3; k >= 1; k--) blob(c, x + k * 36, y - k * 3, g.r * (1 - k * 0.16), k > 1);
+      blob(c, x, y, g.r, false);
+    }
+    // Smoke puffs (flat, two tones).
+    S.puffs = (S.puffs || []).filter(p => t - p.born < p.life);
+    for (const p of S.puffs) {
+      const a = (t - p.born) / p.life, d = t - p.born, r = p.r * (0.5 + 1.1 * a), x = p.x + p.vx * d, y = p.y + p.vy * d;
+      c.globalAlpha = a < 0.55 ? 1 : a < 0.8 ? 0.65 : 0.35;
+      const lumps = p.lumps.map(([ox, oy, k]) => [x + ox * r, y + oy * r, r * k]);
+      c.fillStyle = INK; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr + 2, 0, 2 * Math.PI); c.fill(); }
+      c.fillStyle = "#9FB4BB"; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr, 0, 2 * Math.PI); c.fill(); }
+      c.fillStyle = "#E8EEF0"; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx - lr * 0.14, ly - lr * 0.16, lr * 0.84, 0, 2 * Math.PI); c.fill(); }
+      c.globalAlpha = 1;
+    }
+    // Hit stars: jagged ink-edged, palette colors.
+    S.bursts = (S.bursts || []).filter(b => t - b.born < 0.28);
+    for (const b of S.bursts) {
+      const a = (t - b.born) / 0.28, p = at(b.at), R = b.r * (0.6 + 0.7 * ease(a));
+      c.globalAlpha = a < 0.6 ? 1 : 0.6; c.lineJoin = "miter";
+      for (const [k, col, lw] of [[1, "#FFB547", 3], [0.55, "#E8EEF0", 0]]) {
+        c.beginPath();
+        for (let i = 0; i < 16; i++) { const an = i / 16 * 2 * Math.PI, rr = (i % 2 ? 0.45 : 1 + 0.25 * ((i * 7) % 3 - 1)) * R * k; i ? c.lineTo(p[0] + Math.cos(an) * rr, p[1] + Math.sin(an) * rr) : c.moveTo(p[0] + Math.cos(an) * rr, p[1] + Math.sin(an) * rr); }
+        c.closePath(); c.fillStyle = col; c.fill(); if (lw) { c.strokeStyle = INK; c.lineWidth = lw; c.stroke(); }
+      }
+      c.globalAlpha = 1;
+    }
+    // Oil swallows the feet on death: flat ink-edged lobes over the foot bottoms.
+    if (P.sink > 0) for (const f of FEET) { const q = at([f[0], f[1]]); c.globalAlpha = Math.min(1, P.sink * 2); c.fillStyle = "#2E2928"; c.beginPath(); c.ellipse(q[0], f[1] + 14, 66, 24, 0, 0, 2 * Math.PI); c.fill(); c.strokeStyle = INK; c.lineWidth = 4; c.beginPath(); c.ellipse(q[0], f[1] + 14, 66, 24, 0, Math.PI * 1.08, Math.PI * 1.92); c.stroke(); c.strokeStyle = SHEEN; c.lineWidth = 2; c.beginPath(); c.ellipse(q[0], f[1] + 14, 52, 17, 0, Math.PI * 1.15, Math.PI * 1.4); c.stroke(); c.globalAlpha = 1; }
+    // Burbles inside the mouth.
+    S.bubbles = (S.bubbles || []).filter(b => t - b.born < 0.7);
+    for (const b of S.bubbles) {
+      const a = (t - b.born) / 0.7, q = at([b.x, b.y - 36 * a]);
+      if (a < 0.8) { const r = 6 + 7 * a; c.fillStyle = "rgba(143,163,168,0.3)"; c.strokeStyle = SHEEN; c.lineWidth = 3; c.beginPath(); c.arc(q[0], q[1], r, 0, 2 * Math.PI); c.fill(); c.stroke(); c.fillStyle = "#E8EEF0"; c.beginPath(); c.arc(q[0] - r * 0.35, q[1] - r * 0.35, 2.2, 0, 2 * Math.PI); c.fill(); }
+      else { c.strokeStyle = SHEEN; c.lineWidth = 3; for (let i = 0; i < 6; i++) { const an = i / 6 * 2 * Math.PI; c.beginPath(); c.moveTo(q[0] + Math.cos(an) * 14, q[1] + Math.sin(an) * 14); c.lineTo(q[0] + Math.cos(an) * 22, q[1] + Math.sin(an) * 22); c.stroke(); } }
+    }
+    drawBroken(c, at, S, t);
+  },
+};
+// ---- Broken-look kit: a jagged notch erased from the painting's silhouette (re-uploaded texture), a glowing broken edge and thick ink cracks. ----
+let AV = null; // the hub view of the frame being drawn: its painting and alpha
+function alphaAt(x, y) { return AV ? AV.alpha(x, y) : 0; }
+function seeded(seed) { return () => (seed = (seed * 9301 + 49297) % 233280) / 233280; }
+function jaggedBlob(cx, cy, r, n, j, seed) {
+  const rnd = seeded(seed), pts = [];
+  for (let i = 0; i < n; i++) { const an = i / n * 2 * Math.PI, rr = r * (i % 2 ? 1 - j * (0.4 + 0.6 * rnd()) : 1 + j * 0.5 * rnd()); pts.push([cx + Math.cos(an) * rr, cy + Math.sin(an) * rr]); }
+  return pts;
+}
+// DMG: id -> { poly: [[x, y]...] (rest-pose points to erase), c: [x, y], r, cracks: n, seed, tint }
+// Glowing broken edge (only where the painting was cut) plus thick cracks running into the intact paint, in every mood.
+function drawBroken(c, at, S, t) {
+  const bk = S.broken || {};
+  for (const id in bk) {
+    if (!bk[id] || !DMG[id]) continue;
+    const d = DMG[id], poly = d.poly, rnd = seeded(d.seed || 3);
+    const pulse = 0.75 + 0.25 * Math.sin(t * 5 + d.seed);
+    // Edge: dense samples along the polygon, kept where the original painting has paint.
+    const segs = []; let cur = [];
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i], b = poly[(i + 1) % poly.length], n = Math.max(2, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 4));
+      for (let k = 0; k < n; k++) { const x = a[0] + (b[0] - a[0]) * k / n, y = a[1] + (b[1] - a[1]) * k / n; if (alphaAt(x, y) > 128) cur.push([x, y]); else if (cur.length) { segs.push(cur); cur = []; } }
+    }
+    if (cur.length) segs.push(cur);
+    c.lineCap = "round"; c.lineJoin = "round";
+    for (const [col, lw] of [[INK, 11], ["rgba(255,140,50," + (0.55 * pulse) + ")", 7], ["rgba(255,205,130,0.95)", 3]]) {
+      c.strokeStyle = col; c.lineWidth = lw;
+      for (const s of segs) { c.beginPath(); s.forEach(([x, y], i) => { const p = at([x, y]); i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]); }); c.stroke(); }
+    }
+    // Cracks: jagged, thick, ink with a bright edge, only over paint.
+    const paths = [];
+    for (let k = 0; k < (d.cracks || 3); k++) {
+      let an = (d.crack0 || 0) + k * (d.crackStep || 1.3) + rnd() * 0.4, x = d.c[0], y = d.c[1]; const pts = [];
+      for (let s = 0; s < 14; s++) { an += (rnd() - 0.5) * 0.7; x += Math.cos(an) * 12; y += Math.sin(an) * 12; if (alphaAt(x, y) > 128 && s * 12 > d.r * 0.4) pts.push([x, y]); }
+      if (pts.length > 2) paths.push(pts);
+    }
+    for (const [col, lw, off] of [[INK, 8, 0], ["rgba(255,205,130,0.95)", 2.5, -1.5]]) {
+      c.strokeStyle = col; c.lineWidth = lw; c.lineJoin = "miter";
+      for (const pts of paths) { c.beginPath(); pts.forEach(([x, y], i) => { const p = at([x, y]); i ? c.lineTo(p[0] + off, p[1] + off) : c.moveTo(p[0] + off, p[1] + off); }); c.stroke(); }
+    }
+  }
+}
+
+const DMG = {
+  "slick-nozzle": { poly: [[505, 20], [735, 20], [735, 96], [706, 108], [696, 98], [660, 130], [648, 124], [610, 156], [590, 146], [556, 176], [505, 190]], c: [610, 175], r: 70, cracks: 3, crack0: 0.5, crackStep: 1.0, seed: 11 },
+  "slick-spitter": { poly: jaggedBlob(252, 428, 44, 14, 0.45, 5), c: [272, 408], r: 30, cracks: 3, crack0: -0.7, crackStep: 1.0, seed: 17 },
+};
+let OFF;
+// Hit flash on the tank body only (never the puddle or feet): the painting's own silhouette, tinted, fading out down the underframe.
+function bodyFlash(c, P, a) {
+  if (a <= 0 || !AV || !AV.image) return;
+  if (!OFF) { OFF = document.createElement("canvas"); OFF.width = 1816; OFF.height = 1032; }
+  const o = OFF.getContext("2d"); o.setTransform(1, 0, 0, 1, 0, 0); o.clearRect(0, 0, 1816, 1032);
+  o.translate(300, 100); o.translate(P.bx, P.by); o.translate(BP[0], BP[1]); o.rotate(rad(P.pitch)); o.translate(-BP[0], -BP[1]);
+  o.drawImage(AV.image, 0, 0, 1216, 832);
+  const g = o.createLinearGradient(0, 520, 0, 610); g.addColorStop(0, "rgba(255,244,225," + a + ")"); g.addColorStop(1, "rgba(255,244,225,0)");
+  o.globalCompositeOperation = "source-atop"; o.fillStyle = g; o.fillRect(-400, -300, 2000, 1400);
+  c.drawImage(OFF, -300, -100);
+}
+function glow(c, [x, y], r, [R, G, B], a) {
+  if (a <= 0) return;
+  const g = c.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(${R},${G},${B},${Math.min(1, a)})`); g.addColorStop(1, `rgba(${R},${G},${B},0)`);
+  c.fillStyle = g; c.beginPath(); c.arc(x, y, r, 0, 2 * Math.PI); c.fill();
+}
+// A teardrop pointing up at the origin, ink edge, dark fill and a sheen speck.
+function oilDrop(c, r) {
+  const path = k => { c.beginPath(); c.moveTo(0, -r * 1.7 * k); c.bezierCurveTo(r * 0.9 * k, -r * 0.3 * k, r * k, r * 0.9 * k, 0, r * k); c.bezierCurveTo(-r * k, r * 0.9 * k, -r * 0.9 * k, -r * 0.3 * k, 0, -r * 1.7 * k); };
+  c.fillStyle = INK; path(1.35); c.fill(); c.fillStyle = OIL; path(1); c.fill();
+  c.fillStyle = SHEEN; c.beginPath(); c.ellipse(-r * 0.35, r * 0.25, r * 0.16, r * 0.3, 0, 0, 2 * Math.PI); c.fill();
+}
+function blob(c, x, y, r, faint) {
+  c.globalAlpha = faint ? 0.6 : 1;
+  const lumps = [[0, 0, 1], [-0.7, 0.05, 0.62], [0.55, -0.25, 0.55], [0.25, 0.4, 0.5]].map(([a, b, k]) => [x + a * r, y + b * r, r * k]);
+  c.fillStyle = INK; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr + 4, 0, 2 * Math.PI); c.fill(); }
+  c.fillStyle = OIL; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr, 0, 2 * Math.PI); c.fill(); }
+  if (!faint) { c.fillStyle = SHEEN; c.beginPath(); c.ellipse(x - r * 0.3, y - r * 0.35, r * 0.28, r * 0.14, -0.5, 0, 2 * Math.PI); c.fill(); }
+  c.globalAlpha = 1;
+}
+function at(p, P) { return slick.deform(p[0], p[1], slick.weights(p[0], p[1]), P); }
+// A drop starts at the current deformed position of a painting point and falls in image space.
+function drop(S, born, [x, y], land, r, P, tx, vy0) {
+  [x, y] = at([x, y], P);
+  S.drops.push({ x, y, born, land, r, vx: tx !== undefined ? (tx - x) / 0.7 : 0, vy0: vy0 || 0 });
+}
+function puff(born, [x, y], P) {
+  [x, y] = at([x, y], P);
+  return { x, y, vx: (Math.random() - 0.5) * 50, vy: -(50 + Math.random() * 50), r: 26 + Math.random() * 14, born, life: 1.3 + Math.random() * 0.5, lumps: [[0, 0, 1], [-0.55, 0.15, 0.62 + Math.random() * 0.15], [0.5, 0.2, 0.55 + Math.random() * 0.2], [0.05, -0.5, 0.5 + Math.random() * 0.15]] };
+}
+
+const def: CharacterDef = {
+  notches: Object.fromEntries(Object.entries(DMG).map(([k, v]) => [k, v.poly])),
+  ...slick,
+  id: 'oil-slick',
+  grid: [58, 40],
+  facing: 'left',
+  durations: {"idle":4,"attack":2.4,"hurt":1.5,"death":3},
+  texture: { regular: 'art/oil-slick/cut.webp' },
+};
+export default finishDef(def);
