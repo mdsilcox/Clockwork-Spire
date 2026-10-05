@@ -228,6 +228,7 @@ export function swapParts(c: CombatState, a: number, b: number): boolean {
   if (c.outcome !== 'ongoing' || c.swapUsed || a === b) return false;
   if (!inBoard(a) || !inBoard(b) || a === MAINSPRING || b === MAINSPRING) return false;
   if (!c.board[a] || !c.board[b]) return false;
+  if (!canPlaceAt(c, c.board[a]!.defId, b) || !canPlaceAt(c, c.board[b]!.defId, a)) return false; // the Twin Mainspring stays on D2
   [c.board[a], c.board[b]] = [c.board[b], c.board[a]];
   useSwap(c);
   return true;
