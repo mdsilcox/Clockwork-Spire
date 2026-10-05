@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Orrery</title>
+<style>
+  :root { --bg: #10393F; --panel: #1F6F6B; --brass: #C9A24A; --text: #f2e6cf; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; min-height: 100vh;
+         display: flex; flex-direction: column; align-items: center; padding: 8px; overflow-x: hidden; }
+  .stage { position: relative; width: min(100%, 640px); aspect-ratio: 1216 / 1352; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  button { background: var(--panel); color: var(--text); border: 1px solid #5a4a2a; padding: 8px 16px; font: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--brass); color: #1d2a30; border-color: var(--brass); }
+  label { color: #b9a98c; display: flex; align-items: center; gap: 6px; padding: 8px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"></div>
+<div class="bar">
+  <button data-mood="idle" aria-pressed="true">Idle</button>
+  <button data-mood="attack">Attack</button>
+  <button data-mood="hurt">Hurt</button>
+  <button data-mood="death">Death</button>
+  <label><input type="checkbox" data-break="orrery-moon1"> Break Hush</label>
+  <label><input type="checkbox" data-break="orrery-moon2"> Break Embers</label>
+  <label><input type="checkbox" data-break="orrery-moon3"> Break Dusk</label>
+  <label><input type="checkbox" data-break="orrery-arm"> Break arm</label>
+  <label><input type="checkbox" data-break="orrery-ring"> Break ring</label>
+  <label><input type="checkbox" id="ball"> Break all</label>
+  <label><input type="checkbox" id="mesh"> Mesh</label>
+</div>
+<script>__RIGJS__</script>
+<script>
+const { smooth, band, rad, rot } = Rig;
+const IMG = "__IMG__";
+__KIT__
+__DBFN__
+
+// Painting 896x1152, a brass armillary orrery on a teal pedestal. Great ring centered (453, 452); the equator band is the long brass arm; globe centered (452, 430).
+const RC = [453, 452], EQ = [452, 462], GC = [452, 430], BASE = [452, 860];
+const TIPARM = [100, 468], EYEP = [452, 430];
+// Moons: code sprites on tilted ellipses around the globe. Each: semi-axes, tilt, speed (rad/s), start phase, tones.
+const MOONS = [
+  { id: "orrery-moon1", a: 330, b: 92, tilt: -10, sp: 1.25, ph: 0.5, base: "#8FA3B0", lit: "#E8EEF0", dot: "#B7C6CF", r: 34 },   // Hush: pale
+  { id: "orrery-moon2", a: 262, b: 70, tilt: 22, sp: 1.8, ph: 2.6, base: "#B8401A", lit: "#FF8A2A", dot: "#E0701F", hot: true, r: 30 },   // Embers: red ember
+  { id: "orrery-moon3", a: 322, b: 160, tilt: -54, sp: 0.75, ph: 4.4, base: "#1B2336", lit: "#4A5B80", dot: "#2E3A57", r: 40 },   // Dusk: dark and slow
+];
+const ORB = MOONS.map(() => ({ x: 0, y: 0, d: 0, free: false }));
+const FLOOR = [[330, 1052], [455, 1062], [580, 1050]];   // where the fallen moons come to rest
+function orbitPos(m, ph) { const ex = m.a * Math.cos(ph), ey = m.b * Math.sin(ph), tl = rad(m.tilt), c = Math.cos(tl), s = Math.sin(tl); return [GC[0] + ex * c - ey * s, GC[1] + ex * s + ey * c, Math.sin(ph)]; }
+
+const eqE = (x, y) => Math.hypot((x - EQ[0]) / 386, (y - EQ[1]) / 60);
+const orrery = {
+  size: [896, 1152], grid: [168, 216], pad: [160, 100],
+  anchors: {
+    get "orrery-moon1"() { return [ORB[0].x, ORB[0].y, 30]; }, get "orrery-moon2"() { return [ORB[1].x, ORB[1].y, 28]; }, get "orrery-moon3"() { return [ORB[2].x, ORB[2].y, 34]; },
+    "orrery-arm": [110, 468, 58], "orrery-ring": [118, 335, 66], core: [452, 430, 120], eyes: [452, 430, 40],
+  },
+  weights(x, y) {
+    const w = {}, e = eqE(x, y), r = Math.hypot(x - RC[0], y - RC[1]), rg = Math.hypot(x - GC[0], y - GC[1]);
+    w.b = smooth(0.62, 0.8, e) * (1 - smooth(1.0, 1.1, e)) * smooth(840, 820, x);
+    w.g = (1 - smooth(150, 192, rg)) * (1 - w.b);
+    w.r = smooth(325, 345, r) * (1 - smooth(392, 410, r)) * (1 - w.b) * smooth(850, 805, y);
+    w.m = smooth(192, 216, r) * (1 - smooth(322, 340, r)) * (1 - w.b) * (1 - w.g) * smooth(790, 700, y);
+    w.u = smooth(880, 700, y);
+    return w;
+  },
+  deform(x, y, w, P) {
+    [x, y] = rot(x, y, ...EQ, rad(P.arm), w.b);
+    [x, y] = rot(x, y, ...RC, rad(P.ring), w.r);
+    [x, y] = rot(x, y, ...RC, rad(P.mer), w.m);
+    x += (x - GC[0]) * P.gl * w.g; y += (y - GC[1]) * P.gl * w.g;
+    [x, y] = rot(x, y, ...BASE, rad(P.sway), w.u);
+    return [x + P.bx * w.u, y + P.sink * w.u];
+  },
+  moods: { idle: { eye: 0.4 }, attack: { eye: 0.7 }, hurt: { eye: 0.4 }, death: { eye: 0.4 } },
+  ease: 3,
+  onMood(m, api) { const S = api.state; S.start = undefined; S.cycle = undefined; S.hit = undefined; S.did = {}; },
+  pose(L, t, dt, S, api) {
+    if (S.start === undefined) { S.start = t; S.did = {}; S.next = {}; S.broken = S.broken || urlBroken(); S.ph = S.ph || MOONS.map(m => m.ph); }
+    syncBroken(S, 896, 1152);
+    const u = t - S.start, m = api.mood, bk = S.broken || {};
+    const P = { arm: 0, ring: 0, mer: 0, gl: 0, sway: 0, bx: 0, sink: 0, flash: 0, shake: null, eye: L.eye, dim: 0, fall: -1 };
+    const once = (k, cond, fn) => { if (cond && !S.did[k]) { S.did[k] = true; fn(); } };
+    const every = (k, period, from, fn) => { const n = Math.floor((u - from) / period); if (u >= from && S.next[k] !== n) { S.next[k] = n; fn(n); } };
+    let spd = 1;
+    if (m === "idle") {
+      const c = u % 5, n = Math.floor(u / 5), ph = u * Math.PI * 2 / 5;
+      P.ring = 0.5 * Math.sin(ph) + kf(c, [0, 3.0, 3.12, 3.5, 5], [0, 0, 1.3, 1.3, 0]); P.mer = -0.7 * Math.sin(ph + 0.6) - kf(c, [0, 3.0, 3.12, 3.5, 5], [0, 0, 1.8, 1.8, 0]);
+      P.arm = 0.9 * Math.sin(ph - 0.5); P.gl = 0.006 * Math.sin(ph * 2 + 1); P.sway = 0.22 * Math.sin(ph - 1);
+      once("tick" + n, c > 3.0, () => { const q = api.point(EQ[0], EQ[1] - 8, P); spawnRing(S, t, q[0], q[1], 330, 0.8); });
+      once("steam" + n, c > 1.2, () => { const q = api.point(348, 30, P); spawnPuff(S, t, q[0], q[1], { vx: -20, vy: -70, r: 16 }); spawnPuff(S, t, q[0] + 6, q[1] - 10, { vx: -10, vy: -90, r: 12 }); });
+      P.eye = L.eye * (0.85 + 0.15 * Math.sin(u * 2.4)) * (c > 3.0 && c < 3.4 ? 2.3 : 1);
+    } else if (m === "attack") {
+      const c = u % 3, T = [0, 0.5, 1.1, 1.25, 1.33, 1.9, 3];
+      P.arm = kf(c, T, [0, 3, 8, -14, -12, -3, 0]); P.ring = kf(c, T, [0, -2, -5, 4, 3, 0.5, 0]); P.mer = kf(c, T, [0, 3, 8, -6, -4, -1, 0]);
+      P.gl = kf(c, T, [0, 0.02, 0.05, -0.025, 0, 0, 0]); P.sway = kf(c, T, [0, 0.3, 0.8, -1.5, -0.6, 0, 0]); P.bx = kf(c, T, [0, 2, 6, -14, -10, -2, 0]);
+      P.eye = kf(c, [0, 0.9, 1.1, 1.7, 3], [0.7, 1.4, 1.5, 0.8, 0.7]);
+      spd = kf(c, [0, 0.5, 1.1, 1.3, 1.9, 3], [1, 2.4, 4.2, 4.2, 1.5, 1]);
+      if (c > 0.5 && c < 1.25) P.shake = [(Math.random() - 0.5) * 4 * ease((c - 0.5) / 0.75), (Math.random() - 0.5) * 3 * ease((c - 0.5) / 0.75)];
+      const cyc = Math.floor(u / 3); if (S.cycle !== cyc) { S.cycle = cyc; S.did = {}; }
+      once("w1", c > 0.55, () => { const q = api.point(EQ[0], EQ[1] - 8, P); spawnRing(S, t, q[0], q[1], 260, 0.7); });
+      once("w2", c > 0.85, () => { const q = api.point(EQ[0], EQ[1] - 8, P); spawnRing(S, t, q[0], q[1], 330, 0.7); });
+      once("hit", c >= 1.25, () => {
+        const q = api.point(TIPARM[0] - 6, TIPARM[1], P);
+        spawnStar(S, t, q[0], q[1], 64); spawnSpark(S, t, q[0], q[1], 9, 600);
+        spawnRing(S, t, 380, 1080, 160, 0.6); spawnRing(S, t, 560, 1092, 120, 0.65);
+      });
+      if (c > 1.07 && c < 1.33) { const q = api.point(TIPARM[0] - 25, TIPARM[1], P), tr = S.trail = S.trail || [], l = tr[tr.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 14) tr.push(q); }
+      once("smear", c >= 1.34, () => { if (S.trail && S.trail.length > 2) spawnSmear(S, t, S.trail.slice(-8), 36); S.trail = []; });
+      if (c >= 1.25) { const d = Math.exp(-(c - 1.25) * 9); P.shake = [(Math.random() - 0.5) * 14 * d, (Math.random() - 0.5) * 9 * d]; }
+    } else if (m === "hurt") {
+      const c = u % 1.8, T = [0, 0.07, 0.22, 0.8, 1.8];
+      P.flash = flashK(c);
+      P.sway = kf(c, T, [0, 3, 2, -0.3, 0]); P.bx = kf(c, T, [0, 38, 26, 0, 0]); P.gl = kf(c, T, [0, -0.03, 0.01, 0, 0]);
+      P.ring = kf(c, T, [0, 4, 3, 0.5, 0]); P.mer = kf(c, T, [0, -5, -3, -0.5, 0]); P.arm = kf(c, T, [0, 3, 1.5, 0, 0]);
+      P.eye = kf(c, [0, 0.07, 0.3, 1.8], [0.4, 1.6, 0.3, 0.4]);
+      spd = kf(c, [0, 0.07, 0.6, 1.8], [1, 4, 1.4, 1]);
+      const d = Math.exp(-c * 6); P.shake = [(Math.random() - 0.5) * 9 * d, (Math.random() - 0.5) * 6 * d];
+      const cyc = Math.floor(u / 1.8);
+      if (S.hit !== cyc) { S.hit = cyc; spawnStar(S, t, GC[0] - 70, GC[1] - 20, 72); spawnSpark(S, t, GC[0] - 70, GC[1] - 20, 7, 450); spawnRing(S, t, 420, 1086, 120, 0.5); }
+    } else if (m === "death") {
+      const c = Math.min(u, 3.399), T = [0, 0.08, 0.5, 1.2, 2.0, 2.8, 3.4];
+      P.flash = flashK(c);
+      P.sway = kf(c, T, [0, 1.6, 0.8, 1.8, 2.8, 3.2, 3.2]); P.bx = kf(c, T, [0, 18, 10, 10, 12, 12, 12]); P.sink = kf(c, T, [0, -3, 3, 20, 60, 85, 85]);
+      P.ring = kf(c, T, [0, 3, 1.5, 3, 5, 6, 6]); P.mer = kf(c, T, [0, -4, -2, -5, -7, -8, -8]); P.arm = kf(c, T, [0, 1, 0.5, 0.5, 0.8, 1, 1]);
+      P.gl = kf(c, T, [0, -0.03, 0.01, 0, -0.03, -0.05, -0.05]);
+      if (c > 0.3 && c < 1.0) { P.sway += 0.5 * Math.sin(c * 50) * (1 - (c - 0.3) / 0.7); }
+      P.eye = c < 0.3 ? 1.4 : c < 1.9 ? 0.45 * (Math.sin(c * 31) > 0.2 ? 1 : 0.25) * (1 - (c - 0.3) / 1.6) : 0;
+      P.dim = ease(clamp((c - 1.0) / 1.2));
+      spd = kf(c, [0, 0.1, 0.4, 1.0], [1, 3, 1.6, 0.2]); P.fall = c;
+      if (c > 0.1 && c < 1.0) { const d = Math.exp(-(c - 0.1) * 4); P.shake = [(Math.random() - 0.5) * 12 * d, (Math.random() - 0.5) * 8 * d]; }
+      once("hit", c < 0.2, () => { spawnStar(S, t, GC[0] - 70, GC[1] - 20, 80); spawnSpark(S, t, GC[0] - 70, GC[1] - 20, 9, 500); });
+      for (let i = 0; i < 3; i++) once("land" + i, c >= 1.2 + 0.35 * i + 0.9, () => { spawnRing(S, t, FLOOR[i][0], FLOOR[i][1] + 14, 70, 0.5); spawnSpark(S, t, FLOOR[i][0], FLOOR[i][1], 3, 220); });
+      every("vent", 0.34, 0.6, () => { if (c < 3.3) spawnPuff(S, t, 348 + P.bx * 0.4, 30 + P.sink * 0.9, { vx: -20, vy: -80, r: 16 }); });
+      every("sp", 0.4, 0.9, () => { if (c < 2.6) spawnSpark(S, t, GC[0] + (Math.random() - 0.5) * 120, GC[1] + (Math.random() - 0.5) * 100 + P.sink, 3, 280); });
+    }
+    // The moons: advance the orbits (deterministic per frame), then record each moon's rest-space position for the anchors and drawing.
+    for (let i = 0; i < 3; i++) {
+      S.ph[i] += MOONS[i].sp * spd * dt;
+      const [x, y, d] = orbitPos(MOONS[i], S.ph[i]); ORB[i].x = x; ORB[i].y = y; ORB[i].d = d; ORB[i].free = false;
+      if (P.fall >= 0) {   // death: the moons drop out of orbit and bounce to rest on the pedestal
+        const t0 = 1.2 + 0.35 * i, p = clamp((P.fall - t0) / 0.9);
+        if (P.fall > t0) {
+          S.fx = S.fx || []; if (!S.fx[i]) S.fx[i] = [x, y];
+          const [x0, y0] = S.fx[i], bn = P.fall > t0 + 0.9 ? 24 * Math.abs(Math.sin((P.fall - t0 - 0.9) * 7)) * Math.exp(-(P.fall - t0 - 0.9) * 3.2) : 0;
+          ORB[i].x = x0 + (FLOOR[i][0] - x0) * ease(p); ORB[i].y = y0 + (FLOOR[i][1] - y0) * p * p - bn; ORB[i].d = 0.6; ORB[i].free = true;
+        }
+      }
+      // A broken moon wobbles off its path and sheds embers.
+      if (bk[MOONS[i].id] && !ORB[i].free) { ORB[i].x += 6 * Math.sin(t * 9 + i); ORB[i].y += 5 * Math.cos(t * 7 + i); }
+    }
+    if (m !== "death") S.fx = null;
+    for (let i = 0; i < 3; i++) if (bk[MOONS[i].id] && m !== "death") every("lm" + i, 0.45, 0.1 + i * 0.1, () => { const q = api.point(ORB[i].x, ORB[i].y, P); spawnSpark(S, t, q[0], q[1], 2, 150); });
+    if (bk["orrery-arm"] && m !== "death") every("la", 0.5, 0.2, () => { const q = api.point(112, 470, P); spawnSpark(S, t, q[0] + (Math.random() - 0.5) * 20, q[1], 2, 160); });
+    if (bk["orrery-ring"] && m !== "death") every("lr", 0.55, 0.3, () => { const q = api.point(118, 338, P); spawnSpark(S, t, q[0] + (Math.random() - 0.5) * 14, q[1], 2, 160); });
+    P.t = t;
+    return P;
+  },
+  under(c, P, t, api) { drawMoons(c, P, t, api, false); },
+  over(c, P, t, api) {
+    const S = api.state, at = p => api.point(p[0], p[1], P);
+    drawMoons(c, P, t, api, true);
+    // The globe's center: a small flat ember flares in attack and hurt, and the globe goes dark in death.
+    const E = Math.max(0, P.eye), ep = at(EYEP);
+    if (E > 0.9) ember(c, ep[0], ep[1], 12 + 12 * Math.min(1, E - 0.9), 0.95);
+    if (P.dim > 0) { c.globalAlpha = 0.6 * P.dim; c.fillStyle = INK; c.beginPath(); c.arc(ep[0], ep[1], 150, 0, 2 * Math.PI); c.fill(); c.globalAlpha = 1; }
+    drawFx(c, S, t);
+    drawBroken(c, at, S, t);
+  },
+};
+// ---- Moon sprites: flat two-tone discs with an ink edge, drawn in code so they orbit without smearing. ----
+const moonCache = {};
+function moonSprite(m, broken, idx) {
+  const R = m.r, N = 2 * Math.ceil(R + 24), key = m.id + (broken ? "b" : "");
+  const k = moonCache[key] = moonCache[key] || document.createElement("canvas"); k.width = N; k.height = N;
+  const g = k.getContext("2d"), cx = N / 2, cy = N / 2;
+  g.fillStyle = INK; g.beginPath(); g.arc(cx, cy, R + 3, 0, 2 * Math.PI); g.fill();
+  g.fillStyle = m.base; g.beginPath(); g.arc(cx, cy, R, 0, 2 * Math.PI); g.fill();
+  g.save(); g.beginPath(); g.arc(cx, cy, R, 0, 2 * Math.PI); g.clip(); g.fillStyle = m.lit; g.beginPath(); g.arc(cx - R * 0.26, cy - R * 0.26, R * 0.86, 0, 2 * Math.PI); g.fill();
+  g.fillStyle = m.dot; for (const [dx, dy, dr] of [[0.15, 0.2, 0.2], [-0.4, 0.3, 0.13], [0.35, -0.3, 0.1]]) { g.beginPath(); g.arc(cx + dx * R, cy + dy * R, dr * R, 0, 2 * Math.PI); g.fill(); }
+  if (m.hot) { g.fillStyle = CREAM; g.beginPath(); g.arc(cx - R * 0.32, cy - R * 0.32, R * 0.2, 0, 2 * Math.PI); g.fill(); }
+  g.restore();
+  if (broken) {
+    const poly = jaggedBlob(cx + R * 0.55, cy + R * 0.1, R * 0.8, 9, 0.5, 11 + idx * 7);
+    g.globalCompositeOperation = "destination-out"; g.fillStyle = "#000"; g.beginPath(); poly.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill();
+    g.globalCompositeOperation = "source-atop"; g.lineJoin = "round";
+    for (const [col, lw] of [[INK, 9], ["#E0701F", 5.5], [CREAM, 2]]) { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); poly.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.stroke(); }
+    g.globalCompositeOperation = "source-over";
+    ember(g, cx + R * 0.5, cy + R * 0.1, 6, 1);
+    g.strokeStyle = INK; g.lineWidth = 3.5; g.lineJoin = "miter"; g.beginPath(); g.moveTo(cx + R * 0.1, cy + R * 0.05); g.lineTo(cx - R * 0.25, cy - R * 0.05); g.lineTo(cx - R * 0.5, cy + R * 0.2); g.moveTo(cx, cy + R * 0.2); g.lineTo(cx - R * 0.1, cy + R * 0.55); g.stroke();
+  }
+  return k;
+}
+function drawMoons(c, P, t, api, front) {
+  const S = api.state, bk = S.broken || {};
+  for (let i = 0; i < 3; i++) {
+    const o = ORB[i], m = MOONS[i], isFront = o.free || o.d > 0;
+    if (isFront !== front) continue;
+    const q = o.free ? [o.x, o.y] : api.point(o.x, o.y, P), sc = 1 + 0.2 * (o.free ? 0.6 : o.d), spr = moonSprite(m, !!bk[m.id], i), N = spr.width;
+    c.drawImage(spr, q[0] - N / 2 * sc, q[1] - N / 2 * sc, N * sc, N * sc);
+  }
+}
+const big = (p, c, k) => p.map(([x, y]) => [c[0] + (x - c[0]) * k, c[1] + (y - c[1]) * k]);
+const DMG = {
+  "orrery-moon1": { poly: [], c: [-999, -999], r: 1, cracks: 0, seed: 1 },
+  "orrery-moon2": { poly: [], c: [-999, -999], r: 1, cracks: 0, seed: 2 },
+  "orrery-moon3": { poly: [], c: [-999, -999], r: 1, cracks: 0, seed: 3 },
+  // The arm: the tip of the long equator band is bitten off, ember inside, cracks along the band.
+  "orrery-arm": { poly: big([[78, 438], [104, 448], [118, 432], [144, 450], [158, 470], [140, 486], [148, 508], [118, 498], [98, 514], [88, 488], [68, 474]], [112, 472], 1.5), c: [140, 470], r: 40, cracks: 2, len: 9, crack0: -0.1, crackStep: 0.6, seed: 37, ember: [[112, 470, 14], [86, 452, 9], [140, 494, 9]] },
+  // The great ring: a bite taken out across the ring, ember inside, cracks running along it.
+  "orrery-ring": { poly: big([[76, 300], [122, 306], [134, 326], [158, 330], [152, 352], [162, 368], [120, 380], [100, 360], [74, 374]], [116, 338], 1.5), c: [118, 340], r: 40, cracks: 2, len: 10, crack0: -1.6, crackStep: 3.1, seed: 19, ember: [[116, 340, 14], [92, 316, 9], [144, 366, 9]] },
+};
+const rig = Rig.mount(document.getElementById("stage"), orrery, IMG);
+wire(rig);
+</script>
+</body>
+</html>

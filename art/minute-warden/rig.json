@@ -1,0 +1,19 @@
+{
+  "size": [896, 1152],
+  "pad": [160, 80],
+  "view": "front",
+  "facing": "left",
+  "feet": 1062,
+  "moods": ["idle", "attack", "mend", "hurt", "death"],
+  "durations": { "idle": 4, "attack": 2.8, "mend": 2.2, "hurt": 1.8, "death": 3.2 },
+  "anchors": {
+    "minute-mender": [395, 388, 60],
+    "minute-hand": [205, 205, 55],
+    "minute-needle": [558, 548, 34],
+    "minute-dial": [410, 490, 46],
+    "core": [410, 435, 70],
+    "eyes": [393, 165, 30]
+  },
+  "brokenFlag": "?broken=minute-mender,minute-hand,minute-needle,minute-dial (or all) in the URL, or rig.state.broken = { 'minute-mender': true, ... }: a notch is erased from the painting's alpha with a two-tone ember edge, embers inside and ink cracks, in every mood; broken parts spark or hiss; a broken mender hides the code gear",
+  "notes": "mend is an extra mood: the chest wheel (a code gear) spins up with three ink rings. The code gear also ticks in idle and spins up in attack. Death holds its last pose after 3.2 s. Built by art/valve-crab/build.py minute-warden (shared act 2 kit)."
+}

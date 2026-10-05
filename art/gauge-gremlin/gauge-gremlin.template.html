@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gauge Gremlin</title>
+<style>
+  :root { --bg: #10393F; --panel: #1F6F6B; --brass: #C9A24A; --text: #f2e6cf; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; min-height: 100vh;
+         display: flex; flex-direction: column; align-items: center; padding: 8px; overflow-x: hidden; }
+  .stage { position: relative; width: min(100%, 800px); aspect-ratio: 1736 / 1152; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  button { background: var(--panel); color: var(--text); border: 1px solid #5a4a2a; padding: 8px 16px; font: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--brass); color: #1d2a30; border-color: var(--brass); }
+  label { color: #b9a98c; display: flex; align-items: center; gap: 6px; padding: 8px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"></div>
+<div class="bar">
+  <button data-mood="idle" aria-pressed="true">Idle</button>
+  <button data-mood="attack">Attack</button>
+  <button data-mood="hurt">Hurt</button>
+  <button data-mood="death">Death</button>
+  <label><input type="checkbox" data-break="gremlin-wrench"> Break wrench</label>
+  <label><input type="checkbox" data-break="gremlin-spanner"> Break spanner</label>
+  <label><input type="checkbox" id="ball"> Break all</label>
+  <label><input type="checkbox" id="mesh"> Mesh</label>
+</div>
+<script>__RIGJS__</script>
+<script>
+const { smooth, band, rad, rot } = Rig;
+const IMG = "__IMG__";
+__KIT__
+
+// Painting 1216x832, 3/4 front facing left. Head and goggles at (500-860, 50-330); ears left (190-505, 170-345) and right (835-1100, 90-300);
+// the big wrench in the right hand (850-1150, 250-570); the spanner (a long spike) in the left hand (70-460, 520-610); the gear wheel (330-500, 590-730).
+const NECK = [680, 335], EARL = [510, 255], EARR = [845, 235], WR = [885, 520], SPN = [455, 565], GEAR = [415, 662];
+const GOGL = [610, 205], GOGR = [765, 205], SPTIP = [75, 590], WHEAD = [1085, 335], CORE = [680, 520];
+const FEET = [[400, 760], [800, 760]];
+
+const gremlin = {
+  size: [1216, 832], grid: [152, 104], pad: [260, 160],
+  anchors: { "gremlin-wrench": [1030, 400, 95], "gremlin-spanner": [200, 585, 80], core: [680, 520, 100], eyes: [685, 205, 70] },
+  weights(x, y) {
+    const w = {};
+    w.head = band(x, 470, 880, 14) * smooth(345, 300, y);
+    w.el = smooth(512, 470, x) * band(y, 150, 350, 20) * smooth(340, 300, y + (x < 400 ? 0 : 0));
+    w.er = smooth(838, 880, x) * band(y, 80, 310, 20) * smooth(310, 270, y);
+    const wd = Math.hypot(x - 1000, y - 400);
+    w.wr = smooth(840, 890, x) * band(y, 235, 580, 12) * smooth(600, 560, y) * Math.max(smooth(310, 350, y), smooth(960, 1010, x));
+    w.sp = smooth(470, 420, x) * band(y, 515, 620, 10);
+    w.gear = 1 - smooth(70, 108, Math.hypot(x - GEAR[0], y - GEAR[1]));
+    w.b = smooth(780, 620, y);
+    return w;
+  },
+  deform(x, y, w, P) {
+    [x, y] = rot(x, y, ...GEAR, rad(P.gear), w.gear * (1 - w.sp));
+    [x, y] = rot(x, y, ...SPN, rad(P.sp), w.sp);
+    x += P.spx * w.sp; y += P.spy * w.sp;
+    [x, y] = rot(x, y, ...WR, rad(P.wr), w.wr);
+    [x, y] = rot(x, y, ...EARL, rad(P.el), w.el);
+    [x, y] = rot(x, y, ...EARR, rad(P.er), w.er);
+    [x, y] = rot(x, y, ...NECK, rad(P.head), w.head);
+    x += P.hx * w.head; y += P.hy * w.head;
+    [x, y] = rot(x, y, 680, 740, rad(P.roll), w.b);
+    return [x + P.bx * w.b, y + P.by * w.b];
+  },
+  moods: { idle: { eye: 0.5 }, attack: { eye: 0.7 }, hurt: { eye: 0.5 }, death: { eye: 0.4 } },
+  ease: 3,
+  onMood(m, api) { const S = api.state; S.start = undefined; S.cycle = undefined; S.hit = undefined; S.did = {}; },
+  pose(L, t, dt, S, api) {
+    if (S.start === undefined) { S.start = t; S.did = {}; S.next = {}; S.broken = S.broken || urlBroken(); }
+    syncBroken(S, 1216, 832);
+    const u = t - S.start, m = api.mood, bk = S.broken || {};
+    const P = { head: 0, hx: 0, hy: 0, el: 0, er: 0, wr: 0, sp: 0, spx: 0, spy: 0, gear: 0, roll: 0, bx: 0, by: 0, flash: 0, shake: null, eye: L.eye, dim: 0 };
+    const once = (k, cond, fn) => { if (cond && !S.did[k]) { S.did[k] = true; fn(); } };
+    const every = (k, period, from, fn) => { const n = Math.floor((u - from) / period); if (u >= from && S.next[k] !== n) { S.next[k] = n; fn(n); } };
+    const pt = p => gremlin.deform(p[0], p[1], gremlin.weights(p[0], p[1]), P);
+    if (m === "idle") {
+      const c = u % 4, n = Math.floor(u / 4), s2 = Math.sin(u * Math.PI * 2 / 4);
+      P.by = 2.6 * s2; P.roll = 0.2 * Math.sin(u * Math.PI * 2 / 4 + 1);
+      // Head leads, ears follow a beat later and flick once each; the wrench taps; the spanner twitches; the gear ticks forward.
+      P.head = 2.2 * Math.sin(u * Math.PI * 2 / 4 + 0.5) + (c > 2.6 && c < 3.0 ? -3 * Math.sin((c - 2.6) / 0.4 * Math.PI) : 0);
+      P.hy = 2 * s2;
+      P.el = 2.2 * Math.sin(u * Math.PI * 2 / 4 - 0.4) + (c > 1.0 && c < 1.35 ? -9 * Math.sin((c - 1.0) / 0.35 * Math.PI) : 0);
+      P.er = -2.2 * Math.sin(u * Math.PI * 2 / 4 - 0.4) + (c > 1.9 && c < 2.25 ? 9 * Math.sin((c - 1.9) / 0.35 * Math.PI) : 0);
+      P.wr = 1.4 * Math.sin(u * Math.PI * 2 / 4 - 0.8) + (c > 3.2 && c < 3.6 ? 4 * Math.sin((c - 3.2) / 0.4 * Math.PI * 2) * Math.exp(-(c - 3.2) * 4) : 0);
+      P.sp = 1.2 * Math.sin(u * Math.PI * 2 / 4 - 0.2) + (c > 0.3 && c < 0.7 ? 3 * Math.sin((c - 0.3) / 0.4 * Math.PI * 3) * Math.exp(-(c - 0.3) * 5) : 0);
+      const tk = Math.floor(u / 1.0), ph = (u % 1.0) / 1.0; P.gear = 8 * tk + 8 * ease(clamp(ph / 0.15));
+      once("tick" + tk, ph < 0.2, () => spawnSpark(S, t, ...pt([GEAR[0] + 70, GEAR[1] - 50]), 2, 130));
+      P.eye = L.eye;
+      once("pf" + n, c > 3.4, () => spawnPuff(S, t, ...pt([GEAR[0] + 40, GEAR[1] - 80]), { vx: 12, vy: -60, r: 14 }));
+    } else if (m === "attack") {
+      const c = u % 2.0, T = [0, 0.2, 0.72, 0.82, 0.9, 1.3, 2.0];
+      // Duck low and coil back (spanner pulled in, wrench raised), then a big lunge left with the spike thrust far out.
+      P.roll = kf(c, T, [0, -0.8, 3.0, -5, -3.5, -0.5, 0]); P.bx = kf(c, T, [0, 8, 36, -110, -90, -14, 0]); P.by = kf(c, T, [0, 10, 24, 4, 10, 2, 0]);
+      P.head = kf(c, T, [0, 4, 10, -14, -9, -1, 0]); P.hx = kf(c, T, [0, 3, 14, -40, -26, 0, 0]); P.hy = kf(c, T, [0, 6, 14, -4, 3, 0, 0]);
+      P.sp = kf(c, T, [0, 2, 8, -4, -2, 0, 0]); P.spx = kf(c, T, [0, 10, 70, -230, -170, -20, 0]); P.spy = kf(c, T, [0, 0, 8, -6, -3, 0, 0]);
+      P.wr = kf(c, T, [0, -4, -22, 12, 6, 0, 0]);
+      P.el = kf(c, T, [0, -3, -12, 20, 12, 0, 0]); P.er = kf(c, T, [0, 3, 12, -20, -12, 0, 0]);
+      P.gear = 40 * kf(c, [0, 0.7, 0.9, 2.0], [0, 1, 1.6, 1.6]);
+      P.eye = kf(c, [0, 0.7, 0.9, 1.4, 2.0], [0.6, 1.2, 1.5, 0.8, 0.6]);
+      if (c > 0.3 && c < 0.82) { const q = ease((c - 0.3) / 0.52); P.shake = [(Math.random() - 0.5) * 3 * q, (Math.random() - 0.5) * 2 * q]; P.sp += 1.2 * Math.sin(c * 70) * q; }
+      const cyc = Math.floor(u / 2.0);
+      if (S.cycle !== cyc) { S.cycle = cyc; S.did = {}; S.trail = []; }
+      once("p1", c > 0.3, () => { spawnPuff(S, t, ...pt([GEAR[0] + 40, GEAR[1] - 80]), { vx: 12, vy: -70, r: 16 }); spawnSpark(S, t, ...pt([GEAR[0] + 70, GEAR[1] - 50]), 3, 160); });
+      if (c > 0.74 && c < 0.94) { const q = pt(SPTIP), tr = S.trail = S.trail || [], l = tr[tr.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 22) tr.push(q); }
+      once("smear", c >= 0.94, () => { if (S.trail && S.trail.length > 2) spawnSmear(S, t, S.trail.slice(-8), 34); S.trail = []; });
+      once("stab", c >= 0.86, () => { const q = pt(SPTIP); spawnStar(S, t, q[0] - 6, q[1], 80); spawnSpark(S, t, q[0], q[1], 10, 600); spawnDust(S, t, 560, 765, 7, 420, -Math.PI / 2); spawnRing(S, t, 420, 765, 140, 0.5); spawnRing(S, t, 700, 765, 120, 0.55); });
+      if (c >= 0.86) { const d = Math.exp(-(c - 0.86) * 9); P.shake = [(Math.random() - 0.5) * 14 * d, (Math.random() - 0.5) * 9 * d]; }
+    } else if (m === "hurt") {
+      const c = u % 1.5, T = [0, 0.07, 0.22, 0.8, 1.5];
+      P.flash = flashK(c);
+      P.bx = kf(c, T, [0, 26, 18, 0, 0]); P.by = kf(c, T, [0, -4, 0, 0, 0]); P.roll = kf(c, T, [0, 2.2, 1.2, 0, 0]);
+      P.head = kf(c, T, [0, 10, 5, -1, 0]); P.hx = kf(c, T, [0, 12, 6, 0, 0]);
+      P.el = kf(c, T, [0, -18, 8, -2, 0]); P.er = kf(c, T, [0, 18, -8, 2, 0]); P.wr = kf(c, T, [0, 8, -4, 1, 0]); P.sp = kf(c, T, [0, -6, 3, 0, 0]);
+      P.eye = kf(c, [0, 0.07, 0.3, 1.5], [0.5, 1.6, 0.3, 0.5]);
+      const d = Math.exp(-c * 7); P.shake = [(Math.random() - 0.5) * 9 * d, (Math.random() - 0.5) * 6 * d];
+      const cyc = Math.floor(u / 1.5);
+      if (S.hit !== cyc) { S.hit = cyc; spawnStar(S, t, CORE[0] + 20, CORE[1] - 40, 74); spawnSpark(S, t, CORE[0], CORE[1] - 40, 8, 450); spawnRing(S, t, FEET[0][0] + 100, 765, 100, 0.5); }
+    } else if (m === "death") {
+      const c = Math.min(u, 2.999), T = [0, 0.08, 0.4, 1.0, 1.7, 2.4, 3];
+      P.flash = flashK(c);
+      P.bx = kf(c, T, [0, 20, 12, 8, 4, 2, 2]); P.by = kf(c, T, [0, -3, 0, 8, 38, 56, 56]); P.roll = kf(c, T, [0, 2, 1, -2, -6, -8, -8]);
+      P.head = kf(c, T, [0, 10, 6, -4, -14, -20, -20]); P.hx = kf(c, T, [0, 10, 6, 0, -6, -10, -10]); P.hy = kf(c, T, [0, -2, 2, 8, 26, 40, 40]);
+      P.el = kf(c, T, [0, -16, 6, 8, 14, 18, 18]); P.er = kf(c, T, [0, 16, -6, -8, -14, -18, -18]);
+      P.wr = kf(c, T, [0, 8, 4, 8, 20, 28, 28]); P.sp = kf(c, T, [0, -6, -3, 2, 14, 22, 22]); P.spy = kf(c, T, [0, 0, 0, 4, 14, 22, 22]);
+      P.gear = kf(c, T, [0, 20, 60, 120, 150, 156, 156]);
+      if (c > 0.4 && c < 1.0) { P.roll += 0.5 * Math.sin(c * 50) * (1 - (c - 0.4) / 0.6); }
+      P.eye = c < 0.3 ? 1.4 : c < 1.8 ? 0.45 * (Math.sin(c * 31) > 0.2 ? 1 : 0.25) * (1 - (c - 0.3) / 1.5) : 0; P.dim = ease(clamp((c - 0.9) / 0.9));
+      if (c > 0.08 && c < 0.9) { const d = Math.exp(-(c - 0.08) * 4); P.shake = [(Math.random() - 0.5) * 12 * d, (Math.random() - 0.5) * 8 * d]; }
+      once("hit", c < 0.2, () => { spawnStar(S, t, CORE[0], CORE[1] - 40, 80); spawnSpark(S, t, CORE[0], CORE[1] - 40, 9, 480); });
+      once("b1", c >= 1.3, () => { for (const f of FEET) spawnRing(S, t, f[0], f[1] + 8, 110, 0.6); });
+      once("b2", c >= 1.9, () => { for (const f of FEET) spawnRing(S, t, f[0], f[1] + 8, 150, 0.7); spawnDust(S, t, 560, 765, 6, 380, -Math.PI / 2); });
+      every("vent", 0.4, 0.6, () => { if (c < 2.95) spawnPuff(S, t, 600 + (Math.random() - 0.5) * 120, 480, { vy: -90, r: 20 }); });
+      every("sp", 0.45, 0.8, () => { if (c < 2.4) spawnSpark(S, t, 480 + Math.random() * 300, 450 + Math.random() * 150, 3, 260); });
+    }
+    // Broken parts leak: the wrench head drops sparks, the spanner stub sparks.
+    if (bk["gremlin-wrench"]) every("lw", 0.45, 0.1, () => { const q = pt([1090, 330]); spawnSpark(S, t, q[0], q[1], 2, 200); });
+    if (bk["gremlin-spanner"] && m !== "death") every("ls", 0.4, 0.2, () => { const q = pt([252, 590]); spawnSpark(S, t, q[0], q[1], 2, 180); });
+    P.t = t;
+    return P;
+  },
+  over(c, P, t, api) {
+    const S = api.state, at = p => api.point(p[0], p[1], P);
+    // Goggle glints: small flat cream discs that jump to the other lens now and then and flare in attack; dark discs in death.
+    const E = Math.max(0, P.eye), s = Math.floor(t * 0.7) % 2;
+    for (const [i, g] of [GOGL, GOGR].entries()) {
+      const p = at(g);
+      if (P.dim > 0) { c.globalAlpha = 0.9 * P.dim; c.fillStyle = INK; c.beginPath(); c.arc(p[0], p[1], 52, 0, 2 * Math.PI); c.fill(); c.globalAlpha = 1; }
+      else if (E > 0.9) ember(c, p[0] + 6, p[1] + 4, 7 + 5 * Math.min(1, E - 0.9), 0.95);
+      else { c.fillStyle = INK; c.beginPath(); c.arc(p[0] - 14 + (i === s ? 3 : 0), p[1] - 14, 8.5, 0, 2 * Math.PI); c.fill(); c.fillStyle = STEAM2; c.beginPath(); c.arc(p[0] - 14 + (i === s ? 3 : 0), p[1] - 14, 6, 0, 2 * Math.PI); c.fill(); }
+    }
+    drawFx(c, S, t);
+    drawBroken(c, at, S, t);
+  },
+};
+const DMG = {
+  // The Wrench Hand: the big wrench's jaws are bitten away in a big notch, an ember in the break, thick cracks down the handle.
+  "gremlin-wrench": { poly: [[1030, 255], [1120, 250], [1150, 300], [1112, 318], [1128, 350], [1096, 370], [1100, 400], [1052, 392], [1040, 346], [1012, 320]], k: 1.35, c: [1060, 420], r: 50, cracks: 4, crack0: 1.1, crackStep: 1.1, seed: 61 },
+  // The Spanner: a chunk of the grip is blown out, the spike hangs snapped off; an ember in the hole, cracks over the hand.
+  "gremlin-spanner": { poly: jaggedBlob(290, 585, 48, 14, 0.5, 19), k: 1.5, c: [350, 585], r: 48, cracks: 4, crack0: -0.5, crackStep: 1.2, seed: 67 },
+};
+const rig = Rig.mount(document.getElementById("stage"), gremlin, IMG);
+wire(rig);
+</script>
+</body>
+</html>

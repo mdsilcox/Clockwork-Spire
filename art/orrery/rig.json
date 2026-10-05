@@ -1,0 +1,21 @@
+{
+  "size": [896, 1152],
+  "pad": [160, 100],
+  "view": "front",
+  "facing": "left",
+  "feet": 1100,
+  "moods": ["idle", "attack", "hurt", "death"],
+  "durations": { "idle": 5, "attack": 3, "hurt": 1.8, "death": 3.4 },
+  "anchors": {
+    "orrery-moon1": [330, 430, 30],
+    "orrery-moon2": [262, 430, 28],
+    "orrery-moon3": [322, 430, 34],
+    "orrery-arm": [110, 468, 58],
+    "orrery-ring": [118, 335, 66],
+    "core": [452, 430, 120],
+    "eyes": [452, 430, 40]
+  },
+  "liveAnchors": "orrery-moon1..3 are getters on the character's anchors object: rig.anchor('orrery-moon1') returns the moon's current position (the values above are only nominal orbit starts). Moons: Hush pale, Embers red, Dusk dark and slow.",
+  "brokenFlag": "?broken=orrery-moon1,orrery-moon2,orrery-moon3,orrery-arm,orrery-ring (or all) in the URL, or rig.state.broken = { ... }: painted parts get a notch erased from the alpha with ember and ink cracks; a broken moon sprite has a bitten notch with ember, ink cracks, wobbles off its orbit and sheds sparks",
+  "notes": "Moons are code sprites (flat two-tone discs, ink edge) on tilted ellipses, front half drawn over the painting and back half behind it (the rig's under layer). In death they fall and bounce to rest on the pedestal. Built by art/orrery/build.py (shared act 2 kit)."
+}

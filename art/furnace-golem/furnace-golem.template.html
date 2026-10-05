@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Furnace Golem</title>
+<style>
+  :root { --bg: #10393F; --panel: #1F6F6B; --brass: #C9A24A; --text: #f2e6cf; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; min-height: 100vh;
+         display: flex; flex-direction: column; align-items: center; padding: 8px; overflow-x: hidden; }
+  .stage { position: relative; width: min(100%, 560px); aspect-ratio: 1196 / 1512; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  button { background: var(--panel); color: var(--text); border: 1px solid #5a4a2a; padding: 8px 16px; font: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--brass); color: #1d2a30; border-color: var(--brass); }
+  label { color: #b9a98c; display: flex; align-items: center; gap: 6px; padding: 8px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"></div>
+<div class="bar">
+  <button data-mood="idle" aria-pressed="true">Idle</button>
+  <button data-mood="attack">Attack</button>
+  <button data-mood="hurt">Hurt</button>
+  <button data-mood="death">Death</button>
+  <label><input type="checkbox" data-break="golem-heart"> Break heart</label>
+  <label><input type="checkbox" data-break="golem-fist"> Break fist</label>
+  <label><input type="checkbox" id="ball"> Break all</label>
+  <label><input type="checkbox" id="mesh"> Mesh</label>
+</div>
+<script>__RIGJS__</script>
+<script>
+const { smooth, band, rad, rot } = Rig;
+const IMG = "__IMG__";
+__KIT__
+
+// Painting 896x1152, front view. Feet bottom at y 1090 (the cut-out ends there). Furnace ports glow on both fists (150, 690) and (755, 700).
+const SHO = [[205, 520], [690, 520]];                                // shoulder pivots (left fist strikes)
+const PORTS = [[152, 688, 24], [757, 700, 24]], HEART = [445, 430], SLIT = [492, 190], CHIM = [395, 88];
+const FEET = [[330, 1085], [565, 1085]], FIST = [175, 870];
+
+const golem = {
+  size: [896, 1152], grid: [112, 144], pad: [150, 230],
+  // Arms and legs are separate objects below the pelvis: triangles that straddle them are dropped so a raised arm never drags a leg band.
+  part(x, y) { return y < 760 || y > 1010 ? 0 : x < 258 ? 1 : x > 634 ? 2 : 0; },
+  tear(x, y) { return y > 760; },
+  anchors: { "golem-heart": [445, 430, 70], "golem-fist": [175, 790, 90], core: [445, 330, 100], eyes: [492, 190, 34] },
+  weights(x, y) {
+    const w = { a: [0, 0], l: [0, 0] };
+    w.a[0] = band(x, 92, 262, 6) * smooth(520, 610, y) * smooth(1040, 1000, y);
+    w.a[1] = band(x, 634, 810, 6) * smooth(520, 610, y) * smooth(1040, 1000, y);
+    w.l[0] = band(x, 255, 420, 8) * smooth(800, 880, y) * (1 - w.a[0]);
+    w.l[1] = band(x, 480, 640, 8) * smooth(800, 880, y) * (1 - w.a[1]);
+    w.fl = band(x, 320, 430, 8) * smooth(105, 55, y);
+    w.b = Math.max(smooth(1085, 700, y), w.a[0], w.a[1]);
+    return w;
+  },
+  deform(x, y, w, P) {
+    for (let i = 0; i < 2; i++) {
+      const wa = w.a[i], ramp = smooth(560, 640, y) * wa;
+      [x, y] = rot(x, y, ...SHO[i], rad(P.arm[i]), wa);
+      y = SHO[i][1] + (y - SHO[i][1]) * (1 + P.ext[i] * ramp) - P.up[i] * ramp;
+      x += P.ax[i] * ramp;
+      y -= P.ly[i] * w.l[i];
+    }
+    [x, y] = rot(x, y, 385, 100, rad(P.fl), w.fl);
+    const wb = w.b;
+    [x, y] = rot(x, y, 445, 850, rad(P.roll), wb);
+    if (y < 850) y = 850 + (y - 850) * (1 - 0.02 * P.sag * wb);
+    return [x + P.bx * wb, y + P.by * wb];
+  },
+  moods: { idle: { eye: 0.5 }, attack: { eye: 0.7 }, hurt: { eye: 0.5 }, death: { eye: 0.4 } },
+  ease: 3,
+  onMood(m, api) { const S = api.state; S.start = undefined; S.cycle = undefined; S.hit = undefined; S.did = {}; },
+  pose(L, t, dt, S, api) {
+    if (S.start === undefined) { S.start = t; S.did = {}; S.next = {}; S.broken = S.broken || urlBroken(); }
+    syncBroken(S, 896, 1152);
+    const u = t - S.start, m = api.mood, bk = S.broken || {};
+    const P = { roll: 0, bx: 0, by: 0, sag: 0, arm: [0, 0], ext: [0, 0], up: [0, 0], ax: [0, 0], ly: [0, 0], fl: 0, flash: 0, shake: null, glow: 1, dim: 0, tip: 0 };
+    const once = (k, cond, fn) => { if (cond && !S.did[k]) { S.did[k] = true; fn(); } };
+    const every = (k, period, from, fn) => { const n = Math.floor((u - from) / period); if (u >= from && S.next[k] !== n) { S.next[k] = n; fn(n); } };
+    if (m === "idle") {
+      const c = u % 4, n = Math.floor(u / 4), br = Math.sin(u * Math.PI * 2 / 4);
+      P.by = 2.6 * br; P.roll = 0.18 * Math.sin(u * Math.PI * 2 / 4 + 1); P.sag = 0.15 * br;
+      P.arm = [1.2 * Math.sin(u * Math.PI * 2 / 4 - 0.7), -1.2 * Math.sin(u * Math.PI * 2 / 4 - 0.7)];
+      P.ext = [0.008 * br, 0.008 * br];
+      P.fl = 4 * Math.sin(u * 3.1) + 3 * Math.sin(u * 7.3);
+      // Heavy: one leg lifts a little and plants with a dust ring; the furnace ports pulse; chimney smoke; a quick shudder once.
+      const lift = kf(c, [0, 2.4, 2.7, 3.1, 3.4, 4], [0, 0, 1, 1, 0, 0]), i = n % 2;
+      P.ly[i] = 9 * lift; P.by -= 3 * lift; P.roll += (i ? -0.5 : 0.5) * lift;
+      once("plant" + n, c >= 3.4, () => { spawnRing(S, t, FEET[i][0], FEET[i][1] - 4, 80, 0.5); P.by += 3; });
+      const tw = c > 1.2 && c < 1.55 ? Math.sin((c - 1.2) * 60) * Math.exp(-(c - 1.2) * 10) : 0; P.bx = 1.6 * tw;
+      P.glow = 0.75 + 0.25 * Math.sin(u * 3.3);
+      every("sm", 0.9, 0.2, () => spawnPuff(S, t, CHIM[0] + (Math.random() - 0.5) * 20, CHIM[1] - 20, { vx: 18, vy: -70, r: 24, tones: ["#6F7F83", "#B6C3C6"], life: 1.4 }));
+      once("vent" + n, c > 1.9, () => { spawnPuff(S, t, 112, 330, { vx: -30, vy: -80, r: 18 }); spawnPuff(S, t, 790, 330, { vx: 30, vy: -80, r: 18 }); });
+      every("sp", 1.3, 0.5, () => spawnSpark(S, t, CHIM[0] + 10, CHIM[1] - 10, 2, 170));
+    } else if (m === "attack") {
+      const c = u % 2.6, T = [0, 0.3, 0.9, 1.1, 1.18, 1.7, 2.6];
+      // Lean back and wind the left fist up (foreshortened toward the viewer), hold with the furnace flaring, then lean the torso forward and drop the shoulder: the fist comes down with the weight, the arm stretches at most 10 percent.
+      P.roll = kf(c, T, [0, -0.5, 1.2, -4.2, -3.2, -0.6, 0]); P.by = kf(c, T, [0, 5, 14, 26, 30, 8, 0]); P.bx = kf(c, T, [0, 2, 6, -26, -22, -4, 0]);
+      P.sag = kf(c, T, [0, 0.4, 1, 1.4, 1.2, 0, 0]);
+      P.ext = [kf(c, T, [0, -0.05, -0.08, 0.1, 0.08, 0, 0]), 0];
+      P.up = [kf(c, T, [0, 20, 120, -92, -80, 0, 0]), 0]; P.ax = [kf(c, T, [0, -4, -14, 8, 6, 0, 0]), 0];
+      P.arm = [kf(c, T, [0, 5, 8, -8, -6, 0, 0]), kf(c, T, [0, -2, -5, 4, 3, 0, 0])];
+      P.glow = kf(c, [0, 0.9, 1.1, 1.7, 2.6], [1, 1.5, 1.6, 1, 1]);
+      P.fl = 6 * Math.sin(u * 14) * (c < 1.1 ? 1 : 0.3);
+      P.eye = P.glow;
+      if (c > 0.35 && c < 1.1) P.shake = [(Math.random() - 0.5) * 4 * ease((c - 0.35) / 0.75), (Math.random() - 0.5) * 3 * ease((c - 0.35) / 0.75)];
+      if (c >= 1.1) { const d = Math.exp(-(c - 1.1) * 8); P.shake = [(Math.random() - 0.5) * 14 * d, (Math.random() - 0.5) * 10 * d]; }
+      const cyc = Math.floor(u / 2.6);
+      if (S.cycle !== cyc) { S.cycle = cyc; S.did = {}; S.trail = []; }
+      for (const [k, t0] of [["s1", 0.4], ["s2", 0.7]]) once(k, c > t0, () => { spawnPuff(S, t, 112, 330, { vx: -35, vy: -90, r: 20 }); spawnPuff(S, t, CHIM[0], CHIM[1] - 15, { vx: 20, vy: -110, r: 26, tones: ["#6F7F83", "#B6C3C6"] }); spawnSpark(S, t, PORTS[0][0], PORTS[0][1], 3, 260); });
+      if (c > 1.0 && c < 1.26) { const q = golem.deform(FIST[0], FIST[1], golem.weights(FIST[0], FIST[1]), P), tr = S.trail = S.trail || [], l = tr[tr.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 24) tr.push(q); }
+      once("smear", c >= 1.26, () => { if (S.trail && S.trail.length > 2) spawnSmear(S, t, S.trail.slice(-7), 44); S.trail = []; });
+      once("slam", c >= 1.18, () => { const q = golem.deform(FIST[0], FIST[1], golem.weights(FIST[0], FIST[1]), P); spawnStar(S, t, q[0], q[1] + 30, 80); spawnSpark(S, t, q[0], q[1] + 40, 10, 650); spawnRing(S, t, 190, 1075, 190, 0.6); spawnRing(S, t, 330, 1085, 150, 0.65); spawnDust(S, t, 170, 1070, 9, 520, -Math.PI / 2); });
+    } else if (m === "hurt") {
+      const c = u % 1.5, T = [0, 0.07, 0.25, 0.8, 1.5];
+      P.flash = flashK(c);
+      P.bx = kf(c, T, [0, 18, 12, 0, 0]); P.by = kf(c, T, [0, -4, 2, 0, 0]); P.roll = kf(c, T, [0, 1.3, 0.8, 0, 0]); P.sag = kf(c, T, [0, 0.2, 0.5, 0, 0]);
+      P.arm = [kf(c, T, [0, 5, 3, 0, 0]), kf(c, T, [0, -5, -3, 0, 0])]; P.fl = kf(c, T, [0, 14, -6, 0, 0]);
+      P.glow = kf(c, [0, 0.07, 0.4, 1.5], [1, 1.6, 0.5, 1]); P.eye = P.glow;
+      const d = Math.exp(-c * 7); P.shake = [(Math.random() - 0.5) * 8 * d, (Math.random() - 0.5) * 6 * d];
+      const cyc = Math.floor(u / 1.5);
+      if (S.hit !== cyc) { S.hit = cyc; spawnStar(S, t, HEART[0], HEART[1], 80); spawnSpark(S, t, HEART[0], HEART[1], 8, 480); spawnPuff(S, t, 112, 330, { vx: -40, vy: -90, r: 20 }); spawnRing(S, t, FEET[0][0], FEET[0][1] - 4, 90, 0.5); }
+    } else if (m === "death") {
+      const c = Math.min(u, 2.999), T = [0, 0.08, 0.4, 1.0, 1.8, 2.5, 3];
+      P.flash = flashK(c);
+      P.bx = kf(c, T, [0, 16, 10, 8, 12, 14, 14]); P.roll = kf(c, T, [0, 1.2, 0.6, -1.5, -3, -4, -4]);
+      P.by = kf(c, T, [0, -3, 2, 10, 34, 50, 50]); P.sag = kf(c, T, [0, 0.2, 0.5, 1.5, 4, 5, 5]);
+      P.arm = [kf(c, T, [0, 5, 4, 3, 10, 14, 14]), kf(c, T, [0, -5, -4, -3, -10, -14, -14])];
+      P.ext = [kf(c, T, [0, 0, 0, 0, -0.05, -0.08, -0.08]), kf(c, T, [0, 0, 0, 0, -0.05, -0.08, -0.08])];
+      P.fl = kf(c, T, [0, 14, 6, 14, 24, 30, 30]);
+      if (c > 0.4 && c < 1.0) { P.roll += 0.35 * Math.sin(c * 50) * (1 - (c - 0.4) / 0.6); P.by += 1.5 * Math.sin(c * 43); }
+      P.glow = c < 0.3 ? 1.6 : c < 1.9 ? (Math.sin(c * 29) > 0.1 ? 1 : 0.2) * (1 - (c - 0.3) / 1.6) : 0; P.eye = P.glow; P.dim = ease(clamp((c - 0.5) / 1.6));
+      if (c > 0.1 && c < 1.0) { const d = Math.exp(-(c - 0.1) * 4); P.shake = [(Math.random() - 0.5) * 12 * d, (Math.random() - 0.5) * 8 * d]; }
+      once("hit", c < 0.2, () => { spawnStar(S, t, HEART[0], HEART[1], 90); spawnSpark(S, t, HEART[0], HEART[1], 10, 520); });
+      once("b1", c >= 1.3, () => { for (const f of FEET) spawnRing(S, t, f[0], f[1] - 4, 120, 0.6); });
+      once("b2", c >= 1.9, () => { for (const f of FEET) spawnRing(S, t, f[0], f[1] - 4, 160, 0.7); spawnDust(S, t, 300, 1075, 6, 380, -Math.PI / 2); spawnDust(S, t, 600, 1075, 6, 380, -Math.PI / 2); });
+      every("sm", 0.3, 0.5, () => { if (c < 2.95) spawnPuff(S, t, CHIM[0] + (Math.random() - 0.5) * 24, CHIM[1] - 15 + P.by, { vx: 10, vy: -90, r: 26, tones: ["#6F7F83", "#B6C3C6"] }); });
+      every("sp", 0.45, 0.8, () => { if (c < 2.3) spawnSpark(S, t, 380 + Math.random() * 130, 420 + Math.random() * 90, 3, 280); });
+    }
+    // Broken parts leak: the heart door spits sparks, the fist leaks slag sparks and steam.
+    if (bk["golem-heart"] && m !== "death") every("lh", 0.45, 0.1, () => spawnSpark(S, t, HEART[0] + (Math.random() - 0.5) * 30, HEART[1] + 10, 2, 200));
+    if (bk["golem-fist"]) every("lf", 0.4, 0.2, () => { spawnSpark(S, t, 120, 800, 2, 180); if (Math.random() < 0.5) spawnPuff(S, t, 112, 790, { vx: -20, vy: -70, r: 16 }); });
+    P.t = t;
+    return P;
+  },
+  over(c, P, t, api) {
+    const S = api.state, at = p => api.point(p[0], p[1], P), bk = S.broken || {};
+    // Furnace ports on the fists and the chest heart: flat hard-edged embers that pulse, flare in attack and hurt, and die in death.
+    const g = Math.max(0, P.glow);
+    if (P.dim > 0) for (const [x, y, r] of [...PORTS, [HEART[0], HEART[1], 22]]) { const p = at([x, y]); c.globalAlpha = 0.8 * P.dim; c.fillStyle = INK; c.beginPath(); c.arc(p[0], p[1], r * 1.5, 0, 2 * Math.PI); c.fill(); c.globalAlpha = 1; }
+    if (g > 0.95) for (const [x, y, r] of PORTS) { if (bk["golem-fist"] && x < 300) continue; const p = at([x, y]); ember(c, p[0], p[1], r * 0.45 * Math.min(1.6, g), 0.95); }
+    if (g > 0.95 && !bk["golem-heart"]) { const p = at(HEART); ember(c, p[0], p[1], 9 * Math.min(1.6, g), 0.95); }
+    if (g > 1.2) { const p = at(SLIT); ember(c, p[0], p[1], 6, 0.95); }
+    drawFx(c, S, t);
+    drawBroken(c, at, S, t);
+  },
+};
+const DMG = {
+  // The Furnace Heart: the chest door is smashed in, a big jagged hole with an ember inside, thick cracks across the plate.
+  "golem-heart": { poly: jaggedBlob(445, 432, 56, 14, 0.5, 9), k: 1.55, c: [445, 432], r: 56, cracks: 5, crack0: -0.4, crackStep: 1.25, seed: 41 },
+  // The Slag Fist: a big chunk bitten out of the outer edge of the glowing fist, an ember inside, cracks up the plate.
+  "golem-fist": { poly: [[96, 700], [140, 716], [150, 748], [128, 770], [150, 800], [120, 836], [96, 820], [70, 790], [84, 760], [66, 730]], k: 1.6, c: [160, 770], r: 40, cracks: 4, crack0: -0.6, crackStep: 1.2, seed: 47 },
+};
+const rig = Rig.mount(document.getElementById("stage"), golem, IMG);
+wire(rig);
+</script>
+</body>
+</html>

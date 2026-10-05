@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hour Knight</title>
+<style>
+  :root { --bg: #10393F; --panel: #1F6F6B; --brass: #C9A24A; --text: #f2e6cf; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; min-height: 100vh;
+         display: flex; flex-direction: column; align-items: center; padding: 8px; overflow-x: hidden; }
+  .stage { position: relative; width: min(100%, 560px); aspect-ratio: 1936 / 1632; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  button { background: var(--panel); color: var(--text); border: 1px solid #5a4a2a; padding: 8px 16px; font: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--brass); color: #1d2a30; border-color: var(--brass); }
+  label { color: #b9a98c; display: flex; align-items: center; gap: 6px; padding: 8px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"></div>
+<div class="bar">
+  <button data-mood="idle" aria-pressed="true">Idle</button>
+  <button data-mood="attack">Attack</button>
+  <button data-mood="hurt">Hurt</button>
+  <button data-mood="death">Death</button>
+  <label><input type="checkbox" data-break="knight-sword"> Break sword</label>
+  <label><input type="checkbox" data-break="knight-shield"> Break shield</label>
+  <label><input type="checkbox" data-break="knight-visor"> Break visor</label>
+  <label><input type="checkbox" id="ball"> Break all</label>
+  <label><input type="checkbox" id="mesh"> Mesh</label>
+</div>
+<script>__RIGJS__</script>
+<script>
+const { smooth, band, rad, rot } = Rig;
+const IMG = "__IMG__";
+const BKS = 1.5;
+__KIT__
+
+// Painting 896x1152, front view, boots clipped by the painting's bottom edge (they never leave the ground). Enemies face left: the sword side is screen-left.
+const GRIP = [150, 860], SHP = [520, 570], NECK = [430, 355], BASE = [450, 1090];
+const SWORD = [[62, 70], [70, 200], [150, 790], [190, 960], [222, 1150]];
+const TIP = [70, 215], CHEST = [390, 520], EYES = [[372, 212], [418, 212]];
+const knight = {
+  size: [896, 1152], grid: [112, 144], pad: [520, 240],
+  anchors: { "knight-sword": [100, 330, 100], "knight-shield": [665, 765, 150], "knight-visor": [405, 240, 80], core: [390, 520, 90], eyes: [395, 212, 40] },
+  weights(x, y) {
+    const w = {};
+    w.sw = 1 - smooth(52, 88, chainDist(x, y, SWORD).d);
+    w.sh = smooth(485, 530, x) * smooth(545, 600, y) * smooth(1010, 950, y);
+    w.hd = smooth(380, 310, y) * band(x, 300, 560, 25);
+    w.b = smooth(1090, 900, y);
+    return w;
+  },
+  deform(x, y, w, P) {
+    [x, y] = rot(x, y, ...NECK, rad(P.head), w.hd);
+    [x, y] = rot(x, y, ...SHP, rad(P.sh), w.sh);
+    x += P.shx * w.sh;
+    x = 440 + (x - 440) * (1 - 0.0045 * P.turn * w.b);
+    [x, y] = rot(x, y, ...GRIP, rad(P.sw), w.sw);
+    y = BASE[1] + (y - BASE[1]) * (1 + P.sq * w.b);
+    [x, y] = rot(x, y, ...BASE, rad(P.roll), w.b);
+    return [x + P.bx * w.b, y + P.by * w.b];
+  },
+  moods: { idle: { eye: 0.5 }, attack: { eye: 0.7 }, hurt: { eye: 0.5 }, death: { eye: 0.4 } },
+  ease: 3,
+  onMood(m, api) { const S = api.state; S.start = undefined; S.cycle = undefined; S.hit = undefined; S.did = {}; S.trail = []; },
+  pose(L, t, dt, S, api) {
+    if (S.start === undefined) { S.start = t; S.did = {}; S.next = {}; S.broken = S.broken || urlBroken(); }
+    syncBroken(S, 896, 1152);
+    const u = t - S.start, m = api.mood, bk = S.broken || {};
+    const P = { turn: 0, roll: 0, bx: 0, by: 0, sq: 0, sw: 0, sh: 0, shx: 0, head: 0, flash: 0, shake: null, eye: L.eye, dim: 0 };
+    const once = (k, cond, fn) => { if (cond && !S.did[k]) { S.did[k] = true; fn(); } };
+    const every = (k, period, from, fn) => { const n = Math.floor((u - from) / period); if (u >= from && S.next[k] !== n) { S.next[k] = n; fn(n); } };
+    const ap = p => knight.deform(p[0], p[1], knight.weights(p[0], p[1]), P);
+    if (m === "idle") {
+      const c = u % 4, n = Math.floor(u / 4), ph = u * Math.PI * 2 / 4;
+      // A guard at attention: slow breath, the sword leans and settles, one slow nod of the visor, a tick ring from the chest dial.
+      P.by = 3 * Math.sin(ph - 0.5); P.sq = 0.004 * Math.sin(ph - 0.5); P.roll = 0.5 * Math.sin(ph);
+      P.sw = 1.3 * Math.sin(ph + 0.6) + (c > 1.5 && c < 2.0 ? 1.5 * Math.sin((c - 1.5) / 0.5 * Math.PI) : 0);
+      P.sh = 1.2 * Math.sin(ph - 0.8);
+      P.head = c > 2.2 && c < 3.2 ? -3 * Math.sin((c - 2.2) / 1.0 * Math.PI) : 0.5 * Math.sin(ph);
+      once("tick" + n, c > 0.9, () => { const q = ap(CHEST); spawnWave(S, t, q[0], q[1], 70, 0.5, "#E3B84F"); });
+      P.eye = L.eye * (0.85 + 0.15 * Math.sin(u * 3.1)) * (c > 3.4 && c < 3.5 ? 0.15 : 1);
+    } else if (m === "attack") {
+      const c = u % 2.4, T = [0, 0.25, 0.8, 0.96, 1.06, 1.5, 2.4];
+      // The sword goes back over the shoulder, the shield comes up; then a lunge and a hard chop to the left.
+      P.sw = kf(c, T, [0, 5, 14, -24, -19, -3, 0]); P.turn = kf(c, T, [0, 2, 7, -9, -7, -1, 0]); P.sh = kf(c, T, [0, -2, -6, 8, 5, 1, 0]); P.shx = kf(c, T, [0, -4, -12, 18, 12, 0, 0]);
+      P.bx = kf(c, T, [0, 6, 20, -70, -56, -10, 0]); P.by = kf(c, T, [0, 6, 8, 16, 18, 4, 0]); P.roll = kf(c, T, [0, 1.5, 4, -9, -7, -1.2, 0]); P.sq = kf(c, T, [0, 0.012, 0.02, -0.05, -0.035, -0.005, 0]);
+      P.head = kf(c, T, [0, 1, 4, -7, -5, -1, 0]);
+      P.eye = kf(c, [0, 0.8, 1.0, 1.4, 2.4], [0.7, 1.4, 1.5, 0.8, 0.7]);
+      if (c > 0.4 && c < 0.96) P.shake = [(Math.random() - 0.5) * 3 * ease((c - 0.4) / 0.56), (Math.random() - 0.5) * 2 * ease((c - 0.4) / 0.56)];
+      const cyc = Math.floor(u / 2.4);
+      if (S.cycle !== cyc) { S.cycle = cyc; S.did = {}; }
+      for (const [k, t0] of [["w1", 0.3], ["w2", 0.58]]) once(k, c > t0, () => { const q = ap(CHEST); spawnWave(S, t, q[0], q[1], 70, 0.45, "#E3B84F"); });
+      if (c > 0.78 && c < 1.1) { const q = ap(TIP), tr = S.trail = S.trail || []; tr.push(q); }
+      once("smear", c >= 1.1, () => { if (S.trail && S.trail.length > 2) spawnSlash(S, t, S.trail.slice(-9), 56); S.trail = []; });
+      once("chop", c >= 0.98, () => { const q = ap([100, 600]); spawnStar(S, t, q[0] - 30, q[1] + 20, 70); spawnSpark(S, t, q[0] - 30, q[1] + 20, 9, 600); spawnRing(S, t, 200, 1130, 160, 0.55); spawnWave(S, t, q[0] - 20, q[1], 130, 0.6); });
+      if (c >= 0.98) { const d = Math.exp(-(c - 0.98) * 9); P.shake = [(Math.random() - 0.5) * 12 * d, (Math.random() - 0.5) * 8 * d]; }
+    } else if (m === "hurt") {
+      const c = u % 1.5, T = [0, 0.07, 0.2, 0.7, 1.5];
+      P.flash = flashK(c);
+      P.bx = kf(c, T, [0, 34, 26, 0, 0]); P.by = kf(c, T, [0, -5, -2, 0, 0]); P.roll = kf(c, T, [0, 3, 2, 0, 0]);
+      P.sw = kf(c, T, [0, 9, 4, -1, 0]); P.sh = kf(c, T, [0, -6, -3, 0, 0]); P.head = kf(c, T, [0, 8, 3, 0, 0]);
+      P.eye = kf(c, [0, 0.07, 0.3, 1.5], [0.5, 1.6, 0.3, 0.5]);
+      const d = Math.exp(-c * 6); P.shake = [(Math.random() - 0.5) * 9 * d, (Math.random() - 0.5) * 6 * d];
+      const cyc = Math.floor(u / 1.5);
+      if (S.hit !== cyc) { S.hit = cyc; spawnStar(S, t, 400, 560, 74); spawnSpark(S, t, 400, 560, 7, 450); spawnWave(S, t, 390, 520, 80, 0.5, "#E3B84F"); spawnRing(S, t, 420, 1130, 110, 0.5); }
+    } else if (m === "death") {
+      const c = Math.min(u, 2.999), T = [0, 0.08, 0.35, 1.0, 1.8, 2.5, 3];
+      P.flash = flashK(c);
+      P.bx = kf(c, T, [0, 28, 18, 10, 24, 36, 36]); P.roll = kf(c, T, [0, 2.5, 1.5, 4, 20, 30, 30]);
+      P.by = kf(c, T, [0, -4, 0, 14, 60, 96, 96]); P.sq = kf(c, T, [0, 0, 0, -0.02, -0.17, -0.24, -0.24]);
+      P.sw = kf(c, T, [0, 9, 4, 0, -22, -40, -40]); P.sh = kf(c, T, [0, -6, -3, 3, 14, 20, 20]); P.shx = kf(c, T, [0, 0, 0, 0, 20, 34, 34]);
+      P.head = kf(c, T, [0, 8, 3, 6, 20, 24, 24]);
+      if (c > 0.35 && c < 1.0) { P.roll += 0.5 * Math.sin(c * 50) * (1 - (c - 0.35) / 0.65); P.by += 1.5 * Math.sin(c * 43); P.sw += 2 * Math.sin(c * 37); }
+      P.eye = c < 0.3 ? 1.4 : c < 1.8 ? 0.45 * (Math.sin(c * 31) > 0.2 ? 1 : 0.25) * (1 - (c - 0.3) / 1.5) : 0;
+      P.dim = ease(clamp((c - 1.0) / 1.2));
+      if (c > 0.1 && c < 1.0) { const d = Math.exp(-(c - 0.1) * 4); P.shake = [(Math.random() - 0.5) * 12 * d, (Math.random() - 0.5) * 8 * d]; }
+      once("hit", c < 0.2, () => { spawnStar(S, t, 400, 560, 80); spawnSpark(S, t, 400, 560, 9, 500); });
+      once("k1", c >= 1.5, () => { spawnRing(S, t, 330, 1135, 170, 0.6); spawnShards(S, t, 260, 1125, 7, 70); spawnShards(S, t, 560, 1125, 7, 70); });
+      once("k2", c >= 2.2, () => { spawnRing(S, t, 330, 1140, 210, 0.7); spawnWave(S, t, 390, 520, 120, 0.7, "#E3B84F"); });
+      every("sp", 0.4, 0.9, () => { if (c < 2.5) spawnSpark(S, t, 330 + Math.random() * 120, 520 + Math.random() * 100, 3, 300); });
+    }
+    if (bk["knight-sword"] && m !== "death") every("ls", 0.4, 0.1, () => { const q = ap([100, 440]); spawnSpark(S, t, q[0], q[1], 2, 160); });
+    if (bk["knight-shield"]) every("lh", 0.45, 0.2, () => { const q = ap([780, 640]); spawnSpark(S, t, q[0], q[1], 2, 140); });
+    if (bk["knight-visor"]) every("lv", 0.4, 0.3, () => { const q = ap([470, 240]); spawnSpark(S, t, q[0], q[1], 2, 180); });
+    P.t = t;
+    return P;
+  },
+  over(c, P, t, api) {
+    const S = api.state, at = p => api.point(p[0], p[1], P);
+    // Eyes: two small embers behind the visor slit; the chest dial goes dark in death.
+    const E = Math.max(0, P.eye);
+    if (E > 0.1) for (const e of EYES) { const p = at(e); ember(c, p[0], p[1], 3 + 5 * Math.min(1.5, E), Math.min(1, E * 1.6)); }
+    if (P.dim > 0) { const lp = at(CHEST); c.globalAlpha = 0.7 * P.dim; c.fillStyle = INK; c.beginPath(); c.arc(lp[0], lp[1], 70, 0, 2 * Math.PI); c.fill(); c.globalAlpha = 1; }
+    // The painting's boots are clipped by its bottom edge: flat ink-edged soles finish them (the feet never move).
+    for (const [x0, x1] of [[236, 440], [462, 668]]) { c.fillStyle = INK; c.beginPath(); c.roundRect(x0 - 4, 1136, x1 - x0 + 8, 34, 14); c.fill(); c.fillStyle = "#4A3426"; c.beginPath(); c.roundRect(x0 + 2, 1141, x1 - x0 - 4, 21, 10); c.fill(); c.fillStyle = "#8C6A3E"; c.fillRect(x0 + 24, 1144, x1 - x0 - 48, 4); }
+    drawFx(c, S, t);
+    drawBroken(c, at, S, t);
+  },
+};
+const DMG = {
+  // The sword: snapped across the blade, a long jagged gap, ember in the break.
+  "knight-sword": { poly: [[0, 330], [60, 346], [85, 320], [120, 348], [170, 330], [182, 450], [130, 478], [100, 456], [66, 484], [0, 460]], c: [100, 330], r: 20, cracks: 3, crack0: -1.7, crackStep: 0.8, seed: 61, ember: [[100, 395, 15], [58, 385, 9], [142, 400, 9]] },
+  // The shield: a bite out of the rim and the dial, cracks across the face.
+  "knight-shield": { poly: jaggedBlob(760, 640, 140, 14, 0.5, 9), c: [740, 680], r: 40, cracks: 5, crack0: 1.0, crackStep: 1.2, seed: 63, ember: [[758, 640, 15], [716, 622, 9], [800, 664, 9]] },
+  // The visor: a piece torn from the helm's face plate.
+  "knight-visor": { poly: jaggedBlob(468, 250, 92, 12, 0.5, 3), c: [440, 250], r: 25, cracks: 4, crack0: 2.4, crackStep: 1.2, seed: 65, ember: [[466, 250, 12], [440, 236, 7], [484, 270, 7]] },
+};
+const rig = Rig.mount(document.getElementById("stage"), knight, IMG);
+wire(rig);
+</script>
+</body>
+</html>

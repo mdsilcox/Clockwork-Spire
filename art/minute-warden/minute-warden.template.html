@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Minute Warden</title>
+<style>
+  :root { --bg: #10393F; --panel: #1F6F6B; --brass: #C9A24A; --text: #f2e6cf; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; min-height: 100vh;
+         display: flex; flex-direction: column; align-items: center; padding: 8px; overflow-x: hidden; }
+  .stage { position: relative; width: min(100%, 640px); aspect-ratio: 1216 / 1312; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  button { background: var(--panel); color: var(--text); border: 1px solid #5a4a2a; padding: 8px 16px; font: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--brass); color: #1d2a30; border-color: var(--brass); }
+  label { color: #b9a98c; display: flex; align-items: center; gap: 6px; padding: 8px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"></div>
+<div class="bar">
+  <button data-mood="idle" aria-pressed="true">Idle</button>
+  <button data-mood="attack">Attack</button>
+  <button data-mood="mend">Mend</button>
+  <button data-mood="hurt">Hurt</button>
+  <button data-mood="death">Death</button>
+  <label><input type="checkbox" data-break="minute-mender"> Break mender</label>
+  <label><input type="checkbox" data-break="minute-hand"> Break hand</label>
+  <label><input type="checkbox" data-break="minute-needle"> Break needle</label>
+  <label><input type="checkbox" data-break="minute-dial"> Break dial</label>
+  <label><input type="checkbox" id="ball"> Break all</label>
+  <label><input type="checkbox" id="mesh"> Mesh</label>
+</div>
+<script>__RIGJS__</script>
+<script>
+const { smooth, band, rad, rot } = Rig;
+const IMG = "__IMG__";
+__KIT__
+// Local copy of the kit's drawBroken with a crack length option (d.len steps of 12 px); the later declaration wins.
+function drawBroken(c, at, S, t) {
+  const bk = S.broken || {};
+  for (const id in bk) {
+    if (!bk[id] || !DMG[id]) continue;
+    const d = DMG[id], poly = d.poly, rnd = seeded(d.seed || 3), pulse = 0.75 + 0.25 * Math.sin(t * 5 + d.seed);
+    const segs = []; let cur = [];
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i], b = poly[(i + 1) % poly.length], n = Math.max(2, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 4));
+      for (let k = 0; k < n; k++) { const x = a[0] + (b[0] - a[0]) * k / n, y = a[1] + (b[1] - a[1]) * k / n; if (alphaAt(x, y) > 128) cur.push([x, y]); else if (cur.length) { segs.push(cur); cur = []; } }
+    }
+    if (cur.length) segs.push(cur);
+    c.lineCap = "round"; c.lineJoin = "round";
+    for (const [col, lw] of [[INK, 19], [pulse > 0.8 ? "#FF8A2A" : "#E0701F", 12], [CREAM, 4.5]]) {
+      c.strokeStyle = col; c.lineWidth = lw;
+      for (const s of segs) { c.beginPath(); s.forEach(([x, y], i) => { const p = at([x, y]); i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]); }); c.stroke(); }
+    }
+    for (const [ex, ey, er] of d.ember || []) { const p = at([ex, ey]); ember(c, p[0], p[1], er * 1.5 * (0.85 + 0.15 * pulse), 1); }
+    const paths = [];
+    for (let k = 0; k < (d.cracks || 3); k++) {
+      let an = (d.crack0 || 0) + k * (d.crackStep || 1.3) + rnd() * 0.4, x = d.c[0], y = d.c[1]; const pts = [];
+      for (let s = 0; s < (d.len || 14); s++) { an += (rnd() - 0.5) * 0.7; x += Math.cos(an) * 12; y += Math.sin(an) * 12; if (alphaAt(x, y) > 128 && s * 12 > d.r * 0.4) pts.push([x, y]); }
+      if (pts.length > 2) paths.push(pts);
+    }
+    for (const [col, lw, off] of [[INK, 12, 0], [CREAM, 3.5, -2]]) {
+      c.strokeStyle = col; c.lineWidth = lw; c.lineJoin = "miter";
+      for (const pts of paths) { c.beginPath(); pts.forEach(([x, y], i) => { const p = at([x, y]); i ? c.lineTo(p[0] + off, p[1] + off) : c.moveTo(p[0] + off, p[1] + off); }); c.stroke(); }
+    }
+  }
+}
+
+
+// Painting 896x1152, front view (enemies face left: the spear is in the hand on the viewer's left, the player's side).
+const NECK = [410, 262], SHO = [300, 330], SHL = [610, 312], HAND = [215, 596], HIPS = [410, 760];
+const ARM = [[300, 330], [268, 430], [238, 540], [215, 596]];             // the right arm (viewer left), shoulder to hand
+const ARML = [[610, 305], [672, 385], [690, 470], [642, 545], [585, 592]]; // the left arm (viewer right), shoulder to wrist
+const MEN = [395, 388], HEAD = [205, 205], TIP = [205, 90], NEEDLE = [558, 548], DIAL = [410, 490], EYEP = [393, 165], COREP = [410, 435];
+const rl = y => y < 236 ? 60 : y < 268 ? 40 : y < 380 ? 26 : y < 560 ? 27 : y < 655 ? 50 : y < 935 ? 26 : 8;     // how far right of the shaft counts as spear
+const spearW = (x, y) => (y < 50 || y > 1095) ? 0 : smooth(195, 160, 205 - x) < 0.001 ? 0 : (1 - smooth(rl(y) - 6, rl(y) + 4, x - 205)) * (1 - smooth(y > 935 ? 70 : 48, y > 935 ? 90 : 64, 205 - x));
+
+const warden = {
+  size: [896, 1152], grid: [168, 216], pad: [160, 80],
+  anchors: {
+    "minute-mender": [395, 388, 60], "minute-hand": [205, 205, 55], "minute-needle": [558, 548, 34], "minute-dial": [410, 490, 46],
+    core: [410, 435, 70], eyes: [393, 165, 30],
+  },
+  weights(x, y) {
+    const w = {}, d = chainDist(x, y, ARM).d, dl = chainDist(x, y, ARML).d;
+    w.s = spearW(x, y);
+    w.a = (1 - smooth(42, 62, d)) * smooth(330, 410, y) * smooth(300, 280, x) * (y < 600 ? 1 : smooth(660, 620, y));
+    w.g = Math.max(w.s, w.a);
+    w.l = (1 - smooth(40, 62, dl)) * smooth(320, 390, y) * smooth(545, 595, x);
+    w.h = smooth(272, 240, y) * smooth(322, 352, x) * (1 - smooth(190, 230, y) * smooth(505, 545, x));
+    w.t = band(x, 352, 466, 10) * smooth(575, 620, y);
+    w.c = smooth(560, 510, y) * smooth(260, 310, y) * band(x, 335, 520, 35);
+    w.b = smooth(1062, 735, y);
+    return w;
+  },
+  part(x, y) { return spearW(x, y) > 0.5 ? 1 : 0; },
+  tear(x, y) { return true; },
+  deform(x, y, w, P) {
+    [x, y] = rot(x, y, ...HAND, rad(P.lean), w.s);
+    [x, y] = rot(x, y, ...SHO, rad(P.armG), w.g); y += P.spy * w.g;
+    [x, y] = rot(x, y, ...SHL, rad(P.armL), w.l);
+    [x, y] = rot(x, y, ...NECK, rad(P.head), w.h); y += P.hy * w.h;
+    x += P.sway * w.t * smooth(580, 960, y);
+    x += (x - 410) * P.br * w.c; y += (y - 430) * P.br * w.c;
+    [x, y] = rot(x, y, ...HIPS, rad(P.roll), w.b);
+    return [x + P.bx * w.b, y + (P.by + P.sink) * w.b];
+  },
+  moods: { idle: { eye: 0.8 }, attack: { eye: 0.7 }, mend: { eye: 0.7 }, hurt: { eye: 0.4 }, death: { eye: 0.4 } },
+  ease: 3,
+  onMood(m, api) { const S = api.state; S.start = undefined; S.cycle = undefined; S.hit = undefined; S.did = {}; },
+  pose(L, t, dt, S, api) {
+    if (S.start === undefined) { S.start = t; S.did = {}; S.next = {}; S.broken = S.broken || urlBroken(); S.gear = S.gear || 0; S.gearA = 0; }
+    syncBroken(S, 896, 1152);
+    const u = t - S.start, m = api.mood, bk = S.broken || {};
+    const P = { bx: 0, by: 0, sink: 0, roll: 0, head: 0, hy: 0, armG: 0, armL: 0, lean: 0, spy: 0, sway: 0, br: 0, flash: 0, shake: null, eye: L.eye, gear: 0, dim: 0 };
+    const once = (k, cond, fn) => { if (cond && !S.did[k]) { S.did[k] = true; fn(); } };
+    const every = (k, period, from, fn) => { const n = Math.floor((u - from) / period); if (u >= from && S.next[k] !== n) { S.next[k] = n; fn(n); } };
+    let gearA = 0, gearV = 0;   // the mender wheel: how visible the code gear is and how fast it turns
+    const wave = (c, a, b) => c > a && c < b ? Math.sin((c - a) / (b - a) * Math.PI) : 0;
+    if (m === "idle") {
+      const c = u % 4, n = Math.floor(u / 4), ph = u * Math.PI * 2 / 4;
+      P.br = 0.006 * Math.sin(ph); P.by = 2.2 * Math.sin(ph); P.roll = 0.28 * Math.sin(ph + 0.8);
+      P.sway = 7 * Math.sin(ph - 0.7) + 2 * Math.sin(u * 2.6);
+      P.armL = 1.1 * Math.sin(ph - 0.4); P.armG = 0.5 * Math.sin(ph - 0.8); P.lean = 0.5 * Math.sin(ph - 1.3);
+      // The head turns and holds: a slow glance down toward the player, then back.
+      P.head = kf(c, [0, 0.9, 1.3, 2.6, 3.1, 4], [0, 0, -3.4, -3.4, 0.6, 0]) + 0.4 * Math.sin(u * 1.7);
+      P.hy = kf(c, [0, 0.9, 1.3, 2.6, 3.1, 4], [0, 0, 1.5, 1.5, 0, 0]);
+      // The minute wheel ticks three clicks, like a clock hand, once per loop.
+      gearA = wave(c, 1.55, 3.0) > 0 ? 1 : 0; S.tick = kf(c, [0, 1.6, 1.7, 2.1, 2.2, 2.6, 2.7, 4], [0, 0, 1, 1, 2, 2, 3, 3]);
+      S.gear = (n * 3 + S.tick) * (Math.PI / 6);
+      once("glint" + n, c > 0.5, () => spawnStar(S, t, NEEDLE[0] - 4, NEEDLE[1] - 14, 16));
+      P.eye = L.eye * (0.85 + 0.15 * Math.sin(u * 3.1)) * (c > 3.4 && c < 3.5 ? 0.2 : 1);
+    } else if (m === "attack") {
+      const c = u % 2.8, T = [0, 0.4, 0.95, 1.06, 1.14, 1.55, 2.8];
+      // Coil: crouch back on the heels, spear drawn back and up. Strike: a big lunge forward with the spear thrust out and leaning forward. Hold, recover.
+      P.spy = kf(c, T, [0, -20, -44, -10, 0, 0, 0]); P.lean = kf(c, T, [0, 1, 3.5, -7, -7.5, -3, 0]); P.armG = kf(c, T, [0, 5, 11, -13, -14, -4, 0]);
+      P.bx = kf(c, T, [0, 14, 34, -84, -90, -20, 0]); P.roll = kf(c, T, [0, 1.5, 4.5, -6, -6.5, -1.5, 0]); P.by = kf(c, T, [0, 0, 0, 0, 0, 0, 0]);
+      P.sink = kf(c, T, [0, 10, 24, 6, 14, 4, 0]);
+      P.head = kf(c, T, [0, 2, 6, -9, -8, -2, 0]); P.armL = kf(c, T, [0, 4, 9, -8, -6, -1, 0]); P.sway = kf(c, T, [0, 8, 14, -22, -12, 0, 0]);
+      P.br = kf(c, T, [0, 0.01, 0.03, -0.015, 0, 0, 0]);
+      P.eye = kf(c, [0, 0.9, 1.1, 1.6, 2.8], [1.0, 1.5, 1.6, 1.0, 1.0]);
+      gearA = c > 0.25 && c < 1.3 ? 1 : 0; gearV = kf(c, [0, 0.25, 0.95, 1.1, 1.3, 2.8], [0, 4, 16, 16, 0, 0]);
+      if (c > 0.5 && c < 1.08) P.shake = [(Math.random() - 0.5) * 4 * ease((c - 0.5) / 0.58), (Math.random() - 0.5) * 3 * ease((c - 0.5) / 0.58)];
+      const cyc = Math.floor(u / 2.8);
+      if (S.cycle !== cyc) { S.cycle = cyc; S.did = {}; }
+      once("hit", c >= 1.06, () => {
+        const q = api.point(TIP[0], TIP[1] - 12, P);
+        spawnStar(S, t, q[0] - 4, q[1], 66); spawnSpark(S, t, q[0], q[1], 10, 600);
+        spawnRing(S, t, 280, 1075, 120, 0.55); spawnRing(S, t, 400, 1088, 90, 0.6);
+      });
+      if (c > 0.97 && c < 1.2) { const q = api.point(TIP[0], TIP[1], P), tr = S.trail = S.trail || [], l = tr[tr.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 20) tr.push(q); }
+      once("smear", c >= 1.21, () => { if (S.trail && S.trail.length > 2) spawnSmear(S, t, S.trail.slice(-8), 26); S.trail = []; });
+      if (c >= 1.06) { const d = Math.exp(-(c - 1.06) * 9); P.shake = [(Math.random() - 0.5) * 12 * d, (Math.random() - 0.5) * 8 * d]; }
+    } else if (m === "mend") {
+      const c = u % 2.2, T = [0, 0.3, 1.5, 2.2];
+      P.by = kf(c, T, [0, 3, 3, 0]); P.br = kf(c, T, [0, 0.012, 0.014, 0]); P.head = kf(c, T, [0, 2, 2, 0]); P.armL = kf(c, T, [0, -4, -4, 0]); P.armG = kf(c, T, [0, 1.5, 1.5, 0]);
+      P.sway = 5 * Math.sin(u * 3);
+      gearA = c > 0.15 && c < 1.9 ? 1 : 0; gearV = kf(c, [0, 0.15, 0.7, 1.4, 1.9, 2.2], [0, 3, 12, 12, 2, 0]);
+      P.eye = kf(c, [0, 0.4, 1.5, 2.2], [0.5, 1.2, 1.2, 0.5]);
+      const cyc = Math.floor(u / 2.2); if (S.cycle !== cyc) { S.cycle = cyc; S.did = {}; }
+      for (const [k, t0] of [["m1", 0.5], ["m2", 0.85], ["m3", 1.2]]) once(k, c > t0, () => { const q = api.point(MEN[0], MEN[1], P); spawnRing(S, t, q[0], q[1] + 10, 80 + 10 * ["m1", "m2", "m3"].indexOf(k), 0.6); });
+    } else if (m === "hurt") {
+      const c = u % 1.8, T = [0, 0.07, 0.22, 0.8, 1.8];
+      P.flash = flashK(c);
+      P.bx = kf(c, T, [0, 52, 38, 0, 0]); P.roll = kf(c, T, [0, 4.5, 3, 0, 0]); P.by = kf(c, T, [0, -5, -1, 0, 0]);
+      P.head = kf(c, T, [0, 9, 5, -1, 0]); P.hy = kf(c, T, [0, -3, -1, 0, 0]); P.armL = kf(c, T, [0, 6, 3, 0, 0]); P.armG = kf(c, T, [0, 2.5, 1.2, 0, 0]);
+      P.lean = kf(c, T, [0, 3, 1.5, -0.5, 0]); P.sway = kf(c, T, [0, -14, 8, -2, 0]); P.br = kf(c, T, [0, -0.012, 0, 0, 0]);
+      P.eye = kf(c, [0, 0.07, 0.3, 1.8], [0.8, 1.6, 0.7, 0.8]);
+      gearA = c < 0.5 ? 1 : 0; gearV = c < 0.1 ? 0 : -9 * Math.exp(-(c - 0.1) * 5);
+      const d = Math.exp(-c * 6); P.shake = [(Math.random() - 0.5) * 9 * d, (Math.random() - 0.5) * 6 * d];
+      const cyc = Math.floor(u / 1.8);
+      if (S.hit !== cyc) { S.hit = cyc; spawnStar(S, t, COREP[0] - 10, COREP[1] - 30, 70); spawnSpark(S, t, COREP[0], COREP[1] - 30, 7, 450); spawnRing(S, t, 330, 1075, 70, 0.5); }
+    } else if (m === "death") {
+      const c = Math.min(u, 3.199), T = [0, 0.08, 0.4, 1.0, 1.7, 2.4, 3.2];
+      P.flash = flashK(c);
+      P.bx = kf(c, T, [0, 28, 20, 4, -24, -34, -34]); P.roll = kf(c, T, [0, 2.2, 1, -2, -9, -13, -13]);
+      P.sink = kf(c, T, [0, -4, 6, 70, 190, 235, 235]); P.by = 0;
+      P.head = kf(c, T, [0, 8, 5, -2, -14, -22, -22]); P.hy = kf(c, T, [0, -2, 0, 4, 14, 22, 22]);
+      P.armL = kf(c, T, [0, 6, 6, 2, -8, -12, -12]); P.armG = kf(c, T, [0, 2, 3, 0, -4, -6, -6]); P.lean = kf(c, T, [0, 3, 2, -2, -6, -8, -8]);
+      P.sway = kf(c, T, [0, -14, 6, 0, 10, 14, 14]); P.br = kf(c, T, [0, -0.012, 0, 0.01, -0.008, -0.01, -0.01]);
+      if (c > 0.4 && c < 1.0) { P.roll += 0.5 * Math.sin(c * 50) * (1 - (c - 0.4) / 0.6); P.by += 1.5 * Math.sin(c * 43); }
+      P.eye = c < 0.3 ? 1.4 : c < 1.9 ? 0.45 * (Math.sin(c * 31) > 0.2 ? 1 : 0.25) * (1 - (c - 0.3) / 1.6) : 0;
+      gearA = c < 2.2 ? 1 : 0; gearV = kf(c, [0, 0.1, 0.6, 1.4, 2.2], [0, -12, 8, 2, 0]);
+      P.dim = ease(clamp((c - 1.1) / 1.2));
+      if (c > 0.1 && c < 1.0) { const d = Math.exp(-(c - 0.1) * 4); P.shake = [(Math.random() - 0.5) * 12 * d, (Math.random() - 0.5) * 8 * d]; }
+      once("hit", c < 0.2, () => { spawnStar(S, t, COREP[0] - 10, COREP[1] - 30, 80); spawnSpark(S, t, COREP[0], COREP[1] - 30, 9, 500); });
+      once("k1", c >= 1.3, () => { spawnRing(S, t, 300, 1075, 110, 0.6); spawnRing(S, t, 540, 1080, 100, 0.6); });
+      once("k2", c >= 1.9, () => { spawnRing(S, t, 300, 1075, 140, 0.7); spawnRing(S, t, 540, 1080, 130, 0.7); spawnPuff(S, t, 410, 700, { vx: -30, vy: -50, r: 34 }); });
+      every("vent", 0.34, 0.6, () => { if (c < 3.1) spawnPuff(S, t, 425 + (Math.random() - 0.5) * 24 - P.bx * 0.4, 70 + P.sink * 0.9 + 70, { vy: -100 }); });
+      every("sp", 0.4, 0.9, () => { if (c < 2.6) { const q = api.point(MEN[0], MEN[1], P); spawnSpark(S, t, q[0] + (Math.random() - 0.5) * 50, q[1] + (Math.random() - 0.5) * 50, 3, 280); } });
+    }
+    if (m !== "idle" || gearA) { S.gear += gearV * dt; }
+    S.gearA = gearA; P.gear = S.gear;
+    // Broken parts leak: the mender wheel and the dial spark, the spear sheds splinters, the needle stump sparks.
+    if (bk["minute-mender"] && m !== "death") every("lm", 0.4, 0.1, () => { const q = api.point(MEN[0], MEN[1], P); spawnSpark(S, t, q[0] + (Math.random() - 0.5) * 30, q[1] + (Math.random() - 0.5) * 30, 2, 200); });
+    if (bk["minute-dial"] && m !== "death") every("ld", 0.6, 0.3, () => { const q = api.point(DIAL[0], DIAL[1], P); spawnPuff(S, t, q[0] + (Math.random() - 0.5) * 20, q[1] - 10, { vy: -70, r: 16 }); });
+    if (bk["minute-hand"] && m !== "death") every("lh", 0.55, 0.2, () => { const q = api.point(205, 232, P); spawnSpark(S, t, q[0] + (Math.random() - 0.5) * 20, q[1], 2, 160); });
+    if (bk["minute-needle"] && m !== "death") every("ln", 0.5, 0.4, () => { const q = api.point(NEEDLE[0], NEEDLE[1], P); spawnSpark(S, t, q[0] + (Math.random() - 0.5) * 20, q[1], 2, 160); });
+    P.t = t;
+    return P;
+  },
+  over(c, P, t, api) {
+    const S = api.state, at = p => api.point(p[0], p[1], P), bk = S.broken || {};
+    // The minute wheel: a flat ink-edged brass gear over the painted glow, spinning in code when the Warden mends.
+    if (S.gearA > 0 && !bk["minute-mender"]) {
+      const g = at(MEN), N = 12, a0 = P.gear, R0 = 40, R1 = 50;
+      c.save(); c.translate(g[0], g[1]); c.rotate(a0);
+      const path = r0 => { c.beginPath(); for (let i = 0; i < N * 2; i++) { const an = i / (N * 2) * 2 * Math.PI, rr = i % 2 ? R0 + r0 : R1 + r0, w = Math.PI / (N * 2) * 0.62; c.lineTo(Math.cos(an - w) * (i % 2 ? R0 + r0 : R1 + r0), Math.sin(an - w) * (i % 2 ? R0 + r0 : R1 + r0)); c.lineTo(Math.cos(an + w) * (i % 2 ? R0 + r0 : R1 + r0), Math.sin(an + w) * (i % 2 ? R0 + r0 : R1 + r0)); } c.closePath(); };
+      c.globalAlpha = 1; path(3.5); c.fillStyle = INK; c.fill(); path(0); c.fillStyle = "#B88A2E"; c.fill();
+      c.beginPath(); c.arc(0, 0, R0 - 6, 0, 2 * Math.PI); c.fillStyle = INK; c.fill(); c.beginPath(); c.arc(0, 0, R0 - 9, 0, 2 * Math.PI); c.fillStyle = AMBER; c.fill();
+      c.beginPath(); c.arc(-3, -4, R0 - 17, 0, 2 * Math.PI); c.fillStyle = CREAM; c.fill();
+      c.strokeStyle = INK; c.lineWidth = 4; for (let i = 0; i < 6; i++) { c.beginPath(); c.moveTo(0, 0); c.lineTo(Math.cos(i * Math.PI / 3) * (R0 - 9), Math.sin(i * Math.PI / 3) * (R0 - 9)); c.stroke(); }
+      c.beginPath(); c.arc(0, 0, 8, 0, 2 * Math.PI); c.fillStyle = INK; c.fill(); c.beginPath(); c.arc(0, 0, 4.5, 0, 2 * Math.PI); c.fillStyle = AMBER; c.fill();
+      c.restore();
+    }
+    // The visor lens flares in attack and hurt, and goes dark in death.
+    const E = Math.max(0, P.eye), ep = at(EYEP);
+    if (E > 0.55) ember(c, ep[0], ep[1], 5 + 8 * Math.min(1, E - 0.55), 0.95);
+    if (P.dim > 0) { const g = at(MEN); c.globalAlpha = 0.85 * P.dim; c.fillStyle = INK; c.beginPath(); c.arc(g[0], g[1], bk["minute-mender"] ? 0 : 52, 0, 2 * Math.PI); c.fill(); c.globalAlpha = 1; }
+    drawFx(c, S, t);
+    drawBroken(c, at, S, t);
+  },
+};
+const big = (p, c, k) => p.map(([x, y]) => [c[0] + (x - c[0]) * k, c[1] + (y - c[1]) * k]);
+const DMG = {
+  // The mender: a jagged bite out of the glowing wheel, ember inside, cracks across the breastplate.
+  "minute-mender": { poly: big([[350, 350], [378, 360], [392, 343], [412, 362], [442, 350], [448, 380], [428, 392], [450, 416], [420, 430], [400, 414], [380, 438], [360, 410], [372, 392], [348, 382]], [398,392], 1.45), c: [400, 392], r: 40, cracks: 4, len: 6, crack0: 0.2, crackStep: 1.2, seed: 41, ember: [[398, 392, 14], [366, 368, 9], [432, 410, 9]] },
+  // The spear: the ornate head is snapped off at a slant, an ember in the splintered stump, cracks down the shaft.
+  "minute-hand": { poly: [[130, 40], [290, 40], [290, 212], [256, 226], [248, 208], [226, 262], [208, 224], [192, 276], [174, 228], [150, 244], [130, 222]], c: [205, 300], r: 20, cracks: 2, len: 8, crack0: 1.2, crackStep: 0.5, seed: 17, ember: [[206, 246, 9], [180, 236, 7], [232, 226, 6]] },
+  // The needle: the point at the wrist is bitten off, ember in the bracer, cracks into the armor.
+  "minute-needle": { poly: big([[518, 520], [546, 530], [560, 512], [584, 530], [596, 552], [578, 568], [586, 592], [556, 580], [534, 594], [526, 568], [506, 552]], [556,552], 1.45), c: [556, 552], r: 34, cracks: 4, len: 5, crack0: 0.5, crackStep: 1.4, seed: 29, ember: [[558, 556, 13], [526, 540, 9], [580, 576, 9]] },
+  // The dial: a chunk is gone from the belly plate, ember inside, cracks across the belt.
+  "minute-dial": { poly: big([[366, 458], [396, 470], [410, 452], [432, 470], [460, 462], [464, 492], [444, 506], [460, 528], [430, 536], [412, 518], [390, 538], [372, 514], [384, 494], [362, 484]], [412,496], 1.45), c: [412, 494], r: 38, cracks: 4, len: 6, crack0: 0.1, crackStep: 1.3, seed: 53, ember: [[412, 496, 13], [384, 478, 9], [444, 520, 9]] },
+};
+const rig = Rig.mount(document.getElementById("stage"), warden, IMG);
+wire(rig);
+</script>
+</body>
+</html>

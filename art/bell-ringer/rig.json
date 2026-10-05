@@ -1,0 +1,54 @@
+{
+  "size": [
+    896,
+    1152
+  ],
+  "pad": [
+    180,
+    200
+  ],
+  "view": "front",
+  "facing": "left",
+  "feet": 1090,
+  "moods": [
+    "idle",
+    "attack",
+    "hurt",
+    "death"
+  ],
+  "durations": {
+    "idle": 4,
+    "attack": 2.4,
+    "hurt": 1.5,
+    "death": 3
+  },
+  "anchors": {
+    "ringer-clapper": [
+      190,
+      215,
+      70
+    ],
+    "ringer-fist": [
+      612,
+      685,
+      62
+    ],
+    "ringer-rope": [
+      183,
+      420,
+      50
+    ],
+    "core": [
+      380,
+      510,
+      90
+    ],
+    "eyes": [
+      430,
+      330,
+      45
+    ]
+  },
+  "brokenFlag": "?broken=ringer-clapper,ringer-fist,ringer-rope (or all) in the URL, or rig.state.broken = {id: true}: a jagged notch is erased from the painting's alpha with a two-tone ember edge, embers inside and thick ink cracks, in every mood; parts leak sparks",
+  "notes": "Ground shadow streaks removed by clean.py; build from cut.clean.png. Death holds its last pose after 3 s. Page built by art/bell-ringer/build.py from the template plus the asset's kit.js."
+}

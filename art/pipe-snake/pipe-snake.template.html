@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pipe Snake</title>
+<style>
+  :root { --bg: #10393F; --panel: #1F6F6B; --brass: #C9A24A; --text: #f2e6cf; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; min-height: 100vh;
+         display: flex; flex-direction: column; align-items: center; padding: 8px; overflow-x: hidden; }
+  .stage { position: relative; width: min(100%, 800px); aspect-ratio: 1516 / 1132; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  button { background: var(--panel); color: var(--text); border: 1px solid #5a4a2a; padding: 8px 16px; font: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--brass); color: #1d2a30; border-color: var(--brass); }
+  label { color: #b9a98c; display: flex; align-items: center; gap: 6px; padding: 8px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"></div>
+<div class="bar">
+  <button data-mood="idle" aria-pressed="true">Idle</button>
+  <button data-mood="attack">Attack</button>
+  <button data-mood="hurt">Hurt</button>
+  <button data-mood="death">Death</button>
+  <label><input type="checkbox" data-break="snake-fangs"> Break fangs</label>
+  <label><input type="checkbox" data-break="snake-coil"> Break coil</label>
+  <label><input type="checkbox" id="ball"> Break all</label>
+  <label><input type="checkbox" id="mesh"> Mesh</label>
+</div>
+<script>__RIGJS__</script>
+<script>
+const { smooth, band, rad, rot } = Rig;
+const IMG = "__IMG__";
+__KIT__
+
+// Painting 1216x832, side view facing left. The head is raised at (525-700, 95-215); the neck curves down at x 640-830 to the coil at y 430; the tail pipe runs out left (90-420, 500-690).
+const BASE = [700, 415], HEADP = [745, 265], TAILP = [440, 575], HOSEL = [380, 470], HOSER = [960, 430];
+const FANG = [585, 195], FANG2 = [645, 212], EYE = [630, 130], CORE = [690, 520], COIL = [200, 590], TIP = [100, 585];
+const COILV = [930, 500];
+
+const snake = {
+  size: [1216, 832], grid: [152, 104], pad: [150, 240],
+  anchors: { "snake-fangs": [610, 190, 62], "snake-coil": [200, 590, 85], core: [690, 520, 100], eyes: [630, 130, 26] },
+  weights(x, y) {
+    const w = {};
+    const neckBand = band(x, 500, 806, 8);
+    w.n = neckBand * smooth(406, 394, y);                                  // head and neck: bends at the base
+    w.h = band(x, 500, 840, 12) * smooth(330, 250, y);                    // head and upper neck: bends again at the throat
+    w.t = smooth(445, 330, x) * band(y, 470, 720, 20);                    // tail pipe whips from its root
+    w.hl = band(x, 235, 425, 10) * smooth(480, 400, y);                   // left hose
+    w.hr = band(x, 895, 1070, 10) * smooth(440, 380, y);                  // right hose
+    w.c = smooth(380, 450, y) * (1 - w.t);                                // coil body
+    w.s = Math.max(w.n, w.h, w.hl, w.hr, w.t);
+    return w;
+  },
+  deform(x, y, w, P) {
+    [x, y] = rot(x, y, ...HEADP, rad(P.head), w.h);
+    x += P.hx * w.h; y += P.hy * w.h;
+    [x, y] = rot(x, y, ...BASE, rad(P.neck), w.n);
+    [x, y] = rot(x, y, ...TAILP, rad(P.tail), w.t);
+    [x, y] = rot(x, y, ...HOSEL, rad(P.hose), w.hl);
+    [x, y] = rot(x, y, ...HOSER, rad(-P.hose * 0.8), w.hr);
+    y += P.ripple * Math.sin(x / 70 - P.phase) * w.c;
+    const sw = P.swell * w.c; x = 700 + (x - 700) * (1 + 0.5 * sw); y = 600 + (y - 600) * (1 + sw);
+    const wb = 1 - w.s * 0.6 * 0;                                          // everything rides the body bob
+    return [x + P.bx * wb, y + P.by * wb];
+  },
+  moods: { idle: { eye: 0.5 }, attack: { eye: 0.7 }, hurt: { eye: 0.5 }, death: { eye: 0.4 } },
+  ease: 3,
+  onMood(m, api) { const S = api.state; S.start = undefined; S.cycle = undefined; S.hit = undefined; S.did = {}; },
+  pose(L, t, dt, S, api) {
+    if (S.start === undefined) { S.start = t; S.did = {}; S.next = {}; S.broken = S.broken || urlBroken(); }
+    syncBroken(S, 1216, 832);
+    const u = t - S.start, m = api.mood, bk = S.broken || {};
+    const P = { head: 0, hx: 0, hy: 0, neck: 0, tail: 0, hose: 0, ripple: 0, phase: 0, swell: 0, bx: 0, by: 0, flash: 0, shake: null, eye: L.eye, dim: 0 };
+    const once = (k, cond, fn) => { if (cond && !S.did[k]) { S.did[k] = true; fn(); } };
+    const every = (k, period, from, fn) => { const n = Math.floor((u - from) / period); if (u >= from && S.next[k] !== n) { S.next[k] = n; fn(n); } };
+    const pt = p => snake.deform(p[0], p[1], snake.weights(p[0], p[1]), P);
+    if (m === "idle") {
+      const c = u % 4, n = Math.floor(u / 4), s2 = Math.sin(u * Math.PI * 2 / 4);
+      // The neck sways slowly, the head leads and the neck follows a beat later; the coil breathes; the tail tip drifts and flicks once.
+      P.neck = 2.6 * Math.sin(u * Math.PI * 2 / 4 - 0.5); P.head = 3.4 * Math.sin(u * Math.PI * 2 / 4 + 0.4) + 1.2 * Math.sin(u * 7.1) * Math.exp(-((c - 2.2) ** 2) * 8);
+      P.hy = 3 * s2; P.swell = 0.012 * (0.5 + 0.5 * s2); P.by = 1.6 * s2;
+      P.tail = 2.5 * Math.sin(u * Math.PI * 2 / 4 - 1.2) + (c > 2.6 && c < 3.1 ? 7 * Math.sin((c - 2.6) / 0.5 * Math.PI * 2) * Math.exp(-(c - 2.6) * 2) : 0);
+      P.hose = 2.2 * Math.sin(u * 1.6) + 1.2 * Math.sin(u * 4.1);
+      P.ripple = 1.8; P.phase = u * 1.2;
+      P.eye = L.eye * (c > 1.45 && c < 1.55 ? 0.1 : 1);
+      once("hiss" + n, c > 1.0, () => { spawnPuff(S, t, ...pt(COILV).map((v, i) => v + (i ? -20 : 0)), { vx: 20, vy: -85, r: 20 }); spawnPuff(S, t, COILV[0] + 40, COILV[1] - 40, { vx: 30, vy: -70, r: 16 }); });
+      once("tg" + n, c > 2.1, () => spawnPuff(S, t, ...pt(TIP), { vx: -25, vy: -60, r: 14 }));
+    } else if (m === "attack") {
+      const c = u % 2.2, T = [0, 0.2, 0.7, 0.86, 0.95, 1.4, 2.2];
+      // Coil up and rear back hard (head high, neck leans right, the coil swells), hold with a tremor, then the head snaps down and left; recover.
+      P.neck = kf(c, T, [0, -2, 14, -14, -8, 0, 0]); P.head = kf(c, T, [0, -4, 26, -42, -26, -4, 0]);
+      P.hx = kf(c, T, [0, 5, 40, -100, -70, -8, 0]); P.hy = kf(c, T, [0, -4, -40, 50, 32, 0, 0]);
+      P.bx = kf(c, T, [0, 2, 10, -10, -4, 0, 0]); P.by = kf(c, T, [0, 3, 8, 0, 2, 0, 0]);
+      P.swell = kf(c, T, [0, 0.01, 0.08, 0.01, 0.03, 0, 0]);
+      P.tail = kf(c, T, [0, 4, 14, -10, -16, -2, 0]); P.hose = kf(c, T, [0, 3, -6, 10, 6, 0, 0]);
+      P.ripple = 2 + 4 * (c > 0.2 && c < 0.8 ? 1 : 0); P.phase = u * 6;
+      P.eye = kf(c, [0, 0.7, 0.9, 1.4, 2.2], [0.6, 1.3, 1.5, 0.8, 0.6]);
+      if (c > 0.3 && c < 0.86) { const q = ease((c - 0.3) / 0.56); P.head += 1.8 * Math.sin(c * 60) * q; P.shake = [(Math.random() - 0.5) * 3 * q, (Math.random() - 0.5) * 2 * q]; }
+      const cyc = Math.floor(u / 2.2);
+      if (S.cycle !== cyc) { S.cycle = cyc; S.did = {}; S.trail = []; }
+      for (const [k, t0] of [["v1", 0.3], ["v2", 0.55]]) once(k, c > t0, () => { spawnPuff(S, t, COILV[0], COILV[1] - 30, { vx: 25, vy: -90, r: 22 }); spawnPuff(S, t, ...pt(TIP), { vx: -30, vy: -60, r: 14 }); });
+      if (c > 0.78 && c < 1.0) { const q = pt(FANG), tr = S.trail = S.trail || [], l = tr[tr.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 24) tr.push(q); }
+      once("smear", c >= 1.0, () => { if (S.trail && S.trail.length > 2) spawnSmear(S, t, S.trail.slice(-8), 40); S.trail = []; });
+      once("bite", c >= 0.92, () => { const q = pt(FANG); spawnStar(S, t, q[0] - 8, q[1] + 4, 72); spawnSpark(S, t, q[0], q[1], 8, 520); spawnDust(S, t, q[0], 500, 6, 420, -Math.PI / 2); spawnRing(S, t, q[0] + 20, 530, 130, 0.5); });
+      if (c >= 0.92) { const d = Math.exp(-(c - 0.92) * 9); P.shake = [(Math.random() - 0.5) * 12 * d, (Math.random() - 0.5) * 8 * d]; }
+    } else if (m === "hurt") {
+      const c = u % 1.5, T = [0, 0.07, 0.22, 0.8, 1.5];
+      P.flash = flashK(c);
+      P.neck = kf(c, T, [0, 8, 4, 0, 0]); P.head = kf(c, T, [0, 15, 7, -1, 0]); P.hx = kf(c, T, [0, 26, 14, 0, 0]); P.hy = kf(c, T, [0, -12, -4, 0, 0]);
+      P.bx = kf(c, T, [0, 12, 8, 0, 0]); P.by = kf(c, T, [0, -3, 0, 0, 0]); P.swell = kf(c, T, [0, 0.03, 0.01, 0, 0]);
+      P.tail = kf(c, T, [0, 10, -6, 2, 0]); P.hose = kf(c, T, [0, 8, -5, 2, 0]); P.ripple = 3; P.phase = u * 9;
+      P.eye = kf(c, [0, 0.07, 0.3, 1.5], [0.5, 1.6, 0.3, 0.5]);
+      const d = Math.exp(-c * 7); P.shake = [(Math.random() - 0.5) * 8 * d, (Math.random() - 0.5) * 6 * d];
+      const cyc = Math.floor(u / 1.5);
+      if (S.hit !== cyc) { S.hit = cyc; const q = pt([650, 150]); spawnStar(S, t, q[0], q[1], 70); spawnSpark(S, t, q[0], q[1], 7, 430); spawnPuff(S, t, COILV[0], COILV[1] - 30, { vx: 25, vy: -90, r: 20 }); }
+    } else if (m === "death") {
+      const c = Math.min(u, 2.999), T = [0, 0.08, 0.4, 1.0, 1.7, 2.4, 3];
+      P.flash = flashK(c);
+      P.neck = kf(c, T, [0, 8, 5, -18, -44, -58, -58]); P.head = kf(c, T, [0, 14, 8, -8, -16, -22, -22]);
+      P.hx = kf(c, T, [0, 22, 10, 0, 0, 0, 0]); P.hy = kf(c, T, [0, -10, -4, 4, 8, 12, 12]);
+      P.bx = kf(c, T, [0, 10, 6, 4, 6, 8, 8]); P.by = kf(c, T, [0, -3, 0, 4, 22, 30, 30]); P.swell = kf(c, T, [0, 0.03, 0.01, 0, -0.04, -0.06, -0.06]);
+      P.tail = kf(c, T, [0, 8, 4, 0, -10, -16, -16]); P.hose = kf(c, T, [0, 8, 4, 0, 14, 20, 20]);
+      P.ripple = 3 * (1 - ease(clamp((c - 1.0) / 1.5))); P.phase = u * 8;
+      if (c > 0.4 && c < 1.0) { P.head += 1.6 * Math.sin(c * 50) * (1 - (c - 0.4) / 0.6); P.shake = [(Math.random() - 0.5) * 8 * (1 - (c - 0.4) / 0.6), (Math.random() - 0.5) * 6 * (1 - (c - 0.4) / 0.6)]; }
+      P.eye = c < 0.3 ? 1.4 : c < 1.8 ? 0.45 * (Math.sin(c * 31) > 0.2 ? 1 : 0.25) * (1 - (c - 0.3) / 1.5) : 0; P.dim = ease(clamp((c - 0.9) / 0.9));
+      if (c > 0.08 && c < 0.4) { const d = Math.exp(-(c - 0.08) * 6); P.shake = [(Math.random() - 0.5) * 12 * d, (Math.random() - 0.5) * 8 * d]; }
+      once("hit", c < 0.2, () => { spawnStar(S, t, 650, 150, 80); spawnSpark(S, t, 650, 150, 9, 480); });
+      once("drop", c >= 1.7, () => { const q = pt([560, 170]); spawnRing(S, t, q[0] + 20, 520, 120, 0.6); spawnPuff(S, t, q[0], q[1], { vx: -30, vy: -50, r: 30 }); });
+      once("drop2", c >= 2.4, () => { const q = pt([560, 170]); spawnRing(S, t, q[0] + 20, 520, 170, 0.7); });
+      every("vent", 0.35, 0.6, () => { if (c < 2.95) { spawnPuff(S, t, COILV[0] + (Math.random() - 0.5) * 60, COILV[1] - 20, { vy: -90, r: 20 }); spawnPuff(S, t, ...pt([TIP[0], TIP[1]]), { vx: -20, vy: -50, r: 14 }); } });
+      every("sp", 0.5, 0.9, () => { if (c < 2.5) spawnSpark(S, t, 400 + Math.random() * 400, 560 + Math.random() * 100, 3, 260); });
+    }
+    // Broken parts leak: the fangs drool sparks, the tail coil hisses steam.
+    if (bk["snake-fangs"] && m !== "death") every("lf", 0.45, 0.1, () => { const q = pt([570, 165]); spawnSpark(S, t, q[0], q[1], 2, 200); });
+    if (bk["snake-coil"]) every("lc", 0.3, 0.2, () => { const q = pt([150, 585]); spawnPuff(S, t, q[0], q[1] - 15, { vx: -15, vy: -80, r: 16 }); });
+    P.t = t;
+    return P;
+  },
+  over(c, P, t, api) {
+    const S = api.state, at = p => api.point(p[0], p[1], P), bk = S.broken || {};
+    // The eye: a small flat ember that flares in attack and hurt, goes dark in death (the painted eye stays under it).
+    const E = Math.max(0, P.eye), ep = at(EYE);
+    if (E > 0.9) ember(c, ep[0], ep[1], 5 + 5 * Math.min(1, E - 0.9), 0.95);
+    if (P.dim > 0) { c.globalAlpha = 0.85 * P.dim; c.fillStyle = INK; c.beginPath(); c.arc(ep[0], ep[1], 17, 0, 2 * Math.PI); c.fill(); c.globalAlpha = 1; }
+    drawFx(c, S, t);
+    drawBroken(c, at, S, t);
+  },
+};
+const DMG = {
+  // The fangs: the snout and fangs are bitten away in a big jagged notch, an ember in the hole, thick cracks into the skull.
+  "snake-fangs": { poly: jaggedBlob(570, 168, 50, 14, 0.5, 13), k: 1.4, c: [620, 150], r: 40, cracks: 4, crack0: -0.6, crackStep: 1.2, seed: 53 },
+  // The drain coil: the tail pipe is sheared through in a big notch, an ember in the cut, cracks along the pipe.
+  "snake-coil": { poly: [[120, 500], [200, 520], [228, 548], [206, 566], [236, 596], [208, 620], [226, 660], [150, 680], [100, 640], [128, 590], [96, 550]], k: 1.45, c: [250, 585], r: 40, cracks: 4, crack0: -0.3, crackStep: 1.1, seed: 59 },
+};
+const rig = Rig.mount(document.getElementById("stage"), snake, IMG);
+wire(rig);
+</script>
+</body>
+</html>

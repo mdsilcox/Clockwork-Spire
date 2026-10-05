@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Valve Crab</title>
+<style>
+  :root { --bg: #10393F; --panel: #1F6F6B; --brass: #C9A24A; --text: #f2e6cf; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; min-height: 100vh;
+         display: flex; flex-direction: column; align-items: center; padding: 8px; overflow-x: hidden; }
+  .stage { position: relative; width: min(100%, 800px); aspect-ratio: 1496 / 1152; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  button { background: var(--panel); color: var(--text); border: 1px solid #5a4a2a; padding: 8px 16px; font: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--brass); color: #1d2a30; border-color: var(--brass); }
+  label { color: #b9a98c; display: flex; align-items: center; gap: 6px; padding: 8px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"></div>
+<div class="bar">
+  <button data-mood="idle" aria-pressed="true">Idle</button>
+  <button data-mood="attack">Attack</button>
+  <button data-mood="hurt">Hurt</button>
+  <button data-mood="death">Death</button>
+  <label><input type="checkbox" data-break="crab-pincer"> Break pincer</label>
+  <label><input type="checkbox" data-break="crab-valve"> Break valve</label>
+  <label><input type="checkbox" id="ball"> Break all</label>
+  <label><input type="checkbox" id="mesh"> Mesh</label>
+</div>
+<script>__RIGJS__</script>
+<script>
+const { smooth, band, rad, rot } = Rig;
+const IMG = "__IMG__";
+__KIT__
+
+// Painting 1216x832, front view (enemies face left: the left arm is the striking one). Feet around y 700 to 780.
+const SH = [[420, 290], [815, 285]];                                   // shoulders (left arm, right arm)
+const ARMS = [
+  [[430, 300], [330, 300], [200, 360], [120, 450], [95, 530], [120, 590]],
+  [[800, 290], [900, 270], [1000, 320], [1090, 400], [1125, 490], [1110, 560]],
+];
+const HIPS = [[310, 430], [440, 480], [880, 450], [1050, 430]];        // brass leg hips: far left, near left, near right, far right
+const LBANDS = [[170, 335], [385, 520], [845, 985], [985, 1130]];
+const CORE = [640, 340], EYE = [640, 385], VALVE = [640, 110], PIN = [118, 545], ANT = [740, 205];
+const FEET = [[300, 735], [490, 750], [900, 760], [1000, 690]];
+
+const crab = {
+  size: [1216, 832], grid: [152, 104], pad: [140, 220],
+  anchors: { "crab-pincer": [118, 540, 75], "crab-valve": [640, 110, 62], core: [640, 345, 95], eyes: [640, 385, 42] },
+  weights(x, y) {
+    const w = { arm: [0, 0], l: [], f: [] };
+    for (let i = 0; i < 2; i++) {
+      const ch = chainDist(x, y, ARMS[i]), side = i ? smooth(790, 850, x) : smooth(450, 390, x), R = ch.s < 3.7 ? 52 : 26;   // fat teal arm, thin claw: legs beside the claw stay put
+      w.arm[i] = (1 - smooth(R, R + 20, ch.d)) * side;
+    }
+    const arms = Math.max(w.arm[0], w.arm[1]);
+    for (let i = 0; i < 4; i++) {
+      const b = band(x, LBANDS[i][0], LBANDS[i][1], 12);
+      w.l.push(b * smooth(HIPS[i][1] + 40, HIPS[i][1] + 140, y) * (1 - arms));
+      w.f.push(b * smooth(640, 720, y) * (1 - arms));
+    }
+    w.cap = band(x, 585, 695, 12) * smooth(165, 105, y) * smooth(20, 45, y);
+    w.ant = band(x, 722, 758, 8) * smooth(215, 175, y);
+    const central = smooth(430, 475, x) * smooth(815, 770, x) * smooth(620, 560, y);
+    w.b = Math.max(central, arms, 1 - smooth(470, 640, y) * (1 - central));
+    return w;
+  },
+  deform(x, y, w, P) {
+    for (let i = 0; i < 2; i++) [x, y] = rot(x, y, ...SH[i], rad(P.arm[i]), w.arm[i]);
+    for (let i = 0; i < 4; i++) {
+      [x, y] = rot(x, y, ...HIPS[i], rad(P.lr[i]), w.l[i]);
+      y -= P.ly[i] * w.f[i]; x += P.lx[i] * w.f[i];
+    }
+    y -= P.cap * w.cap;
+    [x, y] = rot(x, y, ...ANT, rad(P.ant), w.ant);
+    const wb = w.b;
+    [x, y] = rot(x, y, 640, 520, rad(P.roll), wb);
+    return [x + P.bx * wb, y + P.by * wb];
+  },
+  moods: { idle: { eye: 0.5 }, attack: { eye: 0.7 }, hurt: { eye: 0.5 }, death: { eye: 0.4 } },
+  ease: 3,
+  onMood(m, api) { const S = api.state; S.start = undefined; S.cycle = undefined; S.hit = undefined; S.did = {}; },
+  pose(L, t, dt, S, api) {
+    if (S.start === undefined) { S.start = t; S.did = {}; S.next = {}; S.broken = S.broken || urlBroken(); S.lag = S.lag || [0, 0]; }
+    syncBroken(S, 1216, 832);
+    const u = t - S.start, m = api.mood, bk = S.broken || {};
+    const P = { roll: 0, bx: 0, by: 0, arm: [0, 0], lr: [0, 0, 0, 0], ly: [0, 0, 0, 0], lx: [0, 0, 0, 0], cap: 0, ant: 0, flash: 0, shake: null, eye: L.eye, dim: 0, sink: 0 };
+    const once = (k, cond, fn) => { if (cond && !S.did[k]) { S.did[k] = true; fn(); } };
+    const every = (k, period, from, fn) => { const n = Math.floor((u - from) / period); if (u >= from && S.next[k] !== n) { S.next[k] = n; fn(n); } };
+    const vtop = bk["crab-valve"] ? [628, 112] : [640, 40];
+    if (m === "idle") {
+      const c = u % 4, n = Math.floor(u / 4);
+      P.by = 3 * Math.sin(u * Math.PI * 2 / 4); P.roll = 0.35 * Math.sin(u * Math.PI * 2 / 4 + 0.8);
+      P.arm = [1.6 * Math.sin(u * Math.PI * 2 / 4 - 0.6), -1.6 * Math.sin(u * Math.PI * 2 / 4 - 0.6)];
+      // The claw twitches once: a quick open and snap.
+      const tw = c > 2.4 && c < 2.9 ? Math.sin((c - 2.4) / 0.5 * Math.PI * 3) * Math.exp(-(c - 2.4) * 5) : 0;
+      P.arm[0] += 4 * tw;
+      P.ant = 5 * Math.sin(u * 2.1) + 4 * Math.sin(u * 5.3) * Math.exp(-((c - 1.0) ** 2) * 6);
+      // Valve hops and hisses once per loop.
+      P.cap = c > 0.9 && c < 1.15 ? 8 * Math.sin((c - 0.9) / 0.25 * Math.PI) : 0;
+      once("hiss" + n, c > 0.95, () => { spawnPuff(S, t, vtop[0] + 10, vtop[1] - 10, { vx: 25, vy: -90 }); spawnPuff(S, t, vtop[0] - 8, vtop[1] - 24, { vx: -25, vy: -110, r: 20 }); });
+      // One foot lifts and plants per loop, alternating.
+      const lift = kf(c, [0, 2.9, 3.15, 3.5, 3.75, 4], [0, 0, 1, 1, 0, 0]), i = n % 2 ? 0 : 3;
+      P.ly[i] = 16 * lift; P.lx[i] = (i ? 8 : -8) * lift; P.lr[i] = (i ? 3 : -3) * lift;
+      once("plant" + n, c >= 3.75, () => spawnRing(S, t, FEET[i][0], FEET[i][1] + 10, 50, 0.5));
+      P.eye = L.eye * (0.85 + 0.15 * Math.sin(u * 3.1)) * (c > 3.3 && c < 3.4 ? 0.2 : 1);
+    } else if (m === "attack") {
+      const c = u % 2.4, T = [0, 0.3, 0.85, 1.0, 1.08, 1.6, 2.4];
+      // Sink low and raise the left claw high over the body, hold and tremble, then slam it down on the ground hard with a body drop.
+      P.by = kf(c, T, [0, 10, 24, -6, 30, 6, 0]); P.bx = kf(c, T, [0, 6, 14, -34, -40, -10, 0]); P.roll = kf(c, T, [0, -0.8, 2.2, -3.2, -2.6, -0.6, 0]);
+      P.arm = [kf(c, T, [0, 6, 30, -27, -24, -4, 0]), kf(c, T, [0, 3, -14, 8, 10, 2, 0])];
+      for (const i of [0, 1, 2, 3]) { P.lr[i] = kf(c, T, [0, 0, (i < 2 ? 3 : -3), (i < 2 ? -4 : 4), 0, 0, 0]); P.ly[i] = kf(c, T, [0, 0, 0, 0, i > 1 ? 6 : 0, 0, 0]); }
+      P.ant = kf(c, T, [0, 0, 8, -16, -8, 0, 0]);
+      P.eye = kf(c, [0, 0.85, 1.05, 1.5, 2.4], [0.7, 1.4, 1.5, 0.8, 0.7]);
+      P.cap = c > 0.35 && c < 0.85 ? 6 * Math.abs(Math.sin((c - 0.35) / 0.1 * Math.PI)) : 0;
+      if (c > 0.4 && c < 1.0) { const q = ease((c - 0.4) / 0.6); P.shake = [(Math.random() - 0.5) * 5 * q, (Math.random() - 0.5) * 3 * q]; P.arm[0] += 1.4 * Math.sin(c * 55) * q; }
+      const cyc = Math.floor(u / 2.4);
+      if (S.cycle !== cyc) { S.cycle = cyc; S.did = {}; S.trail = []; }
+      for (const [k, t0] of [["v1", 0.3], ["v2", 0.55], ["v3", 0.78]]) once(k, c > t0, () => { spawnPuff(S, t, vtop[0] + 8, vtop[1] - 10, { vx: 30, vy: -110 }); });
+      if (c > 0.88 && c < 1.12) { const q = crab.deform(PIN[0], PIN[1], crab.weights(PIN[0], PIN[1]), P), tr = S.trail = S.trail || [], l = tr[tr.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 22) tr.push(q); }
+      once("smear", c >= 1.12, () => { if (S.trail && S.trail.length > 2) spawnSmear(S, t, S.trail.slice(-8), 44); S.trail = []; });
+      once("slam", c >= 1.06, () => {
+        const q = crab.deform(PIN[0], PIN[1], crab.weights(PIN[0], PIN[1]), P), gy = Math.min(q[1], 700);
+        spawnStar(S, t, q[0] + 10, gy, 80); spawnSpark(S, t, q[0], gy, 10, 650);
+        spawnDust(S, t, q[0], 700, 9, 520, -Math.PI / 2); spawnRing(S, t, q[0] + 20, 735, 150, 0.55); spawnRing(S, t, 330, 745, 110, 0.6);
+      });
+      if (c >= 1.06) { const d = Math.exp(-(c - 1.06) * 8); P.shake = [(Math.random() - 0.5) * 18 * d, (Math.random() - 0.5) * 12 * d]; }
+    } else if (m === "hurt") {
+      const c = u % 1.5, T = [0, 0.07, 0.2, 0.7, 1.5];
+      P.flash = flashK(c);
+      P.bx = kf(c, T, [0, 34, 26, 0, 0]); P.by = kf(c, T, [0, -6, -2, 0, 0]); P.roll = kf(c, T, [0, 2.2, 1.4, 0, 0]);
+      P.arm = [kf(c, T, [0, 8, 5, 0, 0]), kf(c, T, [0, -9, -5, 0, 0])];
+      P.lr = [kf(c, T, [0, 5, 3, 0, 0]), kf(c, T, [0, 5, 3, 0, 0]), kf(c, T, [0, -5, -3, 0, 0]), kf(c, T, [0, -5, -3, 0, 0])];
+      P.ant = kf(c, T, [0, 20, -10, 3, 0]); P.cap = c < 0.2 ? 9 * Math.sin(c / 0.2 * Math.PI) : 0;
+      P.eye = kf(c, [0, 0.07, 0.3, 1.5], [0.5, 1.6, 0.3, 0.5]);
+      const d = Math.exp(-c * 6); P.shake = [(Math.random() - 0.5) * 9 * d, (Math.random() - 0.5) * 6 * d];
+      const cyc = Math.floor(u / 1.5);
+      if (S.hit !== cyc) { S.hit = cyc; spawnStar(S, t, CORE[0], CORE[1] + 20, 72); spawnSpark(S, t, CORE[0], CORE[1] + 20, 7, 450); spawnPuff(S, t, vtop[0], vtop[1] - 5, { vx: 30, vy: -130 }); spawnRing(S, t, FEET[1][0], FEET[1][1] + 10, 70, 0.5); }
+    } else if (m === "death") {
+      const c = Math.min(u, 2.999), T = [0, 0.08, 0.35, 1.0, 1.8, 2.5, 3];
+      P.flash = flashK(c);
+      P.bx = kf(c, T, [0, 30, 20, 16, 20, 20, 20]); P.roll = kf(c, T, [0, 2, 1, 3, 5, 5.5, 5.5]);
+      P.by = kf(c, T, [0, -5, 0, 10, 48, 70, 70]);
+      P.arm = [kf(c, T, [0, 8, 10, -3, -14, -18, -18]), kf(c, T, [0, -9, -10, 4, 14, 18, 18])];
+      const sp = kf(c, T, [0, 0, 0, 0.5, 1, 1.1, 1.1]);
+      P.lr = [-5 * sp, -4 * sp, 4 * sp, 5 * sp]; P.lx = [-10 * sp, -6 * sp, 6 * sp, 10 * sp];
+      if (c > 0.35 && c < 1.0) { P.roll += 0.5 * Math.sin(c * 50) * (1 - (c - 0.35) / 0.65); P.by += 1.5 * Math.sin(c * 43); }
+      P.ant = kf(c, T, [0, 20, 10, 0, 14, 24, 24]); P.cap = c > 0.4 && c < 2.7 ? 5 * Math.abs(Math.sin(c * 12)) : 0;
+      P.eye = c < 0.3 ? 1.4 : c < 1.8 ? 0.45 * (Math.sin(c * 31) > 0.2 ? 1 : 0.25) * (1 - (c - 0.3) / 1.5) : 0;
+      P.dim = ease(clamp((c - 1.0) / 1.0));
+      if (c > 0.1 && c < 1.0) { const d = Math.exp(-(c - 0.1) * 4); P.shake = [(Math.random() - 0.5) * 12 * d, (Math.random() - 0.5) * 8 * d]; }
+      once("hit", c < 0.2, () => { spawnStar(S, t, CORE[0], CORE[1] + 20, 80); spawnSpark(S, t, CORE[0], CORE[1] + 20, 9, 500); });
+      once("b1", c >= 1.2, () => { for (const i of [0, 1, 2, 3]) spawnRing(S, t, FEET[i][0], FEET[i][1] + 10, 80, 0.6); });
+      once("b2", c >= 1.9, () => { for (const i of [0, 1, 2, 3]) spawnRing(S, t, FEET[i][0], FEET[i][1] + 10, 100, 0.7); spawnPuff(S, t, 640, 380, { vx: -30, vy: -60, r: 34 }); });
+      every("vent", 0.28, 0.5, () => { if (c < 2.95) spawnPuff(S, t, vtop[0] + (Math.random() - 0.5) * 24, vtop[1] - 8 + P.by * 0, { vy: -110 }); });
+      every("sp", 0.4, 0.9, () => { if (c < 2.5) spawnSpark(S, t, 560 + Math.random() * 160, 420 + Math.random() * 100, 3, 300); });
+    }
+    // Broken parts leak: the pincer drops sparks and the valve stump hisses steam.
+    if (bk["crab-valve"]) every("lv", 0.22, 0.2, () => spawnPuff(S, t, vtop[0] + (Math.random() - 0.5) * 20, vtop[1] - 12, { vy: -120, vx: (Math.random() - 0.5) * 50, r: 20 }));
+    if (bk["crab-pincer"] && m !== "death") every("lp", 0.5, 0.1, () => spawnSpark(S, t, PIN[0] + (Math.random() - 0.5) * 20, PIN[1] + 10, 2, 160));
+    P.t = t;
+    return P;
+  },
+  over(c, P, t, api) {
+    const S = api.state, at = p => api.point(p[0], p[1], P);
+    // Eye lens: a small flat disk over the glass that flares in attack and hurt and goes dark in death.
+    const E = Math.max(0, P.eye), ep = at(EYE);
+    if (E > 0.9) { ember(c, ep[0], ep[1], 7 + 6 * Math.min(1, E - 0.9), 0.95); }
+    if (P.dim > 0) { c.globalAlpha = 0.85 * P.dim; c.fillStyle = INK; c.beginPath(); c.arc(ep[0], ep[1], 40, 0, 2 * Math.PI); c.fill(); c.globalAlpha = 1; }
+    drawFx(c, S, t);
+    drawBroken(c, at, S, t);
+  },
+};
+const DMG = {
+  // The big pincer: a big jagged bite out of the claw, an ember inside the hole, thick cracks up the teal arm.
+  "crab-pincer": { poly: [[70, 540], [100, 548], [112, 534], [136, 548], [130, 574], [148, 586], [126, 606], [108, 598], [94, 618], [76, 600], [84, 578], [64, 566]], k: 1.9, c: [112, 520], r: 36, cracks: 4, crack0: -1.4, crackStep: 1.0, seed: 23 },
+  // The valve: the stack is snapped off in a big slanted notch, an ember in the hole, cracks down the housing.
+  "crab-valve": { poly: [[560, 20], [700, 20], [700, 96], [668, 112], [662, 90], [640, 138], [628, 106], [604, 148], [580, 112], [560, 132]], k: 1.15, c: [632, 175], r: 40, cracks: 4, crack0: 0.7, crackStep: 0.9, seed: 31 },
+};
+const rig = Rig.mount(document.getElementById("stage"), crab, IMG);
+wire(rig);
+</script>
+</body>
+</html>

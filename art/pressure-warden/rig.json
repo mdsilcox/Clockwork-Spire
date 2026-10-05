@@ -1,0 +1,25 @@
+{
+  "size": [896, 1152],
+  "pad": [480, 130],
+  "view": "front",
+  "facing": "front",
+  "feet": 1108,
+  "texture": "cut.clean.png",
+  "moods": ["idle", "attack", "hurt", "death"],
+  "durations": { "idle": 4, "attack": 2.6, "hurt": 1.5, "death": 3 },
+  "anchors": {
+    "pw-dome": [449, 168, 62],
+    "pw-fist": [185, 880, 70],
+    "pw-valve": [322, 872, 40],
+    "core": [448, 432, 100],
+    "eyes": [447, 582, 40]
+  },
+  "api": {
+    "setMood": "idle|attack|hurt|death (death holds its last pose)",
+    "setBroken": "rig.setBroken({'pw-dome': true}) or rig.state.broken[id] = true; ?broken=id,id|all (short ids dome, fist, valve ok)",
+    "anchor": "rig.anchor(id) returns [x, y, r] in CSS pixels of .stage, following the deformed body",
+    "stage": "stage aspect 1856 x 1412 (painting plus pad 480 x 130)"
+  },
+  "brokenFlag": "each notch is baked into the texture (ember rim, ink cracks, jagged erase) and works in every mood; a broken part also leaks steam",
+  "notes": "pw-fist is the viewer-left forearm (the punching arm). pw-valve is the round brass valve on the viewer-left leg, the clearest one."
+}

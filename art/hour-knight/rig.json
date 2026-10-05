@@ -1,0 +1,54 @@
+{
+  "size": [
+    896,
+    1152
+  ],
+  "pad": [
+    520,
+    240
+  ],
+  "view": "front",
+  "facing": "left",
+  "feet": 1150,
+  "moods": [
+    "idle",
+    "attack",
+    "hurt",
+    "death"
+  ],
+  "durations": {
+    "idle": 4,
+    "attack": 2.4,
+    "hurt": 1.5,
+    "death": 3
+  },
+  "anchors": {
+    "knight-sword": [
+      100,
+      330,
+      100
+    ],
+    "knight-shield": [
+      665,
+      765,
+      150
+    ],
+    "knight-visor": [
+      405,
+      240,
+      80
+    ],
+    "core": [
+      390,
+      520,
+      90
+    ],
+    "eyes": [
+      395,
+      212,
+      40
+    ]
+  },
+  "brokenFlag": "?broken=knight-sword,knight-shield,knight-visor (or all) in the URL, or rig.state.broken = {id: true}: a jagged notch is erased from the painting's alpha with a two-tone ember edge, embers inside and thick ink cracks, in every mood; parts leak sparks",
+  "notes": "Clouds and swirl removed by clean.py (cut.clean.png). The boots are clipped by the painting's bottom edge and stay planted. Death holds its last pose after 3 s. Page built by art/bell-ringer/build.py from the template plus the asset's kit.js."
+}

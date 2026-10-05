@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Steam Wraith</title>
+<style>
+  :root { --bg: #10393F; --panel: #1F6F6B; --brass: #C9A24A; --text: #f2e6cf; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; min-height: 100vh;
+         display: flex; flex-direction: column; align-items: center; padding: 8px; overflow-x: hidden; }
+  .stage { position: relative; width: min(100%, 800px); aspect-ratio: 1816 / 1052; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  button { background: var(--panel); color: var(--text); border: 1px solid #5a4a2a; padding: 8px 16px; font: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--brass); color: #1d2a30; border-color: var(--brass); }
+  label { color: #b9a98c; display: flex; align-items: center; gap: 6px; padding: 8px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"></div>
+<div class="bar">
+  <button data-mood="idle" aria-pressed="true">Idle</button>
+  <button data-mood="attack">Attack</button>
+  <button data-mood="hurt">Hurt</button>
+  <button data-mood="death">Death</button>
+  <label><input type="checkbox" data-break="wraith-claw"> Break claw</label>
+  <label><input type="checkbox" data-break="wraith-vent"> Break vent</label>
+  <label><input type="checkbox" id="ball"> Break all</label>
+  <label><input type="checkbox" id="mesh"> Mesh</label>
+</div>
+<script>__RIGJS__</script>
+<script>
+const { smooth, band, rad, rot } = Rig;
+const IMG = "__IMG__";
+__KIT__
+
+// Painting 1216x832, side view facing left. The wraith floats (no walking). Head (455-650, 70-260), reaching arm to the hand at (390, 360) with the teal plume
+// streaming left (76-440, 120-560), the golden cloud billowing behind (645-1075, 40-475), the coat tails streaming right and down (480-1180, 480-790).
+const HEADP = [545, 262], SHO = [520, 345], HAND = [385, 362], VENT = [585, 328], EYE = [478, 170], CORE = [590, 300], CLOUD = [865, 262], FLOOR = [640, 802];
+const TEAL = ["#5CC4B8", "#C4F0E8"], GOLD = ["#D9953F", "#F4C672"];
+
+const wraith = {
+  size: [1216, 832], grid: [152, 104], pad: [300, 200],
+  anchors: { "wraith-claw": [385, 362, 62], "wraith-vent": [585, 328, 62], core: [590, 300, 95], eyes: [478, 170, 32] },
+  weights(x, y) {
+    const w = {};
+    w.h = 1 - smooth(105, 150, Math.hypot((x - 550) * 0.9, y - 170));
+    const ch = chainDist(x, y, [[525, 345], [450, 366], [385, 362]]);
+    w.a = (1 - smooth(40, 70, ch.d)) * smooth(545, 500, x);
+    w.p = smooth(445, 400, x) * (1 - w.a);
+    w.c = (1 - smooth(215, 262, Math.hypot((x - 865) * 0.9, y - 262))) * smooth(650, 700, x);
+    w.k = smooth(620, 720, x) * smooth(470, 520, y) * (1 - w.c);
+    w.m = smooth(570, 480, x) * smooth(560, 640, y);
+    return w;
+  },
+  deform(x, y, w, P) {
+    [x, y] = rot(x, y, ...HEADP, rad(P.head), w.h);
+    x += P.hx * w.h; y += P.hy * w.h;
+    [x, y] = rot(x, y, ...SHO, rad(P.arm), w.a);
+    x = SHO[0] + (x - SHO[0]) * (1 + P.aext * w.a);
+    // Teal plume: gentle cloth-like wisps that travel away from the hand; it stretches and shrinks along the arm's line.
+    const D = Math.hypot(x - HAND[0], y - HAND[1]), f = smooth(30, 210, D) * w.p;
+    x = HAND[0] + (x - HAND[0]) * (1 + P.pext * w.p);
+    y += P.pa * f * Math.sin(D / 55 - P.ph * 2.0); x += P.pa * 0.6 * f * Math.sin(D / 70 - P.ph * 1.6 + 1);
+    // Golden cloud: breathes (scale), billows (traveling waves).
+    const s = 1 + P.cs * w.c;
+    x = CLOUD[0] + (x - CLOUD[0]) * s + P.cx * w.c; y = CLOUD[1] + (y - CLOUD[1]) * s + P.cy * w.c;
+    x += P.ca * w.c * Math.sin(y / 75 + P.ph * 1.1); y += P.ca * 0.8 * w.c * Math.sin(x / 80 - P.ph * 0.9 + 2);
+    // Coat tails ripple, the left hem sways.
+    y += P.ka * w.k * Math.sin(x / 85 - P.ph * 2.4) * smooth(620, 900, x);
+    x += P.ha * w.m * Math.sin(y / 90 - P.ph * 2.0);
+    y = FLOOR[1] + (y - FLOOR[1]) * (1 - P.sag);
+    [x, y] = rot(x, y, 600, 780, rad(P.roll), 1);
+    return [x + P.bx, y + P.by];
+  },
+  moods: { idle: { eye: 0.5 }, attack: { eye: 0.7 }, hurt: { eye: 0.5 }, death: { eye: 0.4 } },
+  ease: 3,
+  onMood(m, api) { const S = api.state; S.start = undefined; S.cycle = undefined; S.hit = undefined; S.did = {}; },
+  pose(L, t, dt, S, api) {
+    if (S.start === undefined) { S.start = t; S.did = {}; S.next = {}; S.broken = S.broken || urlBroken(); S.ph = S.ph || 0; }
+    syncBroken(S, 1216, 832);
+    const u = t - S.start, m = api.mood, bk = S.broken || {};
+    const P = { head: 0, hx: 0, hy: 0, arm: 0, aext: 0, pext: 0, pa: 14, ph: 0, cs: 0, cx: 0, cy: 0, ca: 8, ka: 10, ha: 6, sag: 0, roll: 0, bx: 0, by: 0, flash: 0, shake: null, eye: L.eye, dim: 0 };
+    // The wisp phase keeps running across moods (rate depends on the mood) so the steam never snaps.
+    S.ph += dt * (m === "attack" ? 2.2 : m === "death" ? 0.7 : 1); P.ph = S.ph;
+    const once = (k, cond, fn) => { if (cond && !S.did[k]) { S.did[k] = true; fn(); } };
+    const every = (k, period, from, fn) => { const n = Math.floor((u - from) / period); if (u >= from && S.next[k] !== n) { S.next[k] = n; fn(n); } };
+    const pt = p => wraith.deform(p[0], p[1], wraith.weights(p[0], p[1]), P);
+    if (m === "idle") {
+      const c = u % 4, s2 = Math.sin(u * Math.PI * 2 / 4);
+      // Floats: a slow rise and fall, the head leads, the arm drifts, the cloud breathes; flat steam leaves the hand and the vent.
+      P.by = -9 * s2 - 4; P.roll = 0.5 * Math.sin(u * Math.PI * 2 / 4 - 0.6);
+      P.head = 2.4 * Math.sin(u * Math.PI * 2 / 4 + 0.5) + (c > 2.5 && c < 2.9 ? -3 * Math.sin((c - 2.5) / 0.4 * Math.PI) : 0); P.hy = 2 * s2;
+      P.arm = 2.2 * Math.sin(u * Math.PI * 2 / 4 - 0.3); P.aext = 0.02 * Math.sin(u * Math.PI * 2 / 4 - 0.8);
+      P.cs = 0.035 * Math.sin(u * Math.PI * 2 / 4 - 0.4); P.pext = 0.03 * Math.sin(u * Math.PI * 2 / 4);
+      P.eye = L.eye * (0.85 + 0.15 * Math.sin(u * 3.2));
+      every("hp", 0.8, 0.1, () => { const q = pt(HAND); spawnPuff(S, t, q[0] - 25, q[1] + (Math.random() - 0.5) * 30, { vx: -90 - Math.random() * 40, vy: -20 + Math.random() * 30, r: 22, tones: TEAL, life: 1.1 }); });
+      every("vp", 1.7, 0.6, () => { const q = pt(VENT); spawnPuff(S, t, q[0] + 10, q[1] - 10, { vx: 40, vy: -70, r: 18, tones: GOLD }); });
+    } else if (m === "attack") {
+      const c = u % 2.2, T = [0, 0.25, 0.75, 0.9, 1.0, 1.5, 2.2];
+      // Draws back (the hand pulls in, the plume compresses and the cloud swells), then thrusts: the arm shoots out and the plume bursts left.
+      P.by = -4 + kf(c, T, [0, 4, 8, -4, 0, 0, 0]); P.bx = kf(c, T, [0, 6, 18, -34, -26, -6, 0]); P.roll = kf(c, T, [0, -1, 2.5, -3.2, -2, -0.3, 0]);
+      P.head = kf(c, T, [0, 3, 7, -7, -4, 0, 0]); P.hx = kf(c, T, [0, 2, 6, -10, -6, 0, 0]);
+      P.arm = kf(c, T, [0, 4, 10, -6, -3, 0, 0]); P.aext = kf(c, T, [0, -0.1, -0.35, 0.3, 0.2, 0, 0]);
+      P.pext = kf(c, T, [0, -0.12, -0.34, 0.5, 0.3, 0.05, 0]); P.pa = kf(c, T, [14, 18, 24, 34, 22, 14, 14]);
+      P.cs = kf(c, T, [0, 0.03, 0.1, -0.03, 0.02, 0, 0]); P.cx = kf(c, T, [0, 4, 14, -20, -12, 0, 0]); P.ka = kf(c, T, [10, 12, 16, 22, 14, 10, 10]);
+      P.eye = kf(c, [0, 0.75, 0.9, 1.4, 2.2], [0.6, 1.3, 1.5, 0.8, 0.6]);
+      if (c > 0.3 && c < 0.9) { const q = ease((c - 0.3) / 0.6); P.shake = [(Math.random() - 0.5) * 3 * q, (Math.random() - 0.5) * 2 * q]; }
+      const cyc = Math.floor(u / 2.2);
+      if (S.cycle !== cyc) { S.cycle = cyc; S.did = {}; S.trail = []; }
+      for (const [k, t0] of [["g1", 0.3], ["g2", 0.55]]) once(k, c > t0, () => { const q = pt(VENT); spawnPuff(S, t, q[0] + 10, q[1], { vx: 60, vy: -90, r: 22, tones: GOLD }); const h = pt(HAND); spawnPuff(S, t, h[0] - 20, h[1], { vx: -50, vy: -30, r: 18, tones: TEAL }); });
+      if (c > 0.78 && c < 0.96) { const q = pt(HAND), tr = S.trail = S.trail || [], l = tr[tr.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 22) tr.push(q); }
+      once("smear", c >= 0.96, () => { if (S.trail && S.trail.length > 2) spawnSmear(S, t, S.trail.slice(-6), 30); S.trail = []; });
+      once("burst", c >= 0.9, () => { const q = pt(HAND); spawnStar(S, t, q[0] - 30, q[1], 70); for (let i = 0; i < 5; i++) spawnPuff(S, t, q[0] - 20 - i * 6, q[1] + (i - 2) * 22, { vx: -300 - i * 30, vy: (i - 2) * 20, r: 26 + (i % 2) * 6, tones: TEAL, life: 0.55 }); spawnSpark(S, t, q[0] - 20, q[1], 7, 520); });
+      if (c >= 0.9) { const d = Math.exp(-(c - 0.9) * 9); P.shake = [(Math.random() - 0.5) * 10 * d, (Math.random() - 0.5) * 7 * d]; }
+    } else if (m === "hurt") {
+      const c = u % 1.5, T = [0, 0.07, 0.22, 0.8, 1.5];
+      P.flash = flashK(c); P.by = -4;
+      P.bx = kf(c, T, [0, 28, 18, 0, 0]); P.by += kf(c, T, [0, -5, 0, 0, 0]); P.roll = kf(c, T, [0, 2.4, 1.2, 0, 0]);
+      P.head = kf(c, T, [0, 10, 5, -1, 0]); P.hx = kf(c, T, [0, 10, 5, 0, 0]); P.arm = kf(c, T, [0, 8, 4, 0, 0]); P.aext = kf(c, T, [0, -0.1, 0, 0, 0]);
+      P.cs = kf(c, T, [0, 0.12, 0.05, 0, 0]); P.cx = kf(c, T, [0, 16, 8, 0, 0]); P.pext = kf(c, T, [0, -0.15, -0.05, 0, 0]); P.pa = kf(c, T, [14, 28, 20, 14, 14]); P.ka = kf(c, T, [10, 24, 16, 10, 10]);
+      P.eye = kf(c, [0, 0.07, 0.3, 1.5], [0.5, 1.6, 0.3, 0.5]);
+      const d = Math.exp(-c * 7); P.shake = [(Math.random() - 0.5) * 9 * d, (Math.random() - 0.5) * 6 * d];
+      const cyc = Math.floor(u / 1.5);
+      if (S.hit !== cyc) { S.hit = cyc; const q = pt(VENT); spawnStar(S, t, q[0], q[1], 76); spawnSpark(S, t, q[0], q[1], 8, 450); spawnPuff(S, t, q[0] + 20, q[1] - 20, { vx: 70, vy: -100, r: 26, tones: GOLD }); spawnPuff(S, t, q[0] - 10, q[1] + 20, { vx: -60, vy: -60, r: 20, tones: TEAL }); }
+    } else if (m === "death") {
+      const c = Math.min(u, 2.999), T = [0, 0.08, 0.4, 1.0, 1.7, 2.4, 3];
+      P.flash = flashK(c);
+      P.bx = kf(c, T, [0, 20, 12, 8, 6, 6, 6]); P.by = kf(c, T, [-4, -6, 0, 8, 18, 24, 24]); P.roll = kf(c, T, [0, 2, 1, -1, -4, -6, -6]);
+      P.sag = kf(c, T, [0, 0, 0.02, 0.05, 0.1, 0.13, 0.13]);
+      P.head = kf(c, T, [0, 8, 4, -4, -14, -20, -20]); P.hy = kf(c, T, [0, 0, 2, 6, 16, 24, 24]);
+      P.arm = kf(c, T, [0, 8, 4, -4, -16, -24, -24]); P.aext = kf(c, T, [0, 0, 0, -0.04, -0.1, -0.14, -0.14]);
+      // The steam leaves it: the plume and the cloud shrink away to almost nothing and the wisps thin out, while the body stays whole.
+      P.pext = kf(c, T, [0, -0.1, 0, -0.3, -0.7, -0.9, -0.9]); P.pa = kf(c, T, [14, 26, 30, 22, 10, 5, 5]);
+      P.cs = kf(c, T, [0, 0.1, 0.08, -0.15, -0.6, -0.85, -0.85]); P.cy = kf(c, T, [0, 0, 0, -10, -40, -70, -70]); P.ka = kf(c, T, [10, 20, 24, 16, 8, 4, 4]);
+      P.eye = c < 0.3 ? 1.4 : c < 1.8 ? 0.45 * (Math.sin(c * 31) > 0.2 ? 1 : 0.25) * (1 - (c - 0.3) / 1.5) : 0; P.dim = ease(clamp((c - 0.9) / 0.9));
+      if (c > 0.08 && c < 0.9) { const d = Math.exp(-(c - 0.08) * 4); P.shake = [(Math.random() - 0.5) * 12 * d, (Math.random() - 0.5) * 8 * d]; }
+      once("hit", c < 0.2, () => { const q = pt(VENT); spawnStar(S, t, q[0], q[1], 84); spawnSpark(S, t, q[0], q[1], 9, 480); });
+      // Everything it held in escapes: steam pours from the vent and the hand and rolls out of the cloud until the last frame.
+      every("v", 0.17, 0.4, () => { if (c < 2.95) { const q = pt(VENT); spawnPuff(S, t, q[0] + (Math.random() - 0.5) * 30, q[1] + (Math.random() - 0.5) * 30, { vx: 60 + Math.random() * 80, vy: -80 - Math.random() * 60, r: 24, tones: GOLD }); } });
+      every("h", 0.22, 0.5, () => { if (c < 2.95) { const q = pt(HAND); spawnPuff(S, t, q[0] - 15, q[1], { vx: -100 - Math.random() * 60, vy: 30 + Math.random() * 40, r: 24, tones: TEAL }); } });
+      every("sp", 0.45, 0.8, () => { if (c < 2.4) { const q = pt(VENT); spawnSpark(S, t, q[0], q[1], 3, 260); } });
+    }
+    // Broken parts leak: the claw drips teal steam and sparks, the vent spits golden steam.
+    if (bk["wraith-claw"]) every("lc", 0.35, 0.1, () => { const q = pt([372, 365]); spawnPuff(S, t, q[0], q[1], { vx: -40, vy: -50, r: 14, tones: TEAL, life: 0.8 }); if (Math.random() < 0.5) spawnSpark(S, t, q[0], q[1], 2, 170); });
+    if (bk["wraith-vent"]) every("lv", 0.4, 0.2, () => { const q = pt(VENT); spawnPuff(S, t, q[0] + (Math.random() - 0.5) * 20, q[1], { vx: 50, vy: -90, r: 16, tones: GOLD, life: 0.9 }); });
+    P.t = t;
+    return P;
+  },
+  under(c, P, t, api) {
+    // Ground shadow: one flat ink ellipse that shrinks as it rises (floating, so the figure never touches the floor).
+    const lift = clamp((-P.by - 4 + 14) / 28), rx = 300 - 40 * lift - 120 * P.sag;
+    c.globalAlpha = 0.32; c.fillStyle = INK; c.beginPath(); c.ellipse(FLOOR[0] + P.bx * 0.4, FLOOR[1] + 4, Math.max(120, rx), 20, 0, 0, 2 * Math.PI); c.fill(); c.globalAlpha = 1;
+  },
+  over(c, P, t, api) {
+    const S = api.state, at = p => api.point(p[0], p[1], P);
+    // The goggle: a small flat teal ember that flares in attack and hurt, and goes dark in death.
+    const E = Math.max(0, P.eye), ep = at(EYE);
+    if (P.dim > 0) { c.globalAlpha = 0.85 * P.dim; c.fillStyle = INK; c.beginPath(); c.arc(ep[0], ep[1], 21, 0, 2 * Math.PI); c.fill(); c.globalAlpha = 1; }
+    else if (E > 0.9) { const r = 5 + 5 * Math.min(1, E - 0.9); c.fillStyle = INK; c.beginPath(); c.arc(ep[0], ep[1], r + 2.5, 0, 2 * Math.PI); c.fill(); c.fillStyle = "#37E0C8"; c.beginPath(); c.arc(ep[0], ep[1], r, 0, 2 * Math.PI); c.fill(); c.fillStyle = "#E8FFF8"; c.beginPath(); c.arc(ep[0], ep[1], r * 0.5, 0, 2 * Math.PI); c.fill(); }
+    drawFx(c, S, t);
+    drawBroken(c, at, S, t);
+  },
+};
+const DMG = {
+  // The reaching claw: the fingers are torn off in a big jagged notch, an ember in the break, thick cracks up the forearm.
+  "wraith-claw": { poly: jaggedBlob(374, 362, 44, 14, 0.5, 71), k: 1.6, c: [440, 372], r: 44, cracks: 4, crack0: -0.3, crackStep: 1.3, seed: 71 },
+  // The chest vent: a big ragged hole through the coat and armor, an ember inside, cracks fanning across the chest.
+  "wraith-vent": { poly: jaggedBlob(585, 330, 50, 14, 0.5, 77), k: 1.5, c: [585, 330], r: 50, cracks: 5, crack0: -0.5, crackStep: 1.25, seed: 77 },
+};
+const rig = Rig.mount(document.getElementById("stage"), wraith, IMG);
+wire(rig);
+</script>
+</body>
+</html>

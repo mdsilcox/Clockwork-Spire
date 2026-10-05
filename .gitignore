@@ -19,3 +19,5 @@ art/*/happy/seed*.png
 art/*/candidates/**/*.png
 art/tinker/hand/seed*.png
 art/foreman/apron/seed*.png
+art/*/frames-broken/
+art/*/cut.clean.png

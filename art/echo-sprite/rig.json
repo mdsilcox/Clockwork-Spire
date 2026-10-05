@@ -1,0 +1,50 @@
+{
+  "size": [
+    1216,
+    832
+  ],
+  "pad": [
+    440,
+    330
+  ],
+  "view": "side",
+  "facing": "right",
+  "paintingFacing": "right",
+  "flipX": true,
+  "moods": [
+    "idle",
+    "attack",
+    "hurt",
+    "death"
+  ],
+  "durations": {
+    "idle": 4,
+    "attack": 2.4,
+    "hurt": 1.5,
+    "death": 3
+  },
+  "anchors": {
+    "sprite-mouth": [
+      1040,
+      240,
+      95
+    ],
+    "sprite-fin": [
+      105,
+      425,
+      70
+    ],
+    "core": [
+      520,
+      470,
+      95
+    ],
+    "eyes": [
+      627,
+      292,
+      40
+    ]
+  },
+  "brokenFlag": "?broken=sprite-mouth,sprite-fin (or all) in the URL, or rig.state.broken = {id: true}: a jagged notch is erased from the painting's alpha with a two-tone ember edge, embers inside and thick ink cracks, in every mood; parts leak sparks",
+  "notes": "Painting faces right; the page mirrors it with CSS (#flip). Floats: no ground; death sinks about 300 px. Stray figure and ground line removed by clean.py. Death holds its last pose after 3 s. Page built by art/bell-ringer/build.py from the template plus the asset's kit.js."
+}

@@ -1,0 +1,17 @@
+{
+  "size": [1216, 832],
+  "pad": [150, 240],
+  "view": "side",
+  "facing": "left",
+  "feet": 740,
+  "moods": ["idle", "attack", "hurt", "death"],
+  "durations": { "idle": 4, "attack": 2.2, "hurt": 1.5, "death": 3 },
+  "anchors": {
+    "snake-fangs": [610, 190, 62],
+    "snake-coil": [200, 590, 85],
+    "core": [690, 520, 100],
+    "eyes": [630, 130, 26]
+  },
+  "brokenFlag": "?broken=snake-fangs,snake-coil (or all) in the URL, or rig.state.broken = { 'snake-fangs': true, 'snake-coil': true }: a notch is erased from the painting's alpha with a two-tone ember edge, embers inside and ink cracks, in every mood; broken fangs spit sparks, a broken coil hisses steam",
+  "notes": "Death holds its last pose after 3 s. Built by python art/valve-crab/build.py pipe-snake (shared kit.js) from cut.png."
+}

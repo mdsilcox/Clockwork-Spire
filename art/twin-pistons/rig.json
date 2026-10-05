@@ -1,0 +1,28 @@
+{
+  "size": [896, 1152],
+  "pad": [520, 120],
+  "view": "three-quarter",
+  "facing": "left",
+  "paintingFacing": "right",
+  "flipX": true,
+  "feet": 1072,
+  "texture": "cut.clean.png",
+  "moods": ["idle", "attack", "hurt", "death"],
+  "durations": { "idle": 4, "attack": 2.6, "hurt": 1.5, "death": 3 },
+  "anchors": {
+    "twinl-ram": [650, 190, 100],
+    "twinl-shield": [752, 160, 80],
+    "twinl-link": [304, 416, 46],
+    "core": [430, 300, 110],
+    "eyes": [748, 162, 55]
+  },
+  "aliases": "twinr-ram, twinr-shield, twinr-link answer to the same anchors (one painting serves both twins)",
+  "api": {
+    "setMood": "idle|attack|hurt|death (death holds its last pose)",
+    "setBroken": "rig.setBroken({'twinl-ram': true}) or rig.state.broken[id] = true; ?broken=id,id|all (short ids ram, shield, link ok)",
+    "anchor": "rig.anchor(id) returns [x, y, r] in CSS pixels of .stage, already mirrored to match what is drawn",
+    "flip": "the page mirrors the painting with CSS so it faces left; open it with ?noflip=1 for the painting's own facing (ram to the right), or mirror .stage in the game",
+    "stage": "stage aspect 1936 x 1392 (painting plus pad 520 x 120)"
+  },
+  "anchorsNote": "anchors in this file are unmirrored painting pixels; the ram, shield and lens are on the painting's right (x grows toward the target)"
+}

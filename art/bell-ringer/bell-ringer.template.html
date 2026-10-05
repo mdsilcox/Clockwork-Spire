@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bell Ringer</title>
+<style>
+  :root { --bg: #10393F; --panel: #1F6F6B; --brass: #C9A24A; --text: #f2e6cf; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; min-height: 100vh;
+         display: flex; flex-direction: column; align-items: center; padding: 8px; overflow-x: hidden; }
+  .stage { position: relative; width: min(100%, 540px); aspect-ratio: 1256 / 1552; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  button { background: var(--panel); color: var(--text); border: 1px solid #5a4a2a; padding: 8px 16px; font: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--brass); color: #1d2a30; border-color: var(--brass); }
+  label { color: #b9a98c; display: flex; align-items: center; gap: 6px; padding: 8px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"></div>
+<div class="bar">
+  <button data-mood="idle" aria-pressed="true">Idle</button>
+  <button data-mood="attack">Attack</button>
+  <button data-mood="hurt">Hurt</button>
+  <button data-mood="death">Death</button>
+  <label><input type="checkbox" data-break="ringer-clapper"> Break clapper</label>
+  <label><input type="checkbox" data-break="ringer-fist"> Break fist</label>
+  <label><input type="checkbox" data-break="ringer-rope"> Break rope</label>
+  <label><input type="checkbox" id="ball"> Break all</label>
+  <label><input type="checkbox" id="mesh"> Mesh</label>
+</div>
+<script>__RIGJS__</script>
+<script>
+const { smooth, band, rad, rot } = Rig;
+const IMG = "__IMG__";
+const BKS = 1.5;
+__KIT__
+
+// Painting 896x1152, front view (enemies face left: the bell-bearing side is the screen-left side). Boots planted at y ~1070.
+const BASE = [390, 905], BELLP = [322, 205], ARMP = [690, 430];
+const MOUTH = [190, 258], LAMP = [380, 512], EYES = [[414, 331], [447, 329]];
+const bell = {
+  size: [896, 1152], grid: [112, 144], pad: [180, 200],
+  anchors: { "ringer-clapper": [190, 215, 70], "ringer-fist": [612, 685, 62], "ringer-rope": [183, 420, 50], core: [380, 510, 90], eyes: [430, 330, 45] },
+  weights(x, y) {
+    const w = {};
+    w.bell = smooth(300, 238, x) * smooth(312, 272, y);
+    w.rope = smooth(236, 206, x) * smooth(262, 300, y) * smooth(800, 730, y);
+    w.arm = smooth(565, 625, x) * smooth(425, 495, y) * smooth(735, 690, y);
+    w.b = Math.max(1 - smooth(860, 950, y), band(x, 575, 720, 10) * smooth(1015, 995, y) * smooth(860, 885, y));
+    return w;
+  },
+  deform(x, y, w, P) {
+    [x, y] = rot(x, y, ...ARMP, rad(P.arm), w.arm);
+    x += P.rope * w.rope * Math.pow(Math.max(0, (y - 262) / 480), 1.3) + P.rope2 * w.rope * Math.sin((y - 262) / 480 * Math.PI * 1.5);
+    y += P.bdy * (w.bell + 0.8 * w.rope * smooth(262, 380, y)); x += P.bdx * (w.bell + 0.8 * w.rope * smooth(262, 380, y));
+    [x, y] = rot(x, y, ...BELLP, rad(P.bell), w.bell);
+    y = BASE[1] + (y - BASE[1]) * (1 + P.sq * w.b);
+    [x, y] = rot(x, y, ...BASE, rad(P.roll), w.b);
+    return [x + P.bx * w.b, y + P.by * w.b];
+  },
+  moods: { idle: { eye: 0.5 }, attack: { eye: 0.7 }, hurt: { eye: 0.5 }, death: { eye: 0.4 } },
+  ease: 3,
+  onMood(m, api) { const S = api.state; S.start = undefined; S.cycle = undefined; S.hit = undefined; S.did = {}; S.trail = []; },
+  pose(L, t, dt, S, api) {
+    if (S.start === undefined) { S.start = t; S.did = {}; S.next = {}; S.broken = S.broken || urlBroken(); S.lag = S.lag || [0, 0]; }
+    syncBroken(S, 896, 1152);
+    const u = t - S.start, m = api.mood, bk = S.broken || {};
+    const P = { roll: 0, bx: 0, by: 0, sq: 0, bell: 0, bdy: 0, bdx: 0, rope: 0, rope2: 0, arm: 0, flash: 0, shake: null, eye: L.eye, dim: 0, lamp: 0 };
+    const once = (k, cond, fn) => { if (cond && !S.did[k]) { S.did[k] = true; fn(); } };
+    const every = (k, period, from, fn) => { const n = Math.floor((u - from) / period); if (u >= from && S.next[k] !== n) { S.next[k] = n; fn(n); } };
+    const ap = p => bell.deform(p[0], p[1], bell.weights(p[0], p[1]), P);
+    if (m === "idle") {
+      const c = u % 4, n = Math.floor(u / 4), ph = u * Math.PI * 2 / 4;
+      // A heavy figure: slow sway, the bell swings on its rod and tolls once a loop, the rope lags behind.
+      P.roll = 0.9 * Math.sin(ph); P.by = 2.5 * Math.sin(ph * 2 - 1); P.sq = 0.004 * Math.sin(ph * 2 - 1);
+      P.arm = 1.5 * Math.sin(ph - 0.7);
+      P.bell = 6 * Math.sin(ph + 0.6) + 2 * Math.sin(ph * 3 + 1);
+      P.rope = 14 * Math.sin(ph - 0.3); P.rope2 = 5 * Math.sin(ph * 2 + 0.5);
+      once("toll" + n, c > 0.85, () => { const q = ap(MOUTH); spawnWave(S, t, q[0], q[1] - 10, 90, 0.6); });
+      P.lamp = 0.85 + 0.15 * Math.sin(u * 2.3);
+      P.eye = L.eye * (0.85 + 0.15 * Math.sin(u * 3.1)) * (c > 3.0 && c < 3.1 ? 0.15 : 1);
+    } else if (m === "attack") {
+      const c = u % 2.4, T = [0, 0.25, 0.8, 0.96, 1.04, 1.5, 2.4];
+      // Windup: lean back, the bell rises high and the arm cocks; slam: lunge left, the bell comes down hard and tolls.
+      P.roll = kf(c, T, [0, 1.5, 4.5, -8, -6.5, -1.2, 0]); P.bx = kf(c, T, [0, 6, 22, -62, -50, -10, 0]); P.by = kf(c, T, [0, 6, 10, 10, 14, 3, 0]);
+      P.sq = kf(c, T, [0, 0.01, 0.02, -0.04, -0.03, -0.005, 0]);
+      P.bell = kf(c, T, [0, 8, 40, -22, -16, -3, 0]); P.bdy = kf(c, T, [0, 0, -30, 230, 170, 0, 0]); P.bdx = kf(c, T, [0, 0, 10, -55, -38, 0, 0]); P.arm = kf(c, T, [0, -2, -7, 6, 4, 1, 0]);
+      P.rope = kf(c, T, [0, 6, -26, 30, 18, -4, 0]); P.rope2 = kf(c, T, [0, 0, 10, -12, -6, 2, 0]);
+      P.lamp = kf(c, [0, 0.8, 1.0, 1.5, 2.4], [0.85, 1.4, 1.6, 1.0, 0.85]);
+      P.eye = kf(c, [0, 0.8, 1.0, 1.4, 2.4], [0.7, 1.4, 1.5, 0.8, 0.7]);
+      if (c > 0.4 && c < 0.96) P.shake = [(Math.random() - 0.5) * 3 * ease((c - 0.4) / 0.56), (Math.random() - 0.5) * 2 * ease((c - 0.4) / 0.56)];
+      const cyc = Math.floor(u / 2.4);
+      if (S.cycle !== cyc) { S.cycle = cyc; S.did = {}; }
+      for (const [k, t0] of [["w1", 0.3], ["w2", 0.55]]) once(k, c > t0, () => { const q = ap(MOUTH); spawnWave(S, t, q[0], q[1] - 10, 60, 0.45); });
+      if (c > 0.88 && c < 1.12) { const q = ap(MOUTH), tr = S.trail = S.trail || [], l = tr[tr.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 22) tr.push(q); }
+      once("smear", c >= 1.12, () => { if (S.trail && S.trail.length > 2) spawnSmear(S, t, S.trail.slice(-8), 40); S.trail = []; });
+      once("slam", c >= 0.98, () => {
+        const q = ap(MOUTH); spawnStar(S, t, q[0] - 10, q[1] + 20, 66); spawnWave(S, t, q[0], q[1], 170, 0.7); spawnWave(S, t, q[0], q[1], 110, 0.55, CREAM);
+        spawnSpark(S, t, q[0], q[1] + 20, 8, 560); spawnRing(S, t, 330, 1085, 140, 0.55); spawnShards(S, t, 300, 1070, 7, 70);
+      });
+      if (c >= 0.98) { const d = Math.exp(-(c - 0.98) * 9); P.shake = [(Math.random() - 0.5) * 12 * d, (Math.random() - 0.5) * 8 * d]; }
+    } else if (m === "hurt") {
+      const c = u % 1.5, T = [0, 0.07, 0.2, 0.7, 1.5];
+      P.flash = flashK(c);
+      P.bx = kf(c, T, [0, 34, 26, 0, 0]); P.by = kf(c, T, [0, -5, -2, 0, 0]); P.roll = kf(c, T, [0, 3, 2, 0, 0]); P.sq = kf(c, T, [0, -0.008, 0, 0, 0]);
+      P.bell = kf(c, T, [0, -14, 10, -2, 0]); P.rope = kf(c, T, [0, -20, 14, -3, 0]); P.arm = kf(c, T, [0, 8, 4, 0, 0]);
+      P.eye = kf(c, [0, 0.07, 0.3, 1.5], [0.5, 1.6, 0.3, 0.5]); P.lamp = kf(c, [0, 0.07, 0.4, 1.5], [0.85, 1.5, 0.6, 0.85]);
+      const d = Math.exp(-c * 6); P.shake = [(Math.random() - 0.5) * 9 * d, (Math.random() - 0.5) * 6 * d];
+      const cyc = Math.floor(u / 1.5);
+      if (S.hit !== cyc) { S.hit = cyc; const q = ap(MOUTH); spawnStar(S, t, 380, 450, 74); spawnSpark(S, t, 380, 450, 7, 450); spawnWave(S, t, q[0], q[1] - 10, 80, 0.5); }
+    } else if (m === "death") {
+      const c = Math.min(u, 2.999), T = [0, 0.08, 0.35, 1.0, 1.8, 2.5, 3];
+      P.flash = flashK(c);
+      P.bx = kf(c, T, [0, 28, 18, 12, 14, 14, 14]); P.roll = kf(c, T, [0, 2.5, 1.5, 5, 16, 22, 22]);
+      P.by = kf(c, T, [0, -4, 0, 16, 110, 150, 150]); P.sq = kf(c, T, [0, 0, 0, -0.02, -0.14, -0.2, -0.2]);
+      P.bell = kf(c, T, [0, -12, 8, 4, -40, -55, -55]); P.bdy = kf(c, T, [0, 0, 0, 20, 330, 560, 560]); P.bdx = kf(c, T, [0, 0, 0, 0, -30, -50, -50]); P.rope = kf(c, T, [0, -18, 12, 6, -6, 0, 0]); P.rope2 = kf(c, T, [0, 0, 8, -6, 0, 0, 0]);
+      P.arm = kf(c, T, [0, 8, 6, 0, -9, -12, -12]);
+      if (c > 0.35 && c < 1.0) { P.roll += 0.5 * Math.sin(c * 50) * (1 - (c - 0.35) / 0.65); P.by += 1.5 * Math.sin(c * 43); P.bell += 4 * Math.sin(c * 40); }
+      P.eye = c < 0.3 ? 1.4 : c < 1.8 ? 0.45 * (Math.sin(c * 31) > 0.2 ? 1 : 0.25) * (1 - (c - 0.3) / 1.5) : 0;
+      P.lamp = c < 0.3 ? 1.5 : c < 2.2 ? 0.8 * (Math.sin(c * 23) > -0.2 ? 1 : 0.3) * (1 - (c - 0.3) / 1.9) : 0;
+      P.dim = ease(clamp((c - 1.0) / 1.4));
+      if (c > 0.1 && c < 1.0) { const d = Math.exp(-(c - 0.1) * 4); P.shake = [(Math.random() - 0.5) * 12 * d, (Math.random() - 0.5) * 8 * d]; }
+      once("hit", c < 0.2, () => { spawnStar(S, t, 380, 450, 80); spawnSpark(S, t, 380, 450, 9, 500); const q = ap(MOUTH); spawnWave(S, t, q[0], q[1] - 10, 100, 0.6); });
+      once("t2", c >= 0.9, () => { const q = ap(MOUTH); spawnWave(S, t, q[0], q[1] - 10, 120, 0.7); });
+      once("b1", c >= 1.3, () => { spawnRing(S, t, 330, 1085, 150, 0.6); spawnShards(S, t, 260, 1070, 7, 70); spawnShards(S, t, 560, 1070, 7, 70); });
+      once("t3", c >= 1.8, () => { spawnRing(S, t, 330, 1090, 190, 0.7); const q = ap(MOUTH); spawnWave(S, t, q[0], q[1] - 10, 140, 0.8); });
+      every("sp", 0.4, 0.9, () => { if (c < 2.5) spawnSpark(S, t, 330 + Math.random() * 120, 560 + Math.random() * 100, 3, 300); });
+    }
+    // Broken parts leak: the bell sheds sparks, the cut rope drips sparks from its loose end, the fist smokes.
+    if (bk["ringer-clapper"] && m !== "death") every("lc", 0.5, 0.1, () => { const q = ap([165, 250]); spawnSpark(S, t, q[0], q[1], 2, 160); });
+    if (bk["ringer-rope"]) every("lr", 0.45, 0.2, () => { const q = ap([176, 460]); spawnSpark(S, t, q[0], q[1], 2, 140); });
+    if (bk["ringer-fist"]) every("lf", 0.4, 0.3, () => { const q = ap([612, 665]); spawnSpark(S, t, q[0], q[1], 2, 180); });
+    P.t = t;
+    return P;
+  },
+  over(c, P, t, api) {
+    const S = api.state, at = p => api.point(p[0], p[1], P);
+    // Eyes: two small hard-edged embers under the helmet; the lamp flares in attack and hurt.
+    const E = Math.max(0, P.eye);
+    if (E > 0.1) for (const e of EYES) { const p = at(e); ember(c, p[0], p[1], 3 + 6 * Math.min(1.5, E), Math.min(1, E * 1.6)); }
+    const lp = at(LAMP);
+    if (P.lamp > 1.1) { ember(c, lp[0], lp[1], 14 + 22 * Math.min(1, P.lamp - 1.1), 0.9); }
+    if (P.dim > 0) { c.globalAlpha = 0.8 * P.dim; c.fillStyle = INK; c.beginPath(); c.arc(lp[0], lp[1], 34, 0, 2 * Math.PI); c.fill(); c.globalAlpha = 1; }
+    drawFx(c, S, t);
+    drawBroken(c, at, S, t);
+  },
+};
+const DMG = {
+  // The hand bell: a bite out of the mouth and lip, embers inside, cracks up the bell.
+  "ringer-clapper": { poly: jaggedBlob(172, 232, 100, 13, 0.5, 7), c: [190, 205], r: 40, cracks: 4, crack0: -1.2, crackStep: 1.0, seed: 41, ember: [[168, 238, 12], [140, 224, 8], [194, 250, 8]] },
+  // The fist: a chunk blown out of the gauntlet, an ember inside, cracks up the forearm.
+  "ringer-fist": { poly: jaggedBlob(612, 686, 96, 13, 0.5, 9), c: [612, 640], r: 40, cracks: 4, crack0: -2.0, crackStep: 1.0, seed: 43, ember: [[610, 690, 13], [586, 676, 8], [638, 700, 8]] },
+  // The rope: snapped, a long gap with ember ends, the loose lower half dangles.
+  "ringer-rope": { poly: [[130, 350], [212, 340], [214, 432], [204, 500], [130, 492], [148, 420]], c: [176, 372], r: 20, cracks: 2, crack0: 1.6, crackStep: 0.6, seed: 47, ember: [[172, 392, 13], [182, 452, 13], [160, 422, 9]] },
+};
+const rig = Rig.mount(document.getElementById("stage"), bell, IMG);
+wire(rig);
+</script>
+</body>
+</html>

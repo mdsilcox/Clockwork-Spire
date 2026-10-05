@@ -1,0 +1,34 @@
+{
+  "size": [896, 1152],
+  "pad": [230, 170],
+  "view": "front",
+  "facing": "front",
+  "feet": 1095,
+  "textures": ["cut.png"],
+  "moods": ["idle", "attack", "hurt", "phase", "rewind", "death"],
+  "durations": { "idle": 4, "attack": 2.8, "hurt": 1.8, "phase": 4, "rewind": 2.5, "death": 4 },
+  "anchors": {
+    "clock-hour": [443, 306, 100],
+    "clock-tick": [588, 683, 52],
+    "clock-minute": [711, 757, 46],
+    "clock-tock": [443, 598, 52],
+    "clock-gov": [445, 455, 75],
+    "clock-wheel": [446, 172, 110],
+    "clock-bell": [443, 530, 52],
+    "mem-drill": [268, 195, 48],
+    "mem-governor": [446, 45, 44],
+    "mem-valve": [446, 222, 44],
+    "mem-chime": [281, 706, 52],
+    "core": [443, 430, 45],
+    "eyes": [446, 142, 45]
+  },
+  "api": {
+    "setMood": "idle|attack|hurt|phase|rewind|death. death holds its last pose",
+    "setPhase": "rig.setPhase(1|2|3) sets the settled look (Tick, Tock, Midnight) with no animation; ?phase=1|2|3 does the same",
+    "phaseTo": "rig.setPhaseTo(2|3) before setMood('phase'): the one phase mood plays Tick to Tock (2) or Tock to Midnight (3); default is the next phase. ?phaseTo= works too",
+    "setBroken": "rig.setBroken({'clock-bell': true}); ?broken=id,id (short ids ok: bell, hour, drill) or all",
+    "seq": "rig.seq('phase2') and rig.seq('phase3') are recorder aliases for the phase mood with phaseTo 2 and 3",
+    "anchor": "rig.anchor(id) returns [cssX, cssY, cssRadius]"
+  },
+  "stage": "stage aspect 1356 x 1492 (painting plus pad); anchors are image pixels"
+}

@@ -1,0 +1,17 @@
+{
+  "size": [896, 1152],
+  "pad": [150, 230],
+  "view": "front",
+  "facing": "left",
+  "feet": 1088,
+  "moods": ["idle", "attack", "hurt", "death"],
+  "durations": { "idle": 4, "attack": 2.6, "hurt": 1.5, "death": 3 },
+  "anchors": {
+    "golem-heart": [445, 430, 70],
+    "golem-fist": [175, 790, 90],
+    "core": [445, 330, 100],
+    "eyes": [492, 190, 34]
+  },
+  "brokenFlag": "?broken=golem-heart,golem-fist (or all) in the URL, or rig.state.broken = { 'golem-heart': true, 'golem-fist': true }: a notch is erased from the painting's alpha with a two-tone ember edge, embers inside and ink cracks, in every mood; a broken heart spits sparks, a broken fist leaks sparks and steam",
+  "notes": "Death holds its last pose after 3 s. Page built by python art/valve-crab/build.py furnace-golem (shared kit.js) from cut.clean.png."
+}

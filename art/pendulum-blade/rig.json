@@ -1,0 +1,49 @@
+{
+  "size": [
+    896,
+    1152
+  ],
+  "pad": [
+    260,
+    180
+  ],
+  "view": "front",
+  "facing": "left",
+  "feet": 1110,
+  "moods": [
+    "idle",
+    "attack",
+    "hurt",
+    "death"
+  ],
+  "durations": {
+    "idle": 4,
+    "attack": 2.4,
+    "hurt": 1.5,
+    "death": 3
+  },
+  "anchors": {
+    "blade-edge": [
+      452,
+      1070,
+      58
+    ],
+    "blade-weight": [
+      445,
+      802,
+      75
+    ],
+    "core": [
+      445,
+      560,
+      90
+    ],
+    "eyes": [
+      445,
+      405,
+      40
+    ]
+  },
+  "brokenFlag": "?broken=blade-edge,blade-weight (or all) in the URL, or rig.state.broken = {id: true}: a jagged notch is erased from the painting's alpha with a two-tone ember edge, embers inside and thick ink cracks, in every mood; parts leak sparks",
+  "notes": "blade-weight is the hub gear the pendulum hangs from (the counterweight); ground shadow removed by clean.py. Death holds its last pose after 3 s. Page built by art/bell-ringer/build.py from the template plus the asset's kit.js."
+}

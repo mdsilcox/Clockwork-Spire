@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chime Moth</title>
+<style>
+  :root { --bg: #10393F; --panel: #1F6F6B; --brass: #C9A24A; --text: #f2e6cf; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; min-height: 100vh;
+         display: flex; flex-direction: column; align-items: center; padding: 8px; overflow-x: hidden; }
+  .stage { position: relative; width: min(100%, 800px); aspect-ratio: 1736 / 1672; }
+  #flip, #rig { position: absolute; inset: 0; }
+  #flip { transform: scaleX(-1); }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  button { background: var(--panel); color: var(--text); border: 1px solid #5a4a2a; padding: 8px 16px; font: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--brass); color: #1d2a30; border-color: var(--brass); }
+  label { color: #b9a98c; display: flex; align-items: center; gap: 6px; padding: 8px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"><div id="flip"><div id="rig"></div></div></div>
+<div class="bar">
+  <button data-mood="idle" aria-pressed="true">Idle</button>
+  <button data-mood="attack">Attack</button>
+  <button data-mood="hurt">Hurt</button>
+  <button data-mood="death">Death</button>
+  <label><input type="checkbox" data-break="moth-wing"> Break wing</label>
+  <label><input type="checkbox" data-break="moth-dust"> Break dust</label>
+  <label><input type="checkbox" id="ball"> Break all</label>
+  <label><input type="checkbox" id="mesh"> Mesh</label>
+</div>
+<script>__RIGJS__</script>
+<script>
+const { smooth, band, rad, rot } = Rig;
+const IMG = "__IMG__";
+const BKS = 1.3;
+__KIT__
+
+// Painting 1216x832 faces RIGHT; the page mirrors it (#flip) so the moth faces left. Effects are drawn in painting space, so they mirror with it.
+const HL = [720, 235], HR = [810, 255], HT = [700, 435], HA = [585, 455], HN = [850, 130];
+const DUST = [700, 245], EYES = [[797, 122], [862, 200]], CORE = [610, 355];
+const moth = {
+  size: [1216, 832], grid: [152, 104], pad: [260, 420],
+  anchors: { "moth-wing": [420, 200, 120], "moth-dust": [700, 245, 70], core: [610, 355, 80], eyes: [830, 160, 45] },
+  weights(x, y) {
+    const w = {};
+    w.l = smooth(700, 580, x) * smooth(470, 405, y);                      // the two left wings
+    w.r = smooth(760, 830, x) * smooth(215, 275, y);                      // the long right wing
+    w.t = band(x, 592, 775, 12) * smooth(430, 470, y) * smooth(790, 760, x) * (1 - w.r);   // the lower teal wing
+    w.ab = smooth(465, 520, y) * smooth(640, 590, x) * (1 - w.l);        // abdomen hangs behind
+    w.ant = smooth(838, 872, x) * smooth(185, 120, y) * (1 - w.r * 0);
+    return w;
+  },
+  deform(x, y, w, P) {
+    [x, y] = rot(x, y, ...HN, rad(P.ant), w.ant);
+    [x, y] = rot(x, y, ...HA, rad(P.ab), w.ab);
+    [x, y] = rot(x, y, ...HL, rad(P.wl), w.l);
+    [x, y] = rot(x, y, ...HR, rad(P.wr), w.r);
+    [x, y] = rot(x, y, ...HT, rad(P.wt), w.t);
+    [x, y] = rot(x, y, 700, 330, rad(P.tilt), 1);
+    return [x + P.bx, y + P.by];
+  },
+  moods: { idle: { eye: 0.5 }, attack: { eye: 0.7 }, hurt: { eye: 0.5 }, death: { eye: 0.4 } },
+  ease: 3,
+  onMood(m, api) { const S = api.state; S.start = undefined; S.cycle = undefined; S.hit = undefined; S.did = {}; S.trail = []; },
+  pose(L, t, dt, S, api) {
+    if (S.start === undefined) { S.start = t; S.did = {}; S.next = {}; S.broken = S.broken || urlBroken(); }
+    syncBroken(S, 1216, 832);
+    const u = t - S.start, m = api.mood, bk = S.broken || {};
+    const P = { bx: 0, by: 0, tilt: 0, wl: 0, wr: 0, wt: 0, ab: 0, ant: 0, flash: 0, shake: null, eye: L.eye, dim: 0 };
+    const once = (k, cond, fn) => { if (cond && !S.did[k]) { S.did[k] = true; fn(); } };
+    const every = (k, period, from, fn) => { const n = Math.floor((u - from) / period); if (u >= from && S.next[k] !== n) { S.next[k] = n; fn(n); } };
+    const ap = p => moth.deform(p[0], p[1], moth.weights(p[0], p[1]), P);
+    const flap = (f, amp, off) => { const s = Math.sin(f); P.wl = off + amp * s; P.wr = -(off + amp * 0.9 * s); P.wt = -(off * 0.6 + amp * 0.55 * Math.sin(f - 0.5)); P.ab = -4 * Math.sin(f - 1.2) - 2; };
+    if (m === "idle") {
+      const c = u % 4, ph = u * Math.PI * 2 / 4, f = u * Math.PI * 2 * 2.5;
+      // Hover: a beat of 2.5 a second, the body rising on each downstroke, a slow drift, the feelers twitch once.
+      flap(f, 12, 3); P.by = -5 * Math.sin(f + 0.8) + 9 * Math.sin(ph); P.bx = 12 * Math.sin(ph * 0.5 + 0.4); P.tilt = 1.2 * Math.sin(ph - 0.5);
+      P.ant = 4 * Math.sin(u * 2.3) + (c > 2.4 && c < 2.9 ? 9 * Math.sin((c - 2.4) / 0.5 * Math.PI * 3) * Math.exp(-(c - 2.4) * 4) : 0);
+      every("dust", 0.35, 0.1, () => { const q = ap(DUST); spawnDust(S, t, q[0] + (Math.random() - 0.5) * 50, q[1] + 10 + Math.random() * 30); });
+      once("chime" + Math.floor(u / 4), c > 1.4, () => { const q = ap([420, 200]); spawnWave(S, t, q[0], q[1], 90, 0.6, "#5FD0C8"); });
+      P.eye = L.eye * (0.85 + 0.15 * Math.sin(u * 3.1));
+    } else if (m === "attack") {
+      const c = u % 2.4, T = [0, 0.3, 0.8, 0.96, 1.06, 1.5, 2.4];
+      // Rears back with the wings high, then darts forward and down with a sweep of the chime wings.
+      flap(u * Math.PI * 2 * 2.5, kf(c, T, [12, 8, 4, 16, 14, 12, 12]), kf(c, T, [3, 12, 24, -10, -4, 3, 3]));
+      P.bx = kf(c, T, [0, -20, -70, 150, 110, 20, 0]); P.by = kf(c, T, [0, 10, -40, 70, 40, 5, 0]); P.tilt = kf(c, T, [0, -3, -9, 16, 10, 2, 0]);
+      P.ant = kf(c, T, [0, 6, 10, -14, -6, 0, 0]);
+      P.eye = kf(c, [0, 0.8, 1.0, 1.4, 2.4], [0.7, 1.4, 1.5, 0.8, 0.7]);
+      const cyc = Math.floor(u / 2.4);
+      if (S.cycle !== cyc) { S.cycle = cyc; S.did = {}; }
+      for (const [k, t0] of [["w1", 0.35], ["w2", 0.6]]) once(k, c > t0, () => { const q = ap([420, 200]); spawnWave(S, t, q[0], q[1], 80, 0.5, "#5FD0C8"); });
+      if (c > 0.9 && c < 1.16) { const q = ap([800, 170]), tr = S.trail = S.trail || [], l = tr[tr.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 22) tr.push(q); }
+      once("smear", c >= 1.16, () => { if (S.trail && S.trail.length > 2) spawnSmear(S, t, S.trail.slice(-8), 46); S.trail = []; });
+      once("slash", c >= 0.98, () => { const q = ap([900, 220]); spawnStar(S, t, q[0] + 30, q[1] + 30, 66); spawnWave(S, t, q[0], q[1], 160, 0.65); spawnWave(S, t, q[0], q[1], 100, 0.55, CREAM); for (let i = 0; i < 6; i++) spawnDust(S, t, q[0] - 40 + Math.random() * 100, q[1] + Math.random() * 90); });
+      every("dust", 0.2, 0.3, () => { if (c > 0.3 && c < 1.3) { const q = ap(DUST); spawnDust(S, t, q[0] + (Math.random() - 0.5) * 50, q[1] + 10 + Math.random() * 30); } });
+      if (c >= 0.98) { const d = Math.exp(-(c - 0.98) * 9); P.shake = [(Math.random() - 0.5) * 10 * d, (Math.random() - 0.5) * 7 * d]; }
+    } else if (m === "hurt") {
+      const c = u % 1.5, T = [0, 0.07, 0.2, 0.7, 1.5];
+      P.flash = flashK(c);
+      flap(u * Math.PI * 2 * 2.5, 12, 3); P.wl += kf(c, T, [0, -18, -8, 0, 0]); P.wr += kf(c, T, [0, 18, 8, 0, 0]);
+      P.bx = kf(c, T, [0, -40, -30, 0, 0]); P.by = kf(c, T, [0, 20, 10, 0, 0]); P.tilt = kf(c, T, [0, -8, -4, 0, 0]);
+      P.ant = kf(c, T, [0, 22, -10, 3, 0]);
+      P.eye = kf(c, [0, 0.07, 0.3, 1.5], [0.5, 1.6, 0.3, 0.5]);
+      const d = Math.exp(-c * 6); P.shake = [(Math.random() - 0.5) * 9 * d, (Math.random() - 0.5) * 6 * d];
+      const cyc = Math.floor(u / 1.5);
+      if (S.hit !== cyc) { S.hit = cyc; spawnStar(S, t, 640, 330, 74); spawnSpark(S, t, 640, 330, 7, 450); const q = ap([420, 200]); spawnWave(S, t, q[0], q[1], 90, 0.5, "#5FD0C8"); for (let i = 0; i < 4; i++) spawnDust(S, t, 620 + Math.random() * 120, 300 + Math.random() * 60); }
+    } else if (m === "death") {
+      const c = Math.min(u, 2.999), T = [0, 0.08, 0.35, 1.0, 1.7, 2.2, 3];
+      P.flash = flashK(c);
+      const beat = c < 1.0 ? 1 - c : 0;
+      flap(u * Math.PI * 2 * 2.5, 12 * beat, 3 * beat);
+      const fold = ease(clamp((c - 0.6) / 1.1)); P.wl += -22 * fold; P.wr += 22 * fold; P.wt += 24 * fold;     // the wings fold down and shut
+      P.bx = kf(c, T, [0, -30, -20, 0, 20, 36, 36]); P.by = kf(c, T, [0, 8, 0, 40, 225, 240, 240]);
+      P.tilt = kf(c, T, [0, -6, -3, 8, 24, 28, 28]); P.ab = fold * 12 - 3;
+      P.ant = kf(c, T, [0, 20, 10, 6, -6, -14, -14]);
+      if (c > 0.3 && c < 1.0) { P.tilt += 1.2 * Math.sin(c * 50) * (1 - (c - 0.3) / 0.7); P.by += 2 * Math.sin(c * 43); }
+      P.eye = c < 0.3 ? 1.4 : c < 1.8 ? 0.45 * (Math.sin(c * 31) > 0.2 ? 1 : 0.25) * (1 - (c - 0.3) / 1.5) : 0;
+      P.dim = ease(clamp((c - 1.0) / 1.0));
+      if (c > 0.1 && c < 1.0) { const d = Math.exp(-(c - 0.1) * 4); P.shake = [(Math.random() - 0.5) * 12 * d, (Math.random() - 0.5) * 8 * d]; }
+      once("hit", c < 0.2, () => { spawnStar(S, t, 640, 330, 80); spawnSpark(S, t, 640, 330, 9, 500); });
+      every("fall", 0.15, 0.7, () => { if (c < 1.8) { const q = ap(DUST); spawnDust(S, t, q[0] + (Math.random() - 0.5) * 80, q[1] + Math.random() * 60); } });
+      once("thud", c >= 1.75, () => { for (const x of [380, 640, 900]) spawnShards(S, t, x, 800, 7, 70); spawnRing(S, t, 640, 810, 260, 0.7); spawnWave(S, t, 420, 600, 120, 0.8, "#5FD0C8"); });
+      once("thud2", c >= 2.2, () => { spawnShards(S, t, 520, 800, 7, 70); spawnShards(S, t, 820, 800, 7, 70); });
+    }
+    if (bk["moth-wing"] && m !== "death") every("lw", 0.35, 0.1, () => { const q = ap([150, 150]); spawnDust(S, t, q[0] + (Math.random() - 0.5) * 60, q[1] + 20 + Math.random() * 40); });
+    if (bk["moth-dust"]) every("ld", 0.3, 0.2, () => { const q = ap([700, 270]); spawnSpark(S, t, q[0], q[1], 2, 160); });
+    P.t = t;
+    return P;
+  },
+  over(c, P, t, api) {
+    const S = api.state, at = p => api.point(p[0], p[1], P);
+    const E = Math.max(0, P.eye);
+    if (E > 0.9) for (const e of EYES) { const p = at(e); ember(c, p[0], p[1], 5 + 6 * Math.min(1, E - 0.9), 0.95); }
+    if (P.dim > 0) for (const e of EYES) { const p = at(e); c.globalAlpha = 0.8 * P.dim; c.fillStyle = INK; c.beginPath(); c.arc(p[0], p[1], 20, 0, 2 * Math.PI); c.fill(); c.globalAlpha = 1; }
+    drawFx(c, S, t);
+    drawDust(c, S, t);
+    drawBroken(c, at, S, t);
+  },
+};
+// Chime dust: small flat gold flakes, ink-edged, two tones, drifting down and stepping out.
+function spawnDust(S, t, x, y) { (S.dust = S.dust || []).push({ born: t, x, y, vx: (Math.random() - 0.5) * 50, vy: 25 + Math.random() * 45, r: 7 + Math.random() * 6, life: 0.9 + Math.random() * 0.5, rot: Math.random() * 3 }); }
+function drawDust(c, S, t) {
+  S.dust = (S.dust || []).filter(d => t - d.born < d.life);
+  for (const d of S.dust) {
+    const e = t - d.born, a = e / d.life, x = d.x + d.vx * e, y = d.y + d.vy * e, r = d.r * (1 - a * 0.3);
+    c.save(); c.translate(x, y); c.rotate(d.rot + e * 2); c.globalAlpha = stepA(a);
+    c.fillStyle = INK; c.beginPath(); c.moveTo(0, -r - 3); c.lineTo(r + 3, 0); c.lineTo(0, r + 3); c.lineTo(-r - 3, 0); c.closePath(); c.fill();
+    c.fillStyle = "#E3B84F"; c.beginPath(); c.moveTo(0, -r); c.lineTo(r, 0); c.lineTo(0, r); c.lineTo(-r, 0); c.closePath(); c.fill();
+    c.fillStyle = CREAM; c.beginPath(); c.moveTo(0, -r); c.lineTo(r * 0.5, 0); c.lineTo(0, r * 0.1); c.lineTo(-r * 0.5, 0); c.closePath(); c.fill();
+    c.restore();
+  }
+  c.globalAlpha = 1;
+}
+const DMG = {
+  // The big wing: a bite out of the leading edge, ember inside, cracks across the filigree.
+  "moth-wing": { poly: jaggedBlob(165, 135, 140, 14, 0.5, 5), c: [200, 150], r: 50, cracks: 5, crack0: -0.5, crackStep: 1.0, seed: 51, ember: [[158, 130, 15], [118, 112, 9], [196, 150, 9]] },
+  // The dust gland on the back: the thorax shell is blown open.
+  "moth-dust": { poly: jaggedBlob(690, 268, 105, 12, 0.5, 8), c: [690, 268], r: 30, cracks: 4, crack0: 0.2, crackStep: 1.4, seed: 53, ember: [[688, 268, 13], [664, 252, 8], [716, 288, 8]] },
+};
+const rig = Rig.mount(document.getElementById("rig"), moth, IMG);
+wire(rig);
+</script>
+</body>
+</html>

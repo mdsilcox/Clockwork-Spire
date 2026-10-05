@@ -1,0 +1,17 @@
+{
+  "size": [1216, 832],
+  "pad": [120, 160],
+  "view": "three-quarter",
+  "facing": "left",
+  "feet": 770,
+  "moods": ["idle", "attack", "hurt", "death"],
+  "durations": { "idle": 4, "attack": 2, "hurt": 1.5, "death": 3 },
+  "anchors": {
+    "gremlin-wrench": [1030, 400, 95],
+    "gremlin-spanner": [200, 585, 80],
+    "core": [680, 520, 100],
+    "eyes": [685, 205, 70]
+  },
+  "brokenFlag": "?broken=gremlin-wrench,gremlin-spanner (or all) in the URL, or rig.state.broken = { 'gremlin-wrench': true, 'gremlin-spanner': true }: a notch is erased from the painting's alpha with a two-tone ember edge, embers inside and ink cracks, in every mood; both leak sparks",
+  "notes": "Death holds its last pose after 3 s. Built by python art/valve-crab/build.py gauge-gremlin (shared kit.js) from cut.clean.png."
+}

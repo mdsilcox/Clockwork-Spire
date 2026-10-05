@@ -1,0 +1,17 @@
+{
+  "size": [1216, 832],
+  "pad": [140, 220],
+  "view": "front",
+  "facing": "left",
+  "feet": 760,
+  "moods": ["idle", "attack", "hurt", "death"],
+  "durations": { "idle": 4, "attack": 2.4, "hurt": 1.5, "death": 3 },
+  "anchors": {
+    "crab-pincer": [118, 540, 75],
+    "crab-valve": [640, 110, 62],
+    "core": [640, 345, 95],
+    "eyes": [640, 385, 42]
+  },
+  "brokenFlag": "?broken=crab-pincer,crab-valve (or all) in the URL, or rig.state.broken = { 'crab-pincer': true, 'crab-valve': true }: a notch is erased from the painting's alpha with a two-tone ember edge, embers inside and ink cracks, in every mood; a broken pincer drops sparks, a broken valve hisses steam",
+  "notes": "Death holds its last pose after 3 s. Page built by art/valve-crab/build.py from valve-crab.template.html plus the shared art/valve-crab/kit.js."
+}

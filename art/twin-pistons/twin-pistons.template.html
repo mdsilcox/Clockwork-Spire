@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Twin Pistons</title>
+<style>
+  :root { --bg: #10393F; --panel: #1F6F6B; --brass: #C9A24A; --text: #f2e6cf; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; min-height: 100vh;
+         display: flex; flex-direction: column; align-items: center; padding: 8px; overflow-x: hidden; }
+  /* The painting faces right; enemies face left, so the page mirrors it (CSS only, the PNG is untouched). ?noflip=1 keeps the painting's own facing (the right twin). */
+  .stage { position: relative; width: min(100%, 620px); aspect-ratio: 1936 / 1392; overflow: hidden; }
+  #flip { position: absolute; inset: 0; transform: scaleX(-1); }
+  body.noflip #flip { transform: none; }
+  #rig { position: absolute; inset: 0; }
+  #rig canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  button { background: var(--panel); color: var(--text); border: 1px solid #5a4a2a; padding: 8px 16px; font: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--brass); color: #1d2a30; border-color: var(--brass); }
+  label { color: #b9a98c; display: flex; align-items: center; gap: 6px; padding: 8px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"><div id="flip"><div id="rig"></div></div></div>
+<div class="bar">
+  <button data-mood="idle" aria-pressed="true">Idle</button>
+  <button data-mood="attack">Attack</button>
+  <button data-mood="hurt">Hurt</button>
+  <button data-mood="death">Death</button>
+</div>
+<div class="bar">
+  <label><input type="checkbox" id="b-twinl-ram"> Break ram</label>
+  <label><input type="checkbox" id="b-twinl-shield"> Break shield</label>
+  <label><input type="checkbox" id="b-twinl-link"> Break link</label>
+  <label><input type="checkbox" id="mesh"> Mesh</label>
+</div>
+<script>__RIGJS__</script>
+<script>
+const { smooth, band, rad, rot } = Rig;
+const clamp = v => Math.min(1, Math.max(0, v)), ease = v => v * v * (3 - 2 * v);
+const kf = (u, T, V) => { if (u <= T[0]) return V[0]; for (let i = 1; i < T.length; i++) if (u <= T[i]) return V[i - 1] + (V[i] - V[i - 1]) * ease((u - T[i - 1]) / (T[i] - T[i - 1])); return V[V.length - 1]; };
+if (new URLSearchParams(location.search).get("noflip")) document.body.classList.add("noflip");
+
+// Painting 896x1152 (cut.clean.png: backdrop gaps and ground scribbles cleared by clean.py). Faces RIGHT (the ram points right); the page mirrors it.
+// All coordinates below are painting pixels, forward is +x. Ground y about 1075.
+const W = 896, H = 1152, PADX = 520, PADY = 120;
+const SW = [305, 418], SH_R = [652, 420], ANT = [376, 125], PELV = [450, 660];
+const HEEL = [[345, 1040], [600, 1068]], FOOT = [[345, 1052], [600, 1080]], FY = 1072;
+const LENS = [748, 162], MUZZLE = [826, 160], CORE = [430, 300], VENT = [455, 90], LINK = [300, 416], SWTIP = [30, 820];
+const INK = "#14100C", CREAM = "#F2E6CF", ORANGE = "#FFB547", EMBER = "#C2461A", BRASS = "#C9A24A", DUST = "#8C9A97", PALE = "#D4DAD6";
+const flashK = c => c < 0.034 ? 0.25 : c < 0.068 ? 0.16 : c < 0.1 ? 0.07 : 0;
+const edgeX = y => 505 - 125 * smooth(1030, 1050, y);
+
+const tw = {
+  size: [W, H], grid: [112, 144], pad: [PADX, PADY],
+  anchors: { "twinl-ram": [650, 190, 100], "twinl-shield": [752, 160, 80], "twinl-link": [304, 416, 46], core: [430, 300, 110], eyes: [748, 162, 55] },
+  weights(x, y) {
+    const w = {}, rr = smooth(edgeX(y) - 8, edgeX(y) + 8, x), lz = smooth(690, 860, y);
+    w.lL = (1 - rr) * lz * smooth(235 - 90 * smooth(870, 900, y) - 6, 235 - 90 * smooth(870, 900, y) + 6, x);
+    w.lR = rr * lz;
+    w.b = 1 - Math.max(w.lL, w.lR);
+    w.wr = smooth(535, 598, x) * smooth(312, 268, y);                                             // the ram barrel
+    w.sw = smooth(302, 280, x) * smooth(398, 424, y) * smooth(872, 848, y) * (1 - smooth(226, 246, x) * smooth(650, 690, y));
+    w.ar = band(x, 586, 706, 8) * smooth(396, 424, y) * smooth(634, 608, y);                       // the thin right arm
+    w.an = band(x, 326, 420, 6) * smooth(128, 98, y);                                               // the antenna
+    return w;
+  },
+  deform(x, y, w, P) {
+    [x, y] = rot(x, y, ...ANT, rad(P.ant), w.an);
+    [x, y] = rot(x, y, ...SW, rad(P.sw), w.sw);
+    [x, y] = rot(x, y, ...SH_R, rad(P.ar), w.ar);
+    x += P.ram * w.wr; y += P.ramy * w.wr;
+    const q = P.sq * w.b; y = PELV[1] + (y - PELV[1]) * (1 + q); x = 450 + (x - 450) * (1 - 0.4 * q);
+    [x, y] = rot(x, y, ...PELV, rad(P.pitch), w.b);
+    x += P.bx * w.b; y += P.by * w.b;
+    for (let i = 0; i < 2; i++) {
+      const wl = i ? w.lR : w.lL;
+      [x, y] = rot(x, y, ...HEEL[i], rad(P.lr[i]), wl);
+      x += P.lx[i] * wl; y -= P.ly[i] * wl;
+    }
+    if (P.cmp) { y += P.cmp * 300 * w.b; y = FY + (y - FY) * (1 - P.cmp * Math.max(w.lL, w.lR)); }
+    return [x, y];
+  },
+  moods: { idle: {}, attack: {}, hurt: {}, death: {} },
+  ease: 3,
+  onMood(m, api) { const S = api.state; S.start = undefined; S.did = {}; S.next = {}; },
+  pose(L, t, dt, S, api) {
+    if (S.start === undefined) {
+      S.start = t; S.did = {}; S.next = {}; S.broken = S.broken || urlBroken(); S.puffs = []; S.sparks = []; S.rings = []; S.bursts = []; S.trail = []; S.waves = []; S.cyc = -1;
+    }
+    syncBroken(S);
+    const u = t - S.start, m = api.mood;
+    const P = { sw: 0, ar: 0, ant: 0, ram: 0, ramy: 0, sq: 0, pitch: 0, bx: 0, by: 0, lr: [0, 0], lx: [0, 0], ly: [0, 0], cmp: 0, fl: 0, flash: 0, shake: null, lens: 1, blink: 0, t };
+    const once = (k, cond, fn) => { if (cond && !S.did[k]) { S.did[k] = true; fn(); } };
+    const newCycle = len => { const n = Math.floor(u / len); if (n !== S.cyc) { S.cyc = n; S.did = {}; S.next = {}; S.trail = []; } return u - n * len; };
+    const emit = (p, k, o) => S.puffs.push(Object.assign(steamAt(p, P, k), o || {}));
+    if (m === "idle") {
+      const c = newCycle(4);
+      // A heavy, slow shuffle: one foot lifts and plants, then the other; the body rolls over the standing leg; the barrel coughs once; the antenna lags.
+      const q0 = clamp((c - 0.4) / 0.85), q1 = clamp((c - 2.3) / 0.85);
+      const l0 = q0 > 0 && q0 < 1 ? Math.pow(Math.sin(Math.PI * q0), 0.85) : 0, l1 = q1 > 0 && q1 < 1 ? Math.pow(Math.sin(Math.PI * q1), 0.85) : 0;
+      P.ly = [22 * l0, 22 * l1]; P.lr = [-3.5 * l0, 3.5 * l1]; P.lx = [4 * l0, 4 * l1];
+      const sh = ease(clamp((c - 0.15) / 0.5)) * (1 - ease(clamp((c - 1.5) / 0.6))) - ease(clamp((c - 2.05) / 0.5)) * (1 - ease(clamp((c - 3.5) / 0.5)));
+      P.bx = 12 * sh; P.pitch = 0.9 * sh + 0.5 * Math.sin(c / 4 * Math.PI * 2); P.by = -4 * (l0 + l1);
+      P.sq = 0.007 * Math.sin(c / 4 * Math.PI * 2 + 0.4) + 0.008 * (l0 + l1);
+      P.sw = 2.6 * Math.sin(c / 4 * Math.PI * 2 + 0.8) - 1.4 * sh + 3 * (l1 - l0); P.ar = 2 * Math.sin(c / 4 * Math.PI * 2 + 1.6) + 1.2 * sh;
+      P.ant = 4 * Math.sin(c / 4 * Math.PI * 4 + 0.3) - 2.5 * sh;
+      P.ram = 1.6 * Math.sin(c * 31) * 0.5 + kf(c, [0, 2.0, 2.12, 2.5, 4], [0, 0, 16, 0, 0]);
+      once("cough", c >= 2.0, () => { emit(VENT, 1.15); });
+      P.lens = 1 + 0.15 * Math.sin(c / 4 * Math.PI * 4); P.blink = (c > 3.55 && c < 3.67) ? 1 : 0;
+      once("pl0", c > 1.25, () => S.rings.push(ringAt(FOOT[0], P, 0.9)));
+      once("pl1", c > 3.15, () => S.rings.push(ringAt(FOOT[1], P, 0.9)));
+      if (c > 1.25 && c < 1.37) P.shake = [0, 1.8]; if (c > 3.15 && c < 3.27) P.shake = [0, 1.8];
+      const n = Math.floor((c + 0.3) / 1.6); if (S.next.v !== n) { S.next.v = n; emit(VENT, 0.8, { life: 0.8 }); }
+    } else if (m === "attack") {
+      const c = newCycle(2.6), T = [0, 0.3, 0.8, 0.9, 1.0, 1.35, 1.9, 2.6];
+      // Gather: the body rocks back on braced legs and the ram draws in, venting. Fire: the ram slams forward, the body lunges, a blast and rings leave the end cap.
+      P.ram = kf(c, T, [0, -14, -48, 78, 70, 56, 8, 0]); P.ramy = kf(c, T, [0, 0, 2, -3, -2, -1, 0, 0]);
+      P.pitch = kf(c, T, [0, -1.5, -3.6, 3.6, 4.4, 3.4, 0.4, 0]); P.bx = kf(c, T, [0, -8, -20, 34, 40, 32, 4, 0]); P.by = kf(c, T, [0, 4, 8, -3, 6, 5, 1, 0]);
+      P.sq = kf(c, T, [0, 0.03, 0.05, -0.03, 0.03, 0.025, 0, 0]);
+      P.sw = kf(c, T, [0, 6, 12, -22, -26, -18, -2, 0]); P.ar = kf(c, T, [0, -5, -10, 12, 14, 9, 0, 0]); P.ant = kf(c, T, [0, -5, -8, 9, 7, 3, 0, 0]);
+      P.ly[0] = kf(c, [0, 0.45, 0.7, 0.9, 2.6], [0, 0, 12, 0, 0]); P.lx[0] = kf(c, T, [0, -4, -12, 20, 24, 20, 2, 0]); P.lx[1] = kf(c, T, [0, -4, -10, 14, 18, 14, 2, 0]);
+      P.lens = kf(c, T, [1, 1.3, 1.8, 2.2, 1.6, 1.2, 1, 1]);
+      once("v1", c >= 0.3, () => emit(VENT, 1.15, { life: 0.8 })); once("v2", c >= 0.62, () => emit(VENT, 1.3, { life: 0.8 }));
+      once("fire", c >= 0.9, () => {
+        const m = at(MUZZLE, P);
+        S.bursts.push({ born: t, x: m[0] + 60, y: m[1], r: 130 });
+        for (let k = 0; k < 3; k++) S.waves.push({ born: t + k * 0.07, k: 1 });
+        S.rings.push(ringAt(FOOT[0], P, 1.3)); S.rings.push(ringAt(FOOT[1], P, 1.3));
+        for (let i = 0; i < 8; i++) S.sparks.push({ born: t, x: m[0] + 30, y: m[1] + (Math.random() - 0.5) * 80, vx: 120 + Math.random() * 360, vy: -300 + Math.random() * 520, r: 11 + Math.random() * 10 });
+      });
+      if (c > 0.9 && c < 1.15) { const d = Math.exp(-(c - 0.9) * 9); P.shake = [(5 + Math.random() * 4) * d, (Math.random() - 0.5) * 5 * d]; }
+      P.blink = (c > 0.6 && c < 0.88) ? 0.4 : 0;
+    } else if (m === "hurt") {
+      const c = newCycle(1.5), T = [0, 0.07, 0.25, 0.7, 1.5];
+      P.fl = flashK(c);
+      P.bx = kf(c, T, [0, -28, -22, 0, 0]); P.pitch = kf(c, T, [0, -4, -3, 0, 0]) - 1.4 * Math.exp(-c * 3) * Math.sin(c * 20); P.by = kf(c, T, [0, -9, -3, 0, 0]); P.sq = kf(c, T, [0, -0.05, -0.02, 0.015, 0]);
+      P.ram = kf(c, T, [0, -26, -14, 0, 0]) + 5 * Math.exp(-c * 3) * Math.sin(c * 23); P.sw = kf(c, T, [0, 16, 8, 0, 0]) + 5 * Math.exp(-c * 3) * Math.sin(c * 17); P.ar = kf(c, T, [0, -12, -6, 0, 0]);
+      P.ant = kf(c, T, [0, 10, 5, 0, 0]) + 6 * Math.exp(-c * 3) * Math.sin(c * 21);
+      P.lx = [0.7 * P.bx, 0.7 * P.bx]; P.ly = [kf(c, T, [0, 5, 0, 0, 0]), kf(c, T, [0, 5, 0, 0, 0])];
+      P.lens = kf(c, [0, 0.07, 0.4, 1.5], [1, 1.9, 0.6, 1]); P.blink = c > 0.2 && c < 0.45 ? 0.7 : 0;
+      once("hit", c < 0.2, () => { S.bursts.push({ born: t, x: CORE[0], y: CORE[1], r: 105, at: CORE }); emit(VENT, 1.3); S.rings.push(ringAt(FOOT[0], P, 0.9)); S.rings.push(ringAt(FOOT[1], P, 0.9)); });
+      const d = Math.exp(-c * 7); if (c < 0.4) P.shake = [(Math.random() - 0.5) * 8 * d, (Math.random() - 0.5) * 5 * d];
+    } else if (m === "death") {
+      const c = Math.min(u, 2.999);
+      P.fl = flashK(c);
+      // Hit, stagger back, the legs give; he pitches forward under the weight of the ram, the barrel droops, the lens goes out, steam leaks.
+      P.cmp = kf(c, [0, 0.14, 0.7, 1.3, 1.5, 1.75, 3], [0, 0, 0.08, 0.42, 0.5, 0.47, 0.5]);
+      P.bx = kf(c, [0, 0.14, 0.5, 1.3, 3], [0, -26, -14, 52, 60]); P.pitch = kf(c, [0, 0.14, 0.5, 1.0, 1.5, 1.75, 3], [0, -4, 0, 9, 22, 20, 21]);
+      P.sq = 0; P.sw = kf(c, [0, 0.14, 0.9, 1.5, 3], [0, 16, 6, -14, -14]); P.ar = kf(c, [0, 0.14, 0.9, 1.5, 3], [0, -12, -4, 18, 18]);
+      P.ram = kf(c, [0, 0.14, 0.9, 1.5, 3], [0, -24, -6, 22, 22]); P.ramy = kf(c, [0, 1.0, 1.5, 3], [0, 0, 50, 50]);
+      P.ant = kf(c, [0, 0.14, 0.7, 1.5, 3], [0, 10, -3, 26, 26]);
+      P.lens = c < 0.8 ? 1 : c < 1.9 ? (Math.sin(c * 31) > 0.1 ? 1.3 : 0.25) : 0;
+      const k = ease(clamp((c - 0.9) / 0.6));
+      P.ly = [10 * Math.sin(Math.PI * clamp((c - 0.9) / 0.6)), 8 * Math.sin(Math.PI * clamp((c - 1.0) / 0.6))]; P.lr = [-5 * k, 5 * k]; P.lx = [0.4 * P.bx - 12 * k, 0.4 * P.bx + 12 * k];
+      once("hit", c < 0.2, () => { S.bursts.push({ born: t, x: CORE[0], y: CORE[1], r: 110, at: CORE }); emit(VENT, 1.4); });
+      once("pop", c >= 0.45, () => { emit(VENT, 1.6); for (let i = 0; i < 5; i++) S.sparks.push({ born: t, x: VENT[0] + (Math.random() - 0.5) * 80, y: 100, vx: (Math.random() - 0.5) * 520, vy: -320 - Math.random() * 300, r: 10 + Math.random() * 8 }); });
+      once("thud", c >= 1.3, () => { for (const i of [0, 1]) S.rings.push(ringAt(FOOT[i], P, 1.4)); S.bursts.push({ born: t, x: 450, y: 760, r: 80, at: [450, 760] }); });
+      if (c > 1.3 && c < 1.65) { const d = Math.exp(-(c - 1.3) * 9); P.shake = [0, 9 * d * Math.sin((c - 1.3) * 60)]; }
+      if (c > 0.14 && c < 0.7) P.shake = [(Math.random() - 0.5) * 6 * Math.exp(-(c - 0.14) * 4), 0];
+      if (c > 1.8) { const n = Math.floor((c - 1.8) / 0.55); if (S.next.leak !== n) { S.next.leak = n; emit(n % 2 ? VENT : [560, 640], 1.1, { life: 0.9 }); } }
+    }
+    // Broken parts leak flat steam.
+    const bk = S.broken || {};
+    for (const [id, pt] of [["twinl-ram", [650, 100]], ["twinl-shield", [800, 120]], ["twinl-link", [290, 410]]]) {
+      if (bk[id] && m !== "death") { const n = Math.floor((u - (id.length % 5) * 0.13) / 0.75); if (S.next["st" + id] !== n) { S.next["st" + id] = n; emit(pt, 0.9, { life: 0.7 }); } }
+    }
+    P.flash = P.fl;
+    S.P = P;
+    return P;
+  },
+  under(c, P, t, api) {
+    for (let i = 0; i < 2; i++) {
+      const lf = (P.ly[i] || 0) / 40, cx = HEEL[i][0] + (i ? 90 : -10) + (P.lx[i] || 0) * 0.4, rx = 190 * (1 - 0.18 * lf), ry = 30 * (1 - 0.18 * lf), cy = FY + 38 + (i ? 6 : 0);
+      c.fillStyle = "rgba(6,24,28,0.6)"; c.beginPath(); c.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI); c.fill();
+      c.fillStyle = "rgba(6,24,28,0.45)"; c.beginPath(); c.ellipse(cx, cy, rx * 0.62, ry * 0.6, 0, 0, 2 * Math.PI); c.fill();
+    }
+  },
+  over(c, P, t, api) {
+    const S = api.state; if (!S.bursts) return;
+    drawLens(c, P, t);
+    drawWaves(c, P, t, S);
+    drawEffects(c, P, t, S);
+  },
+};
+function at(p, P) { return tw.deform(p[0], p[1], tw.weights(p[0], p[1]), P); }
+
+// ---------- image, alpha and the broken-look kit ----------
+const IMG = "__IMG__";
+const imgEl = new Image(); imgEl.src = IMG;
+const alphaOf = el => { let A = null; return (x, y) => { if (!A) { if (!el.complete || !el.naturalWidth) return 0; const k = document.createElement("canvas"); k.width = el.naturalWidth; k.height = el.naturalHeight; const g = k.getContext("2d"); g.drawImage(el, 0, 0); A = g.getImageData(0, 0, k.width, k.height); } x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= A.width || y >= A.height) return 0; return A.data[(y * A.width + x) * 4 + 3]; }; };
+const alphaAt = alphaOf(imgEl);
+function seeded(seed) { return () => (seed = (seed * 9301 + 49297) % 233280) / 233280; }
+function urlBroken() { const o = {}; const q = new URLSearchParams(location.search).get("broken"); if (q) for (const k of q.split(",")) { const id = k.trim(); if (id === "all") for (const d in DMG) o[d] = true; else if (DMG[id]) o[id] = true; else for (const d in DMG) if (d.endsWith("-" + id)) o[d] = true; } return o; }
+// DMG: id -> { cut (rest-pose polygon erased from the painting), cracks: [[x, y, angle, length], ...], k (rim width scale) }
+// Each notch is baked into the texture: the painting around the cut edge turns into a hard-edged ember rim (ink, ember, hot),
+// the cut is erased, and thick ink cracks (with an ember seam) run out of it. Everything is clipped to the painting's own alpha.
+const DMG = {
+  // the ram cylinder: a bite out of its top edge
+  "twinl-ram": { cut: [[580, 60], [606, 88], [622, 108], [640, 92], [656, 120], [676, 100], [690, 124], [706, 96], [712, 50]], cracks: [[640, 150, 1.7, 90], [690, 160, 1.2, 90], [600, 140, 2.3, 70]], seed: 4, k: 0.6, s: 1.5 },
+  // the end cap: the right rim of the ring is chewed away
+  "twinl-shield": { cut: [[790, 90], [846, 84], [850, 236], [812, 222], [820, 200], [798, 186], [810, 160], [794, 140]], cracks: [[780, 130, 2.8, 80], [770, 200, 3.4, 80], [790, 240, 2.2, 60]], seed: 7, k: 0.6, s: 1.5 },
+  // the crossbar stub at the shoulder: snapped, the end bitten off
+  "twinl-link": { cut: [[216, 386], [288, 392], [296, 412], [278, 426], [300, 446], [216, 452]], cracks: [[310, 410, -0.1, 70], [304, 432, 0.5, 70], [296, 392, -1.2, 50]], seed: 3, k: 0.8, s: 1.6 },
+};
+function polyPath(g, poly) { g.beginPath(); poly.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); }
+function crackPts(d, [x, y, an, len]) {
+  const rnd = seeded(d.seed * 13 + Math.round(x)), pts = [[x, y]]; let n = Math.ceil(len / 22);
+  for (let s = 0; s < n; s++) { if (s % 2 === 0) an += (rnd() - 0.5) * 1.5; x += Math.cos(an) * 22; y += Math.sin(an) * 22; pts.push([x, y]); }
+  return pts;
+}
+function scalePoly(poly, s) { const cx = poly.reduce((a, p) => a + p[0], 0) / poly.length, cy = poly.reduce((a, p) => a + p[1], 0) / poly.length; return poly.map(([x, y]) => [cx + (x - cx) * s, cy + (y - cy) * s]); }
+function bakeTexture(ids) {
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const g = cv.getContext("2d");
+  g.drawImage(imgEl, 0, 0);
+  g.lineJoin = "miter"; g.lineCap = "round"; g.miterLimit = 2;
+  g.globalCompositeOperation = "source-atop";
+  for (const id of ids) {
+    const d = DMG[id], cut = scalePoly(d.cut, d.s || 1.8);
+    if (d.glass) {
+      // cracked glass: a dark hole, pale facets (ink-edged cream cracks) spreading across the glass
+      g.fillStyle = INK; polyPath(g, d.hole); g.fill();
+      g.fillStyle = "#0B2A2E"; polyPath(g, scalePoly(d.hole, 0.6)); g.fill();
+      for (const cr of d.cracks) { const pts = crackPts(d, cr); for (const [col, lw] of [[INK, 17], [CREAM, 7]]) { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); } }
+      continue;
+    }
+    for (const [col, lw] of [[INK, 56], [EMBER, 38], [ORANGE, 16]]) { g.strokeStyle = col; g.lineWidth = lw * (d.k || 1); polyPath(g, cut); g.stroke(); }
+    g.fillStyle = ORANGE; polyPath(g, cut); g.fill();
+    g.lineJoin = "miter";
+    for (const cr of d.cracks) {
+      const pts = crackPts(d, cr);
+      for (const [col, lw] of [[INK, 30], [EMBER, 9]]) { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); }
+    }
+  }
+  g.globalCompositeOperation = "destination-out"; g.fillStyle = "#000";
+  for (const id of ids) { polyPath(g, scalePoly(DMG[id].cut, DMG[id].s || 1.8)); g.fill(); }
+  return cv;
+}
+function syncBroken(S) {
+  const ids = Object.keys(S.broken || {}).filter(k => S.broken[k] && DMG[k]).sort(), key = ids.join(",");
+  if (S.bkKey !== key && imgEl.complete && imgEl.naturalWidth) {
+    const cv = ids.length ? bakeTexture(ids) : imgEl;
+    const gl = document.getElementById("stage").querySelectorAll("canvas")[1].getContext("webgl");
+    gl.bindTexture(gl.TEXTURE_2D, gl.getParameter(gl.TEXTURE_BINDING_2D)); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+    S.bkKey = key;
+  }
+}
+
+
+
+// ---------- the lens (the eye) on the end cap ----------
+function drawLens(c, P, t) {
+  const p = at(LENS, P), l = P.lens;
+  c.save(); c.translate(p[0], p[1]); c.rotate(0.05);
+  if (l < 0.5) {
+    c.globalAlpha = clamp((0.5 - l) * 2.4); c.fillStyle = "#3A2410"; c.strokeStyle = INK; c.lineWidth = 8;
+    c.beginPath(); c.ellipse(0, 0, 52, 98, 0, 0, 2 * Math.PI); c.fill(); c.stroke(); c.globalAlpha = 1;
+  } else if (l > 1.2) {
+    // flare: a hard-edged cream core inside the lens
+    const r = 0.6 + 0.4 * (l - 1.2);
+    c.fillStyle = CREAM; c.strokeStyle = ORANGE; c.lineWidth = 7; c.beginPath(); c.ellipse(0, 0, 28 * r, 60 * r, 0, 0, 2 * Math.PI); c.fill(); c.stroke();
+  }
+  if (P.blink > 0) {
+    c.beginPath(); c.ellipse(0, 0, 54, 100, 0, 0, 2 * Math.PI); c.clip();
+    c.fillStyle = "#6A4A22"; c.fillRect(-60, -104, 120, 208 * P.blink * 0.9);
+    c.fillStyle = INK; c.fillRect(-60, -104 + 208 * P.blink * 0.9 - 5, 120, 6);
+  }
+  c.restore();
+}
+// ---------- the blast: flat ink-edged arcs that leave the end cap ----------
+function drawWaves(c, P, t, S) {
+  S.waves = (S.waves || []).filter(w => t - w.born < 0.32);
+  const m = at(MUZZLE, P), a0 = at([MUZZLE[0] - 100, MUZZLE[1]], P), d = Math.atan2(m[1] - a0[1], m[0] - a0[0]);
+  c.lineCap = "round";
+  for (const w of S.waves) {
+    const e = t - w.born; if (e < 0) continue;
+    const q = e / 0.3, R = (34 + 110 * q) * (0.6 + 0.4 * w.k), ox = m[0] + Math.cos(d) * 30, oy = m[1] + Math.sin(d) * 30;
+    c.globalAlpha = q < 0.5 ? 1 : q < 0.8 ? 0.6 : 0.3;
+    for (const [col, lw] of [[INK, 22 * w.k + 8], [CREAM, 10 * w.k + 3]]) { c.strokeStyle = col; c.lineWidth = lw; c.beginPath(); c.arc(ox - R * 0.55, oy, R, d - 0.7, d + 0.7); c.stroke(); }
+    c.globalAlpha = 1;
+  }
+}
+
+// ---------- the punch trail: a tapering two-tone ribbon along the fist's path ----------
+function drawTrail(c, t, S) {
+  S.trail = (S.trail || []).filter(s => t - s.born < 0.16);
+  if (S.trail.length > 1) {
+    c.lineCap = "round"; c.lineJoin = "round";
+    for (const [col, k] of [[INK, 1], [CREAM, 0.55]]) {
+      for (let i = 1; i < S.trail.length; i++) {
+        const a = S.trail[i - 1], b = S.trail[i], age = (t - b.born) / 0.16;
+        c.globalAlpha = age < 0.5 ? 1 : age < 0.8 ? 0.6 : 0.3; c.strokeStyle = col; c.lineWidth = (k === 1 ? 74 : 40) * (1 - age * 0.6) * (0.4 + 0.6 * i / S.trail.length);
+        c.beginPath(); c.moveTo(a.p[0], a.p[1]); c.lineTo(b.p[0], b.p[1]); c.stroke();
+      }
+    }
+    c.globalAlpha = 1;
+  }
+}
+
+// ---------- flat effects ----------
+function steamAt(p, P, k) { const [x, y] = at(p, P); return { x, y, born: undefined, r: 17 * k, life: 0.9, steam: true }; }
+function ringAt(p, P, k) { const [x, y] = at(p, P); return { x, y: y + 2, born: undefined, k }; }
+function lumpsDraw(c, lumps, flat) {
+  if (flat) { c.fillStyle = INK; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr + 3, 0, 2 * Math.PI); c.fill(); } c.fillStyle = "#6E7B78"; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr, 0, 2 * Math.PI); c.fill(); } c.fillStyle = "#97A4A0"; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx - lr * 0.2, ly - lr * 0.2, lr * 0.5, 0, 2 * Math.PI); c.fill(); } return; }
+  c.fillStyle = INK; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr + 4, 0, 2 * Math.PI); c.fill(); }
+  c.fillStyle = DUST; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr, 0, 2 * Math.PI); c.fill(); }
+  c.fillStyle = PALE; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx - lr * 0.15, ly - lr * 0.18, lr * 0.7, 0, 2 * Math.PI); c.fill(); }
+}
+function drawEffects(c, P, t, S) {
+  // steam: small flat two-tone puffs, ink edged, stepping alpha as they rise
+  S.puffs = S.puffs.filter(p => { if (p.born === undefined) p.born = t; return t - p.born < p.life; });
+  for (const p of S.puffs) {
+    const a = (t - p.born) / p.life, r = p.r * (0.8 + 1.0 * a), y = p.y - 90 * a, x = p.x + 20 * Math.sin(a * 5 + p.x);
+    c.globalAlpha = a < 0.5 ? 1 : a < 0.8 ? 0.6 : 0.3;
+    lumpsDraw(c, [[0, 0, 1], [-0.7, 0.2, 0.7], [0.7, 0.15, 0.65], [0.1, -0.6, 0.55]].map(([ox, oy, k]) => [x + ox * r, y + oy * r, r * k]));
+    c.globalAlpha = 1;
+  }
+  // dust rings at the planted feet: two flat bands that spread sideways
+  S.rings = S.rings.filter(r => { if (r.born === undefined) r.born = t; return t - r.born < 0.55; });
+  for (const r of S.rings) {
+    const a = (t - r.born) / 0.55, rr = 8 * r.k * (0.7 + a);
+    c.globalAlpha = a < 0.5 ? 1 : a < 0.8 ? 0.65 : 0.35;
+    for (const dir of [-1, 1]) {
+      const x = r.x + dir * (26 + 80 * a * r.k), y = r.y - 22 * a - 6;
+      lumpsDraw(c, [[-0.8 * dir, 0.1, 0.7], [0, -0.1, 1], [0.8 * dir, 0.1, 0.7]].map(([ox, oy, k]) => [x + ox * rr * 0.9, y + oy * rr, rr * k]), true);
+    }
+    c.globalAlpha = 1;
+  }
+  // sparks: flat four-point stars
+  S.sparks = S.sparks.filter(s => t - s.born < 0.55);
+  for (const s of S.sparks) {
+    const e = t - s.born, x = s.x + s.vx * e, y = s.y + s.vy * e + 900 * e * e, a = e / 0.55, r = s.r * (1 - a * 0.5);
+    c.globalAlpha = a < 0.7 ? 1 : 0.5; c.save(); c.translate(x, y); c.rotate(e * 6);
+    for (const [k, col, lw] of [[1, ORANGE, 4], [0.5, CREAM, 0]]) {
+      c.beginPath(); for (let i = 0; i < 8; i++) { const an = i / 8 * 2 * Math.PI, rr = (i % 2 ? 0.28 : 1) * r * k * 1.5; i ? c.lineTo(Math.cos(an) * rr, Math.sin(an) * rr) : c.moveTo(Math.cos(an) * rr, Math.sin(an) * rr); }
+      c.closePath(); c.fillStyle = col; c.fill(); if (lw) { c.strokeStyle = INK; c.lineWidth = lw; c.lineJoin = "miter"; c.stroke(); }
+    }
+    c.restore(); c.globalAlpha = 1;
+  }
+  // hit stars: jagged, ink edged, orange over cream
+  S.bursts = S.bursts.filter(b => t - b.born < 0.28);
+  for (const b of S.bursts) {
+    const a = (t - b.born) / 0.28, p = b.at ? at(b.at, P) : [b.x, b.y], R = b.r * (0.6 + 0.7 * ease(a));
+    c.globalAlpha = a < 0.6 ? 1 : 0.6; c.lineJoin = "miter";
+    for (const [k, col, lw] of [[1, ORANGE, 4], [0.55, CREAM, 0]]) {
+      c.beginPath();
+      for (let i = 0; i < 16; i++) { const an = i / 16 * 2 * Math.PI, rr = (i % 2 ? 0.45 : 1 + 0.25 * ((i * 7) % 3 - 1)) * R * k; i ? c.lineTo(p[0] + Math.cos(an) * rr, p[1] + Math.sin(an) * rr) : c.moveTo(p[0] + Math.cos(an) * rr, p[1] + Math.sin(an) * rr); }
+      c.closePath(); c.fillStyle = col; c.fill(); if (lw) { c.strokeStyle = INK; c.lineWidth = lw; c.stroke(); }
+    }
+    c.globalAlpha = 1;
+  }
+}
+
+
+const rig = Rig.mount(document.getElementById("rig"), tw, IMG);
+window.rig = rig;
+// Anchors come back in the visible (mirrored) stage: [x, y, r] in CSS pixels of .stage.
+rig.anchor = id => {
+  const a = tw.anchors[id], P = rig.lastP; if (!a || !P) return null;
+  const [dx, dy] = tw.deform(a[0], a[1], tw.weights(a[0], a[1]), P), r = document.getElementById("stage").getBoundingClientRect(), s = r.width / (W + 2 * PADX), flip = !document.body.classList.contains("noflip");
+  const px = (dx + PADX) * s;
+  return [flip ? r.width - px : px, (dy + PADY) * s, a[2] * s];
+};
+document.querySelectorAll("button[data-mood]").forEach(b => b.addEventListener("click", () => {
+  rig.setMood(b.dataset.mood); document.querySelectorAll("button[data-mood]").forEach(o => o.setAttribute("aria-pressed", o === b));
+}));
+document.getElementById("mesh").addEventListener("change", e => { rig.showMesh = e.target.checked; });
+for (const id of Object.keys(DMG)) document.getElementById("b-" + id).addEventListener("change", e => { rig.state.broken = rig.state.broken || {}; rig.state.broken[id] = e.target.checked; });
+rig.setBroken = o => { rig.state.broken = Object.assign(rig.state.broken || {}, o); };
+</script>
+</body>
+</html>

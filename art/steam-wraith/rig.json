@@ -1,0 +1,17 @@
+{
+  "size": [1216, 832],
+  "pad": [120, 200],
+  "view": "side",
+  "facing": "left",
+  "feet": 800,
+  "moods": ["idle", "attack", "hurt", "death"],
+  "durations": { "idle": 4, "attack": 2.2, "hurt": 1.5, "death": 3 },
+  "anchors": {
+    "wraith-claw": [385, 362, 62],
+    "wraith-vent": [585, 328, 62],
+    "core": [590, 300, 95],
+    "eyes": [478, 170, 32]
+  },
+  "brokenFlag": "?broken=wraith-claw,wraith-vent (or all) in the URL, or rig.state.broken = { 'wraith-claw': true, 'wraith-vent': true }: a notch is erased from the painting's alpha with a two-tone ember edge, embers inside and ink cracks, in every mood; a broken claw drips teal steam and sparks, a broken vent spits golden steam",
+  "notes": "Floats (no walking). Death holds its last pose after 3 s. Built by python art/valve-crab/build.py steam-wraith (shared kit.js) from cut.clean.png."
+}

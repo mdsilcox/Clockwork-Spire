@@ -1,0 +1,50 @@
+{
+  "size": [
+    1216,
+    832
+  ],
+  "pad": [
+    260,
+    420
+  ],
+  "view": "side",
+  "facing": "right",
+  "paintingFacing": "right",
+  "flipX": true,
+  "moods": [
+    "idle",
+    "attack",
+    "hurt",
+    "death"
+  ],
+  "durations": {
+    "idle": 4,
+    "attack": 2.4,
+    "hurt": 1.5,
+    "death": 3
+  },
+  "anchors": {
+    "moth-wing": [
+      420,
+      200,
+      120
+    ],
+    "moth-dust": [
+      700,
+      245,
+      70
+    ],
+    "core": [
+      610,
+      355,
+      80
+    ],
+    "eyes": [
+      830,
+      160,
+      45
+    ]
+  },
+  "brokenFlag": "?broken=moth-wing,moth-dust (or all) in the URL, or rig.state.broken = {id: true}: a jagged notch is erased from the painting's alpha with a two-tone ember edge, embers inside and thick ink cracks, in every mood; parts leak sparks",
+  "notes": "Painting faces right; the page mirrors it with CSS (#flip, scaleX(-1)) so the moth faces left; anchors are in painting pixels (mirror x for the stage). Flies: no feet; death falls about 240 px (bottom pad 260). Death holds its last pose after 3 s. Page built by art/bell-ringer/build.py from the template plus the asset's kit.js."
+}

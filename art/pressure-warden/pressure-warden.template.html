@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pressure Warden</title>
+<style>
+  :root { --bg: #10393F; --panel: #1F6F6B; --brass: #C9A24A; --text: #f2e6cf; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; min-height: 100vh;
+         display: flex; flex-direction: column; align-items: center; padding: 8px; overflow-x: hidden; }
+  .stage { position: relative; width: min(100%, 620px); aspect-ratio: 1856 / 1412; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  button { background: var(--panel); color: var(--text); border: 1px solid #5a4a2a; padding: 8px 16px; font: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--brass); color: #1d2a30; border-color: var(--brass); }
+  label { color: #b9a98c; display: flex; align-items: center; gap: 6px; padding: 8px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage"></div>
+<div class="bar">
+  <button data-mood="idle" aria-pressed="true">Idle</button>
+  <button data-mood="attack">Attack</button>
+  <button data-mood="hurt">Hurt</button>
+  <button data-mood="death">Death</button>
+</div>
+<div class="bar">
+  <label><input type="checkbox" id="b-pw-dome"> Break dome</label>
+  <label><input type="checkbox" id="b-pw-fist"> Break fist</label>
+  <label><input type="checkbox" id="b-pw-valve"> Break valve</label>
+  <label><input type="checkbox" id="mesh"> Mesh</label>
+</div>
+<script>__RIGJS__</script>
+<script>
+const { smooth, band, rad, rot } = Rig;
+const clamp = v => Math.min(1, Math.max(0, v)), ease = v => v * v * (3 - 2 * v);
+const kf = (u, T, V) => { if (u <= T[0]) return V[0]; for (let i = 1; i < T.length; i++) if (u <= T[i]) return V[i - 1] + (V[i] - V[i - 1]) * ease((u - T[i - 1]) / (T[i] - T[i - 1])); return V[V.length - 1]; };
+
+// Painting 896x1152 (cut.clean.png: backdrop gaps and the painted ground smudge cleared by clean.py). Front view, symmetric. Ground y about 1105.
+const W = 896, H = 1152, PADX = 480, PADY = 130;
+const SH_L = [192, 562], SH_R = [713, 562], EL_L = [185, 806], EL_R = [718, 812];
+const HEADP = [448, 262], PELV = [448, 790], HEEL = [[336, 1098], [562, 1098]], FOOT = [[336, 1112], [562, 1110]], FY = 1108;
+const FIST = [185, 880], CORE = [448, 432], LAMP = [447, 582], VALVE = [322, 872], DOME = [449, 168], GLASS = [[421, 134], [479, 134], [479, 204], [421, 204]];
+const INK = "#14100C", CREAM = "#F2E6CF", ORANGE = "#FFB547", EMBER = "#C2461A", BRASS = "#C9A24A", DUST = "#8C9A97", PALE = "#D4DAD6";
+const flashK = c => c < 0.034 ? 0.25 : c < 0.068 ? 0.16 : c < 0.1 ? 0.07 : 0;
+
+const pw = {
+  size: [W, H], grid: [112, 144], pad: [PADX, PADY],
+  anchors: { "pw-dome": [449, 168, 62], "pw-fist": [185, 880, 70], "pw-valve": [322, 872, 40], core: [448, 432, 100], eyes: [447, 582, 40] },
+  weights(x, y) {
+    const w = {};
+    const fo = smooth(1020, 1060, y);                                                              // the foot discs are wider than the legs
+    w.lL = band(x, 264 - 62 * fo, 398 + 40 * fo, 7) * smooth(700, 860, y);
+    w.lR = band(x, 498 - 40 * fo, 642 + 40 * fo, 7) * smooth(700, 860, y);
+    w.b = 1 - Math.max(w.lL, w.lR);
+    w.hd = smooth(272, 238, y) * smooth(250, 268, x) * smooth(646, 628, x);                        // head assembly above the drum
+    w.dm = band(x, 396, 502, 5) * smooth(222, 196, y);                                              // the dome lid
+    w.s = band(x, 262, 640, 20) * smooth(300, 340, y) * smooth(556, 520, y);                        // chest swell
+    w.aL = smooth(266, 252, x) * smooth(538, 556, y) * smooth(1010, 985, y);
+    w.aR = smooth(630, 644, x) * smooth(538, 556, y) * smooth(1010, 985, y);
+    w.fL = w.aL * smooth(790, 818, y);
+    w.fR = w.aR * smooth(796, 824, y);
+    return w;
+  },
+  part(x, y) { if (y < 534) return 0; return x < 262 ? 1 : x > 636 ? 2 : 0; },
+  tear(x, y) { return y > 530; },
+  deform(x, y, w, P) {
+    // forearm: slides out along the arm (a piston) and grows toward the viewer, then the whole arm swings
+    for (const [f, a, E, S, k] of [[w.fL, w.aL, EL_L, SH_L, 0], [w.fR, w.aR, EL_R, SH_R, 1]]) {
+      const ex = P.ext[k], gr = P.gro[k];
+      if (f) { y = E[1] + (y - E[1]) * (1 + ex * f) + 0 * x; }
+      if (a && gr) { const s = 1 + gr * a; x = S[0] + (x - S[0]) * s; y = S[1] + (y - S[1]) * s; }
+    }
+    [x, y] = rot(x, y, ...SH_L, rad(P.al), w.aL);
+    [x, y] = rot(x, y, ...SH_R, rad(P.ar), w.aR);
+    [x, y] = rot(x, y, ...HEADP, rad(P.nod), w.hd);
+    y -= P.dp * w.dm; x += P.dx * w.dm;
+    y += P.hb * w.hd;
+    const s = P.swell * w.s; x = 448 + (x - 448) * (1 + 0.5 * s); y = 430 + (y - 430) * (1 + s);
+    const q = P.sq * w.b; y = PELV[1] + (y - PELV[1]) * (1 + q); x = 448 + (x - 448) * (1 - 0.5 * q);
+    [x, y] = rot(x, y, ...PELV, rad(P.pitch), w.b);
+    x += P.bx * w.b; y += P.by * w.b;
+    for (let i = 0; i < 2; i++) {
+      const wl = i ? w.lR : w.lL;
+      [x, y] = rot(x, y, ...HEEL[i], rad(P.lr[i]), wl);
+      x += P.lx[i] * wl; y -= P.ly[i] * wl;
+    }
+    if (P.cmp) { y += P.cmp * 330 * w.b * (1 - 0.55 * Math.max(w.aL, w.aR)); y = FY + (y - FY) * (1 - P.cmp * Math.max(w.lL, w.lR)); }
+    return [x, y];
+  },
+  moods: { idle: {}, attack: {}, hurt: {}, death: {} },
+  ease: 3,
+  onMood(m, api) { const S = api.state; S.start = undefined; S.did = {}; S.next = {}; },
+  pose(L, t, dt, S, api) {
+    if (S.start === undefined) {
+      S.start = t; S.did = {}; S.next = {}; S.broken = S.broken || urlBroken(); S.puffs = []; S.sparks = []; S.rings = []; S.bursts = []; S.trail = []; S.bits = []; S.cyc = -1;
+    }
+    syncBroken(S);
+    const u = t - S.start, m = api.mood;
+    const P = { al: 0, ar: 0, ext: [0, 0], gro: [0, 0], nod: 0, dp: 0, dx: 0, hb: 0, swell: 0, sq: 0, pitch: 0, bx: 0, by: 0, lr: [0, 0], lx: [0, 0], ly: [0, 0], cmp: 0, fl: 0, flash: 0, shake: null, lamp: 1, blink: 0, press: 0.35, t };
+    const once = (k, cond, fn) => { if (cond && !S.did[k]) { S.did[k] = true; fn(); } };
+    const newCycle = len => { const n = Math.floor(u / len); if (n !== S.cyc) { S.cyc = n; S.did = {}; S.next = {}; S.trail = []; } return u - n * len; };
+    const emit = (p, k, o) => S.puffs.push(Object.assign(steamAt(p, P, k), o || {}));
+    if (m === "idle") {
+      const c = newCycle(4);
+      // A heavy shift of weight: the left foot lifts and plants, then the right; a vent of steam, a head twitch that holds, a lamp pulse.
+      const q0 = clamp((c - 0.45) / 0.8), q1 = clamp((c - 2.35) / 0.8);
+      const l0 = q0 > 0 && q0 < 1 ? Math.pow(Math.sin(Math.PI * q0), 0.85) : 0, l1 = q1 > 0 && q1 < 1 ? Math.pow(Math.sin(Math.PI * q1), 0.85) : 0;
+      P.ly = [20 * l0, 20 * l1]; P.lr = [-3 * l0, 3 * l1]; P.lx = [0, 0];
+      const sh = ease(clamp((c - 0.2) / 0.5)) * (1 - ease(clamp((c - 1.5) / 0.6))) - ease(clamp((c - 2.1) / 0.5)) * (1 - ease(clamp((c - 3.5) / 0.5)));
+      P.bx = 10 * sh; P.pitch = -0.9 * sh; P.by = -3 * (l0 + l1);
+      P.swell = 0.014 + 0.016 * Math.sin(c / 4 * Math.PI * 2 - 1.2); P.sq = 0.006 * Math.sin(c / 4 * Math.PI * 2 + 0.4);
+      P.al = 2.2 * Math.sin(c / 4 * Math.PI * 2 + 0.6) - 0.5 * sh + 3 * (l1 - l0); P.ar = 2.2 * Math.sin(c / 4 * Math.PI * 2 + 1.5) + 0.5 * sh + 3 * (l1 - l0);
+      P.nod = kf(c, [0, 1.65, 1.78, 2.9, 3.2, 4], [0, 0, 3.4, 3.2, 0, 0]) - 1.2 * sh; P.hb = 1.5 * Math.sin(c / 4 * Math.PI * 2 - 1.2);
+      once("hop", c >= 1.65, () => { S.hop = t; emit([449, 210], 1.15); });
+      const hp = S.hop !== undefined ? clamp((t - S.hop) / 0.4) : 1; P.dp = 9 * Math.sin(Math.PI * Math.min(1, hp) * 1) * (hp < 1 ? 1 : 0); P.press = 0.35 + 0.5 * (hp < 1 ? 1 : 0);
+      P.lamp = 1 + 0.18 * Math.sin(c / 4 * Math.PI * 4); P.blink = (c > 3.6 && c < 3.72) ? 1 : 0;
+      once("pl0", c > 1.2, () => S.rings.push(ringAt(FOOT[0], P, 0.8)));
+      once("pl1", c > 3.15, () => S.rings.push(ringAt(FOOT[1], P, 0.8)));
+      if (c > 1.2 && c < 1.32) P.shake = [0, 1.6]; if (c > 3.15 && c < 3.27) P.shake = [0, 1.6];
+      const n = Math.floor((c + 0.2) / 1.35); if (S.next.v !== n) { S.next.v = n; emit(VALVE, 0.75, { life: 0.8 }); }
+    } else if (m === "attack") {
+      const c = newCycle(2.6), T = [0, 0.3, 0.72, 0.84, 0.92, 1.3, 1.9, 2.6];
+      // Wind-up: the left arm draws up and back, the body coils and hisses. Strike: the piston forearm drives out and down-left, the fist grows toward the viewer, the body lunges, the left foot stamps.
+      P.al = kf(c, T, [0, -8, -18, 30, 32, 29, 4, 0]);
+      P.ext[0] = kf(c, T, [0, -0.02, -0.04, 0.06, 0.07, 0.05, 0.01, 0]); P.gro[0] = kf(c, T, [0, 0, 0, 0.3, 0.34, 0.26, 0, 0]);
+      P.ar = kf(c, T, [0, 4, 8, -6, -8, -5, 0, 0]);
+      P.pitch = kf(c, T, [0, -2, -4.5, 8, 10, 8, 0.5, 0]); P.bx = kf(c, T, [0, 8, 14, -56, -70, -56, -4, 0]); P.by = kf(c, T, [0, 5, 8, -2, 8, 6, 1, 0]);
+      P.sq = kf(c, T, [0, 0.03, 0.05, -0.04, 0.04, 0.03, 0, 0]); P.swell = kf(c, T, [0, 0.03, 0.045, 0, 0, 0, 0, 0]);
+      P.nod = kf(c, T, [0, -3, -4, 5, 6, 4, 0, 0]); P.hb = kf(c, T, [0, 6, 10, 0, 6, 4, 0, 0]);
+      P.ly[0] = kf(c, [0, 0.4, 0.62, 0.84, 2.6], [0, 0, 18, 0, 0]); P.lx[0] = -P.ly[0] * 0.25 + kf(c, T, [0, 0, 0, -34, -40, -34, -2, 0]);
+      P.lx[1] = kf(c, T, [0, 0, 0, -6, -10, -8, 0, 0]);
+      P.press = kf(c, T, [0.35, 1, 1.6, 1.2, 0.8, 0.6, 0.4, 0.35]);
+      P.dp = 10 * kf(c, [0, 0.45, 0.72, 0.9, 1.1, 2.6], [0, 0.6, 1, 0.2, 0, 0]);
+      P.lamp = kf(c, T, [1, 1.3, 1.7, 1.7, 1.5, 1.2, 1, 1]);
+      if (c > 0.84 && c < 1.02) { S.punchOn = true; } else S.punchOn = false;
+      if (S.punchOn || (c > 0.8 && c < 1.0)) S.trail.push({ born: t, p: at(FIST, P) });
+      once("hiss", c >= 0.3, () => emit(VALVE, 1.1, { life: 0.8 }));
+      once("hiss2", c >= 0.6, () => { emit(VALVE, 1.25, { life: 0.8 }); emit([449, 208], 1.2); });
+      once("hit", c >= 0.86, () => {
+        const f = at(FIST, P);
+        S.bursts.push({ born: t, x: f[0] - 36, y: f[1] + 10, r: 105 }); S.rings.push(Object.assign(ringAt(FOOT[0], P, 1.3), { x: f[0] - 20, y: f[1] + 100 })); S.rings.push(ringAt(FOOT[1], P, 1));
+        for (let i = 0; i < 7; i++) S.sparks.push({ born: t, x: f[0] - 40, y: f[1] + 30, vx: -(120 + Math.random() * 330), vy: -340 + Math.random() * 520, r: 11 + Math.random() * 10 });
+      });
+      if (c > 0.86 && c < 1.12) { const d = Math.exp(-(c - 0.86) * 9); P.shake = [-(5 + Math.random() * 4) * d, (Math.random() - 0.5) * 5 * d]; }
+      P.blink = (c > 0.55 && c < 0.85) ? 0.5 : 0;
+    } else if (m === "hurt") {
+      const c = newCycle(1.5), T = [0, 0.07, 0.25, 0.7, 1.5];
+      P.fl = flashK(c);
+      P.bx = kf(c, T, [0, 28, 22, 0, 0]); P.pitch = kf(c, T, [0, 4, 3, 0, 0]) + 1.4 * Math.exp(-c * 3) * Math.sin(c * 20); P.by = kf(c, T, [0, -9, -3, 0, 0]); P.sq = kf(c, T, [0, -0.05, -0.02, 0.015, 0]);
+      P.al = kf(c, T, [0, 10, 6, 0, 0]) + 3 * Math.exp(-c * 3) * Math.sin(c * 17); P.ar = kf(c, T, [0, -10, -6, 0, 0]) - 3 * Math.exp(-c * 3) * Math.sin(c * 17 + 1);
+      P.nod = kf(c, T, [0, -7, -4, 0, 0]); P.hb = kf(c, T, [0, 8, 3, 0, 0]);
+      P.dp = 16 * kf(c, [0, 0.07, 0.3, 0.6, 1.5], [0, 1, 0.5, 0, 0]); P.press = kf(c, [0, 0.07, 0.5, 1.5], [0.4, 1.8, 0.6, 0.35]);
+      P.lx = [0.7 * P.bx, 0.7 * P.bx]; P.ly = [kf(c, T, [0, 5, 0, 0, 0]), kf(c, T, [0, 5, 0, 0, 0])];
+      P.lamp = kf(c, [0, 0.07, 0.4, 1.5], [1, 1.9, 0.6, 1]); P.blink = c > 0.2 && c < 0.45 ? 0.7 : 0;
+      once("hit", c < 0.2, () => { S.bursts.push({ born: t, x: CORE[0], y: CORE[1], r: 100, at: CORE }); emit([449, 200], 1.3); emit(VALVE, 1, { life: 0.8 }); S.rings.push(ringAt(FOOT[0], P, 0.9)); S.rings.push(ringAt(FOOT[1], P, 0.9)); });
+      const d = Math.exp(-c * 7); if (c < 0.4) P.shake = [(Math.random() - 0.5) * 8 * d, (Math.random() - 0.5) * 5 * d];
+    } else if (m === "death") {
+      const c = Math.min(u, 2.999);
+      P.fl = flashK(c);
+      // Hit, shudder, the legs give and the boiler sinks; the dome pops up and settles; the arms drop; the lamp dies; steam keeps leaking.
+      const sink = kf(c, [0, 0.14, 0.7, 1.3, 1.5, 1.75, 3], [0, 0, 0.08, 0.42, 0.5, 0.47, 0.5]);
+      P.cmp = sink;
+      P.bx = kf(c, [0, 0.14, 0.5, 1.3, 3], [0, 26, 14, 52, 56]); P.pitch = kf(c, [0, 0.14, 0.5, 1.0, 1.5, 3], [0, 4, -2, 6, 14, 15]);
+      P.sq = 0; P.swell = kf(c, [0, 0.14, 0.5, 3], [0, -0.03, 0.02, -0.02]);
+      P.al = kf(c, [0, 0.14, 0.9, 1.5, 1.8, 3], [0, 10, 4, 34, 30, 30]); P.ar = kf(c, [0, 0.14, 0.9, 1.5, 1.8, 3], [0, -10, -4, -38, -34, -34]);
+      P.ext = [kf(c, [0, 1.3, 1.8, 3], [0, 0, -0.2, -0.2]), kf(c, [0, 1.3, 1.8, 3], [0, 0, -0.2, -0.2])];
+      P.nod = kf(c, [0, 0.14, 0.7, 1.5, 3], [0, -7, 2, 22, 22]); P.hb = 0;
+      P.dp = kf(c, [0, 0.4, 0.6, 0.9, 1.3, 1.5, 3], [0, 0, 44, 60, 14, 0, 0]); P.dx = kf(c, [0, 0.4, 0.9, 1.5, 3], [0, 0, 36, 20, 20]);
+      P.lamp = c < 0.8 ? 1 : c < 1.9 ? (Math.sin(c * 31) > 0.1 ? 1.3 : 0.25) : 0;
+      P.press = c < 1.5 ? 1.4 : 0.7;
+      const k = ease(clamp((c - 0.9) / 0.6));
+      P.ly = [10 * Math.sin(Math.PI * clamp((c - 0.9) / 0.6)), 8 * Math.sin(Math.PI * clamp((c - 1.0) / 0.6))]; P.lr = [-5 * k, 5 * k]; P.lx = [0.5 * P.bx - 14 * k, 0.5 * P.bx + 14 * k];
+      once("hit", c < 0.2, () => { S.bursts.push({ born: t, x: CORE[0], y: CORE[1], r: 105, at: CORE }); emit([449, 200], 1.4); });
+      once("pop", c >= 0.45, () => { emit([449, 200], 1.6); for (let i = 0; i < 5; i++) S.sparks.push({ born: t, x: 449 + (Math.random() - 0.5) * 80, y: 190, vx: (Math.random() - 0.5) * 520, vy: -320 - Math.random() * 300, r: 10 + Math.random() * 8 }); });
+      once("v1", c >= 0.8, () => emit(VALVE, 1.4, { life: 0.8 })); once("v2", c >= 1.2, () => emit(VALVE, 1.4, { life: 0.8 }));
+      once("thud", c >= 1.3, () => { for (const i of [0, 1]) { S.rings.push(ringAt(FOOT[i], P, 1.4)); } S.bursts.push({ born: t, x: 448, y: 760, r: 80, at: [448, 760] }); });
+      if (c > 1.3 && c < 1.65) { const d = Math.exp(-(c - 1.3) * 9); P.shake = [0, 9 * d * Math.sin((c - 1.3) * 60)]; }
+      if (c > 0.14 && c < 0.7) P.shake = [(Math.random() - 0.5) * 6 * Math.exp(-(c - 0.14) * 4), 0];
+      if (c > 1.8) { const n = Math.floor((c - 1.8) / 0.55); if (S.next.leak !== n) { S.next.leak = n; emit(n % 2 ? [449, 210] : VALVE, 1.1, { life: 0.9 }); } }
+    }
+    // Broken parts leak flat steam.
+    const bk = S.broken || {};
+    for (const [id, pt] of [["pw-dome", [470, 150]], ["pw-fist", [165, 900]], ["pw-valve", [322, 872]]]) {
+      if (bk[id] && m !== "death") { const n = Math.floor((u - (id.length % 5) * 0.13) / 0.75); if (S.next["st" + id] !== n) { S.next["st" + id] = n; emit(pt, 0.9, { life: 0.7 }); } }
+    }
+    P.flash = P.fl;
+    S.P = P;
+    return P;
+  },
+  under(c, P, t, api) {
+    // flat ink shadows under each foot; they shrink as the foot lifts
+    for (let i = 0; i < 2; i++) {
+      const lf = (P.ly[i] || 0) / 40, cx = HEEL[i][0] + 0 + (P.lx[i] || 0) * 0.4 - 1, rx = 150 * (1 - 0.18 * lf), ry = 30 * (1 - 0.18 * lf), cy = 1118;
+      c.fillStyle = "rgba(6,24,28,0.6)"; c.beginPath(); c.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI); c.fill();
+      c.fillStyle = "rgba(6,24,28,0.45)"; c.beginPath(); c.ellipse(cx, cy, rx * 0.62, ry * 0.6, 0, 0, 2 * Math.PI); c.fill();
+    }
+  },
+  over(c, P, t, api) {
+    const S = api.state; if (!S.bursts) return;
+    drawLamp(c, P, t);
+    drawDomeSteam(c, P, t, S);
+    drawTrail(c, t, S);
+    drawEffects(c, P, t, S);
+  },
+};
+function at(p, P) { return pw.deform(p[0], p[1], pw.weights(p[0], p[1]), P); }
+
+// ---------- image, alpha and the broken-look kit ----------
+const IMG = "__IMG__";
+const imgEl = new Image(); imgEl.src = IMG;
+const alphaOf = el => { let A = null; return (x, y) => { if (!A) { if (!el.complete || !el.naturalWidth) return 0; const k = document.createElement("canvas"); k.width = el.naturalWidth; k.height = el.naturalHeight; const g = k.getContext("2d"); g.drawImage(el, 0, 0); A = g.getImageData(0, 0, k.width, k.height); } x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= A.width || y >= A.height) return 0; return A.data[(y * A.width + x) * 4 + 3]; }; };
+const alphaAt = alphaOf(imgEl);
+function seeded(seed) { return () => (seed = (seed * 9301 + 49297) % 233280) / 233280; }
+function urlBroken() { const o = {}; const q = new URLSearchParams(location.search).get("broken"); if (q) for (const k of q.split(",")) { const id = k.trim(); if (id === "all") for (const d in DMG) o[d] = true; else if (DMG[id]) o[id] = true; else for (const d in DMG) if (d.endsWith("-" + id)) o[d] = true; } return o; }
+// DMG: id -> { cut (rest-pose polygon erased from the painting), cracks: [[x, y, angle, length], ...] }
+// Each notch is baked into the texture: the painting around the cut edge turns into a hard-edged ember rim (ink, ember, hot),
+// the cut is erased, and thick ink cracks (with an ember seam) run out of it. Everything is clipped to the painting's own alpha.
+const DMG = {
+  // the glass dome: the right half of the glass is blown out, jagged
+  "pw-dome": { glass: true, hole: [[452, 146], [470, 140], [480, 156], [472, 172], [478, 190], [458, 184], [446, 166]], cut: [[470, 124], [496, 120], [496, 170], [480, 156], [486, 140]], s: 1.2, cracks: [[462, 160, 2.7, 70], [462, 160, 3.9, 60], [462, 160, 1.5, 60], [462, 160, 5.0, 50], [448, 176, 4.4, 50]], seed: 4, k: 0.6 },
+  // the left forearm piston (the fist): a bite out of its outer side
+  "pw-fist": { cut: [[96, 856], [136, 862], [132, 884], [150, 898], [136, 916], [150, 936], [128, 952], [96, 944]], cracks: [[172, 872, -0.2, 70], [176, 906, 0.5, 70], [172, 940, 1.1, 40]], seed: 7, k: 0.6, s: 1.8 },
+  // the round valve on the left leg: half of the ring is chewed away
+  "pw-valve": { cut: [[258, 844], [290, 850], [296, 868], [286, 882], [300, 896], [286, 914], [258, 912]], cracks: [[326, 868, 0.2, 80], [320, 892, 1.3, 80], [330, 846, -0.8, 70]], seed: 3, k: 0.7, s: 1.9 },
+};
+function polyPath(g, poly) { g.beginPath(); poly.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); }
+function crackPts(d, [x, y, an, len]) {
+  const rnd = seeded(d.seed * 13 + Math.round(x)), pts = [[x, y]]; let n = Math.ceil(len / 22);
+  for (let s = 0; s < n; s++) { if (s % 2 === 0) an += (rnd() - 0.5) * 1.5; x += Math.cos(an) * 22; y += Math.sin(an) * 22; pts.push([x, y]); }
+  return pts;
+}
+function scalePoly(poly, s) { const cx = poly.reduce((a, p) => a + p[0], 0) / poly.length, cy = poly.reduce((a, p) => a + p[1], 0) / poly.length; return poly.map(([x, y]) => [cx + (x - cx) * s, cy + (y - cy) * s]); }
+function bakeTexture(ids) {
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const g = cv.getContext("2d");
+  g.drawImage(imgEl, 0, 0);
+  g.lineJoin = "miter"; g.lineCap = "round"; g.miterLimit = 2;
+  g.globalCompositeOperation = "source-atop";
+  for (const id of ids) {
+    const d = DMG[id], cut = scalePoly(d.cut, d.s || 1.8);
+    if (d.glass) {
+      // cracked glass: a dark hole, pale facets (ink-edged cream cracks) spreading across the glass
+      g.fillStyle = INK; polyPath(g, d.hole); g.fill();
+      g.fillStyle = "#0B2A2E"; polyPath(g, scalePoly(d.hole, 0.6)); g.fill();
+      for (const cr of d.cracks) { const pts = crackPts(d, cr); for (const [col, lw] of [[INK, 17], [CREAM, 7]]) { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); } }
+      continue;
+    }
+    for (const [col, lw] of [[INK, 56], [EMBER, 38], [ORANGE, 16]]) { g.strokeStyle = col; g.lineWidth = lw * (d.k || 1); polyPath(g, cut); g.stroke(); }
+    g.fillStyle = ORANGE; polyPath(g, cut); g.fill();
+    g.lineJoin = "miter";
+    for (const cr of d.cracks) {
+      const pts = crackPts(d, cr);
+      for (const [col, lw] of [[INK, 30], [EMBER, 9]]) { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); }
+    }
+  }
+  g.globalCompositeOperation = "destination-out"; g.fillStyle = "#000";
+  for (const id of ids) { polyPath(g, scalePoly(DMG[id].cut, DMG[id].s || 1.8)); g.fill(); }
+  return cv;
+}
+function syncBroken(S) {
+  const ids = Object.keys(S.broken || {}).filter(k => S.broken[k] && DMG[k]).sort(), key = ids.join(",");
+  if (S.bkKey !== key && imgEl.complete && imgEl.naturalWidth) {
+    const cv = ids.length ? bakeTexture(ids) : imgEl;
+    const gl = document.getElementById("stage").querySelectorAll("canvas")[1].getContext("webgl");
+    gl.bindTexture(gl.TEXTURE_2D, gl.getParameter(gl.TEXTURE_BINDING_2D)); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+    S.bkKey = key;
+  }
+}
+
+// ---------- the lamp (the eye) ----------
+function drawLamp(c, P, t) {
+  const p = at(LAMP, P), l = P.lamp;
+  if (l < 0.5) {
+    // the bulb goes out: a dark cold disc
+    c.globalAlpha = clamp((0.5 - l) * 2.4); c.fillStyle = "#3A1010"; c.strokeStyle = INK; c.lineWidth = 6;
+    c.beginPath(); c.arc(p[0], p[1], 19, 0, 2 * Math.PI); c.fill(); c.stroke(); c.globalAlpha = 1;
+  } else if (l > 1.15) {
+    // flare: a small hard-edged ring and core
+    const r = 17 + 8 * (l - 1);
+    c.fillStyle = ORANGE; c.strokeStyle = INK; c.lineWidth = 5; c.beginPath(); c.arc(p[0], p[1], r, 0, 2 * Math.PI); c.fill(); c.stroke();
+    c.fillStyle = CREAM; c.beginPath(); c.arc(p[0], p[1], r * 0.42, 0, 2 * Math.PI); c.fill();
+  }
+  if (P.blink > 0) {
+    c.save(); c.beginPath(); c.arc(p[0], p[1], 20, 0, 2 * Math.PI); c.clip();
+    c.fillStyle = "#26302E"; c.fillRect(p[0] - 24, p[1] - 24, 48, 48 * P.blink * 0.9);
+    c.fillStyle = INK; c.fillRect(p[0] - 24, p[1] - 24 + 48 * P.blink * 0.9 - 4, 48, 5);
+    c.restore();
+  }
+}
+// ---------- steam swirling inside the head dome ----------
+function drawDomeSteam(c, P, t, S) {
+  const brk = S.broken && S.broken["pw-dome"];
+  const q = GLASS.map(p => at(p, P));
+  c.save(); c.beginPath(); q.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath(); c.clip();
+  const cx = (q[0][0] + q[1][0]) / 2, w = Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]), h = Math.hypot(q[3][0] - q[0][0], q[3][1] - q[0][1]), cy = (q[0][1] + q[3][1]) / 2 + 0;
+  const sp = 0.8 + 2.4 * P.press, ph = S.swirl = (S.swirl || 0) + (t - (S.swT === undefined ? t : S.swT)) * sp; S.swT = t;
+  c.globalAlpha = brk ? 0.6 : 0.92;
+  for (let i = 0; i < 4; i++) {
+    const a = ph * 2 + i * 1.57, r = 15 + 4 * Math.sin(ph + i * 2), x = cx + Math.cos(a) * (w * 0.2 + 2 * i), y = cy + Math.sin(a * 0.9 + i) * (h * 0.32) - 4;
+    for (const [col, k, ex] of [[INK, 1, 3.5], [DUST, 1, 0], [PALE, 0.62, 0]]) { c.fillStyle = col; c.beginPath(); c.arc(x - (col === PALE ? r * 0.14 : 0), y - (col === PALE ? r * 0.16 : 0), r * k + ex, 0, 2 * Math.PI); c.fill(); }
+  }
+  // a darker curl line tracing the swirl
+  c.strokeStyle = INK; c.lineWidth = 3.5; c.lineCap = "round"; c.beginPath();
+  for (let i = 0; i <= 14; i++) { const a = ph * 2 + i * 0.45; const x = cx + Math.cos(a) * w * 0.28, y = cy + (i / 14 - 0.5) * h * 0.78 + Math.sin(a) * 6; i ? c.lineTo(x, y) : c.moveTo(x, y); }
+  c.stroke();
+  c.globalAlpha = 1; c.restore();
+}
+// ---------- the punch trail: a tapering two-tone ribbon along the fist's path ----------
+function drawTrail(c, t, S) {
+  S.trail = (S.trail || []).filter(s => t - s.born < 0.16);
+  if (S.trail.length > 1) {
+    c.lineCap = "round"; c.lineJoin = "round";
+    for (const [col, k] of [[INK, 1], [CREAM, 0.55]]) {
+      for (let i = 1; i < S.trail.length; i++) {
+        const a = S.trail[i - 1], b = S.trail[i], age = (t - b.born) / 0.16;
+        c.globalAlpha = age < 0.5 ? 1 : age < 0.8 ? 0.6 : 0.3; c.strokeStyle = col; c.lineWidth = (k === 1 ? 74 : 40) * (1 - age * 0.6) * (0.4 + 0.6 * i / S.trail.length);
+        c.beginPath(); c.moveTo(a.p[0], a.p[1]); c.lineTo(b.p[0], b.p[1]); c.stroke();
+      }
+    }
+    c.globalAlpha = 1;
+  }
+}
+
+// ---------- flat effects ----------
+function steamAt(p, P, k) { const [x, y] = at(p, P); return { x, y, born: undefined, r: 17 * k, life: 0.9, steam: true }; }
+function ringAt(p, P, k) { const [x, y] = at(p, P); return { x, y: y + 2, born: undefined, k }; }
+function lumpsDraw(c, lumps, flat) {
+  if (flat) { c.fillStyle = INK; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr + 3, 0, 2 * Math.PI); c.fill(); } c.fillStyle = "#6E7B78"; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr, 0, 2 * Math.PI); c.fill(); } c.fillStyle = "#97A4A0"; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx - lr * 0.2, ly - lr * 0.2, lr * 0.5, 0, 2 * Math.PI); c.fill(); } return; }
+  c.fillStyle = INK; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr + 4, 0, 2 * Math.PI); c.fill(); }
+  c.fillStyle = DUST; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr, 0, 2 * Math.PI); c.fill(); }
+  c.fillStyle = PALE; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx - lr * 0.15, ly - lr * 0.18, lr * 0.7, 0, 2 * Math.PI); c.fill(); }
+}
+function drawEffects(c, P, t, S) {
+  // steam: small flat two-tone puffs, ink edged, stepping alpha as they rise
+  S.puffs = S.puffs.filter(p => { if (p.born === undefined) p.born = t; return t - p.born < p.life; });
+  for (const p of S.puffs) {
+    const a = (t - p.born) / p.life, r = p.r * (0.8 + 1.0 * a), y = p.y - 90 * a, x = p.x + 20 * Math.sin(a * 5 + p.x);
+    c.globalAlpha = a < 0.5 ? 1 : a < 0.8 ? 0.6 : 0.3;
+    lumpsDraw(c, [[0, 0, 1], [-0.7, 0.2, 0.7], [0.7, 0.15, 0.65], [0.1, -0.6, 0.55]].map(([ox, oy, k]) => [x + ox * r, y + oy * r, r * k]));
+    c.globalAlpha = 1;
+  }
+  // dust rings at the planted feet: two flat bands that spread sideways
+  S.rings = S.rings.filter(r => { if (r.born === undefined) r.born = t; return t - r.born < 0.55; });
+  for (const r of S.rings) {
+    const a = (t - r.born) / 0.55, rr = 8 * r.k * (0.7 + a);
+    c.globalAlpha = a < 0.5 ? 1 : a < 0.8 ? 0.65 : 0.35;
+    for (const dir of [-1, 1]) {
+      const x = r.x + dir * (26 + 80 * a * r.k), y = r.y - 22 * a - 6;
+      lumpsDraw(c, [[-0.8 * dir, 0.1, 0.7], [0, -0.1, 1], [0.8 * dir, 0.1, 0.7]].map(([ox, oy, k]) => [x + ox * rr * 0.9, y + oy * rr, rr * k]), true);
+    }
+    c.globalAlpha = 1;
+  }
+  // sparks: flat four-point stars
+  S.sparks = S.sparks.filter(s => t - s.born < 0.55);
+  for (const s of S.sparks) {
+    const e = t - s.born, x = s.x + s.vx * e, y = s.y + s.vy * e + 900 * e * e, a = e / 0.55, r = s.r * (1 - a * 0.5);
+    c.globalAlpha = a < 0.7 ? 1 : 0.5; c.save(); c.translate(x, y); c.rotate(e * 6);
+    for (const [k, col, lw] of [[1, ORANGE, 4], [0.5, CREAM, 0]]) {
+      c.beginPath(); for (let i = 0; i < 8; i++) { const an = i / 8 * 2 * Math.PI, rr = (i % 2 ? 0.28 : 1) * r * k * 1.5; i ? c.lineTo(Math.cos(an) * rr, Math.sin(an) * rr) : c.moveTo(Math.cos(an) * rr, Math.sin(an) * rr); }
+      c.closePath(); c.fillStyle = col; c.fill(); if (lw) { c.strokeStyle = INK; c.lineWidth = lw; c.lineJoin = "miter"; c.stroke(); }
+    }
+    c.restore(); c.globalAlpha = 1;
+  }
+  // hit stars: jagged, ink edged, orange over cream
+  S.bursts = S.bursts.filter(b => t - b.born < 0.28);
+  for (const b of S.bursts) {
+    const a = (t - b.born) / 0.28, p = b.at ? at(b.at, P) : [b.x, b.y], R = b.r * (0.6 + 0.7 * ease(a));
+    c.globalAlpha = a < 0.6 ? 1 : 0.6; c.lineJoin = "miter";
+    for (const [k, col, lw] of [[1, ORANGE, 4], [0.55, CREAM, 0]]) {
+      c.beginPath();
+      for (let i = 0; i < 16; i++) { const an = i / 16 * 2 * Math.PI, rr = (i % 2 ? 0.45 : 1 + 0.25 * ((i * 7) % 3 - 1)) * R * k; i ? c.lineTo(p[0] + Math.cos(an) * rr, p[1] + Math.sin(an) * rr) : c.moveTo(p[0] + Math.cos(an) * rr, p[1] + Math.sin(an) * rr); }
+      c.closePath(); c.fillStyle = col; c.fill(); if (lw) { c.strokeStyle = INK; c.lineWidth = lw; c.stroke(); }
+    }
+    c.globalAlpha = 1;
+  }
+}
+
+const rig = Rig.mount(document.getElementById("stage"), pw, IMG);
+window.rig = rig;
+document.querySelectorAll("button[data-mood]").forEach(b => b.addEventListener("click", () => {
+  rig.setMood(b.dataset.mood); document.querySelectorAll("button[data-mood]").forEach(o => o.setAttribute("aria-pressed", o === b));
+}));
+document.getElementById("mesh").addEventListener("change", e => { rig.showMesh = e.target.checked; });
+for (const id of Object.keys(DMG)) document.getElementById("b-" + id).addEventListener("change", e => { rig.state.broken = rig.state.broken || {}; rig.state.broken[id] = e.target.checked; });
+rig.setBroken = o => { rig.state.broken = Object.assign(rig.state.broken || {}, o); };
+</script>
+</body>
+</html>
