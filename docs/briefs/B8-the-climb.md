@@ -27,3 +27,10 @@ Replace v1's branching node map with v2's roaming act against the Spire clock, m
 
 ## Rules for every lane
 As B7's brief: never stash, checkout, reset or restore outside your worktree; commit only in your worktree; ports: core 5351, economy 5352, UI 5353, rigs 5354, bots 5355; deterministic core; American English, no em dashes; `data-testid`, 40 px taps, 12 px text, no sideways scroll at 667x375. Report what's green, what isn't, contract changes and what other lanes must know.
+
+## Contract tests and hooks (B8.0, written by the test porter; the tests are the spec)
+- `tests/v2/b8-climb.test.ts` (CL1 to CL6, CL8 U, CL9, CL10, CL11 U, SV3 to SV6, AD4 hours, migration, createCombat options): climb-core and economy-rooms.
+- `tests/v2/b8-art.test.ts` (AR1, AR2 act 1): rig-hub. `src/art/manifest.ts` exports `MANIFEST` (keep the name when generating it).
+- `tests/sim/v2-runs.test.ts` (BV11): `routeStatsV2` in `src/sim/strat/v2routes.ts` (stub): strategy-bots after core merges.
+- `e2e/v2-climb.spec.ts` (CL7, CL8 E, CL11 E, SV3 to SV5 E, AR4): climb-ui and rig-hub. Its header comment is the authoritative list of test ids and `window.__game` hooks (act screen, room screens, `cheat.startClimb`, `cheat.fixtureSection`, `move`, `cheat.gotoRoom`, `cheat.setScrap`, `cheat.setHour`, `cheat.setKeys`, `cheat.giveParts`, `cheat.openTrader`, `rig.stats/reset/loseContext/restoreContext`).
+- Decided while porting: the Spare Scrap upgrade is found by name ("Spare Scrap"; economy-rooms picks the id and migrates `cogs` levels to it); offers are recorded with sources 'trader' (when stock rolls), 'fuse', 'salvage' (widen the union in types.ts; economy-rooms owns it); `afterRoom` is called with the phase already back at 'section' and `combat` null (the run's settle and leave paths do that); the shortest-path rule counts unlocked passages only; once rig-hub puts WebP in `public/art/`, v1's A1 test fails until rig-hub rescopes it (its job). AR4 runs on the phone project only.

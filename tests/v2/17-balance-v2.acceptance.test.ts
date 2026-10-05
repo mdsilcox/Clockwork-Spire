@@ -9,5 +9,4 @@ describe('v2 17. Balance v2 (rules 7.4)', () => {
   it.todo('BV5 [S] Given the per-part table; when offer-based impact; then highest at most 2x the median');
   it.todo('BV7 [S] Given a fixed seed; when run any sim mode twice; then identical reports (v1 BS1, kept)');
   it.todo('BV10 [S] Given 100 greedy careers; when until first win; then median first win at most run 20');
-  it.todo('BV11 [S] Given rusher, grinder and expert route policies, same combat bot; when 300 runs each; then the expert wins more often than both');
 });
