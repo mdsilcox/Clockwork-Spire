@@ -380,6 +380,8 @@ export interface RunConfig {
   rewardChoices: number; // 3 (4 with Inventor's Notes I)
   extraEliteBlueprint: boolean; // Inventor's Notes II
   secondWind: boolean;
+  /** B8 transition: true keeps v1's map flow (newRun does not start the climb); `defaultRunConfig` sets it so the v1 tests and bots run unchanged. Real runs (meta `runConfigFor`) leave it unset. Removed at the gate. */
+  legacyMap?: boolean;
 }
 
 export interface RunState {

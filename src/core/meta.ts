@@ -68,7 +68,7 @@ export function runConfigFor(profile: Profile, seed: number, chassis: string): R
     seed,
     chassis,
     maxHp: 50 + 5 * lv('frame'),
-    cogs: 25 * lv('cogs'),
+    cogs: 25 * lv('scrap'),
     handSize: lv('toolbelt') >= 1 ? 4 : 3,
     upgradedStarters: lv('bearings'),
     trinkets: lv('charm') >= 1 ? [commonTrinketFor(seed)] : [],
