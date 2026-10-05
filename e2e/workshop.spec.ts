@@ -231,7 +231,6 @@ test('title to slots to the Workshop, every panel fits, and the door starts a ru
   const errors = watchErrors(page);
   await page.reload();
   await expect(page.getByTestId('title')).toBeVisible();
-  await openPlace(page, 'gate');
   await press(page, page.getByTestId('climb'));
   await expect(page.getByTestId('slots')).toBeVisible();
   await press(page, page.getByTestId('slot-continue-1'));

@@ -49,7 +49,7 @@ interface Def {
 
 const DEFS: Record<TrackId, Def> = {
   workshop: { bpm: 66, key: 57, scale: [0, 2, 3, 5, 7, 8, 10], prog: [0, 5, 3, 6, 0, 5, 6, 4], bars: 32, seed: 11, density: [0.75, 0.2, 0.5, 0.2, 0.65, 0.2, 0.5, 0.25], lo: 7, hi: 14, reverb: 0.3, reverbSecs: 2.2 },
-  bellfoot: { bpm: 54, key: 55, scale: [0, 2, 4, 5, 7, 9, 10], prog: [0, 3, 5, 3, 0, 4, 5, 3], bars: 32, seed: 67, density: [0.45, 0.1, 0.3, 0.1, 0.4, 0.1, 0.25, 0.1], lo: 7, hi: 13, reverb: 0.5, reverbSecs: 3.2 },
+  bellfoot: { bpm: 54, key: 55, scale: [0, 2, 4, 5, 7, 9, 10], prog: [0, 3, 5, 3, 0, 4, 5, 3], bars: 24, seed: 67, density: [0.45, 0.1, 0.3, 0.1, 0.4, 0.1, 0.25, 0.1], lo: 7, hi: 13, reverb: 0.5, reverbSecs: 3.2 },
   act1: { bpm: 104, key: 50, scale: [0, 2, 3, 5, 7, 8, 10], prog: [0, 3, 5, 4, 0, 3, 6, 0], bars: 48, seed: 23, density: [0.8, 0.3, 0.55, 0.45, 0.7, 0.3, 0.55, 0.35], lo: 7, hi: 13, reverb: 0.18, reverbSecs: 1.4 },
   act2: { bpm: 112, key: 48, scale: [0, 1, 3, 5, 7, 8, 10], prog: [0, 0, 5, 4, 0, 0, 6, 5], bars: 56, seed: 37, density: [0.7, 0.1, 0.35, 0.15, 0.55, 0.1, 0.4, 0.2], lo: 7, hi: 12, reverb: 0.22, reverbSecs: 1.8 },
   act3: { bpm: 70, key: 52, scale: [0, 2, 3, 5, 7, 9, 10], prog: [0, 3, 0, 4, 5, 3, 0, 4], bars: 36, seed: 41, density: [0.7, 0.1, 0.3, 0.15, 0.55, 0.1, 0.35, 0.15], lo: 7, hi: 15, reverb: 0.55, reverbSecs: 3.6 },

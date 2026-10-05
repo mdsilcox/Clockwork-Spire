@@ -394,6 +394,8 @@ export function ActScreen() {
               if (!a || !b) return null;
               return (
                 <g key={i} class={`passage k-${p.kind} ${p.locked ? 'locked' : ''}`} data-testid={`passage-${i}`} data-locked={p.locked ? 'true' : 'false'} data-kind={p.kind}>
+                  {/* a thin invisible quad along the passage: a straight vertical or horizontal line has no area, so it would count as hidden */}
+                  <polygon points={`${a.x - 0.4},${a.y - 0.4} ${a.x + 0.4},${a.y + 0.4} ${b.x + 0.4},${b.y + 0.4} ${b.x - 0.4},${b.y - 0.4}`} fill="#000" fill-opacity="0.002" />
                   <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} vector-effect="non-scaling-stroke" class="pl" />
                   {p.kind === 'duct' && <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} vector-effect="non-scaling-stroke" class="pl2" />}
                 </g>

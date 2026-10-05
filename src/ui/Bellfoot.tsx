@@ -100,11 +100,23 @@ function Street({ places, p }: { places: TownPlace[]; p: Profile }) {
   useEffect(() => {
     const el = frame.current;
     if (!el) return;
-    const measure = (): void => setSize({ w: el.clientWidth, h: el.clientHeight });
+    let raf = 0;
+    const measure = (): void => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      setSize((o) => (o.w === w && o.h === h ? o : { w, h }));
+    };
     measure();
-    const ro = new ResizeObserver(measure);
+    // measured on the next frame: a resize that sets state in the observer callback trips "ResizeObserver loop" errors
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(measure);
+    });
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
   }, []);
 
   const placeX = (id: string): number => placesRef.current.find((q) => q.id === id)?.x ?? placesRef.current[0].x;
@@ -354,6 +366,24 @@ function Street({ places, p }: { places: TownPlace[]; p: Profile }) {
   }, []);
 
   const label = (q: TownPlace): string => q.label;
+  const btnW = (q: TownPlace): number => (q.id.startsWith('stall-') ? 48 : 96);
+  /** Left edges of the place buttons: centered under their fronts, pushed apart so none overlaps, kept inside the scene. */
+  const lefts = new Map<string, number>();
+  {
+    let edge = 2;
+    for (const q of places) {
+      const l = Math.max(edge, q.x * scale - btnW(q) / 2);
+      lefts.set(q.id, l);
+      edge = l + btnW(q) + 4;
+    }
+    let limit = cssW - 2;
+    for (let i = places.length - 1; i >= 0; i--) {
+      const q = places[i];
+      const l = Math.min(lefts.get(q.id) ?? 0, limit - btnW(q));
+      lefts.set(q.id, l);
+      limit = l - 4;
+    }
+  }
   /** One painted layer: as tall as the scene, bottom-aligned (the sky above the street's view is cropped), moved by parallax on scroll. */
   const layerImg = (l: { src: string; parallax: number }, i: number) => (
     <img
@@ -381,7 +411,7 @@ function Street({ places, p }: { places: TownPlace[]; p: Profile }) {
             <button
               key={q.id}
               class={`place ${q.id.startsWith('stall-') ? 'stall' : ''} ${townPlace.value === q.id ? 'here' : ''}`}
-              style={{ left: `${q.x * scale}px`, top: `${(GROUND_Y - VIEW_TOP) * scale + 40}px` }}
+              style={{ left: `${lefts.get(q.id) ?? 0}px`, top: `${(GROUND_Y - VIEW_TOP) * scale + 40}px`, width: `${btnW(q)}px` }}
               data-testid={`place-${q.id}`}
               aria-label={label(q)}
               title={label(q)}
