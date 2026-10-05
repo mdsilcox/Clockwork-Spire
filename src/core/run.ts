@@ -38,6 +38,8 @@ export function defaultRunConfig(seed: number, chassis = 'tinker'): RunConfig {
     rewardChoices: 3,
     extraEliteBlueprint: false,
     secondWind: false,
+    mode: 'journeyman',
+    overwind: 0,
     legacyMap: true, // v1 flow for the v1 tests and bots; the app's runConfigFor leaves it unset (the climb)
   };
 }
@@ -576,6 +578,8 @@ export function runRecord(run: RunState): Omit<RunRecord, 'n' | 'endedAt'> {
     act: run.act,
     floor: run.floor,
     killedBy: run.killedBy,
+    mode: run.config.mode ?? 'journeyman',
+    overwind: run.config.overwind ?? 0,
     brassEarned: brassFor(run),
     blueprintsFound: run.stats.blueprintsFound.slice(),
     partsAtEnd: run.bin.map((b) => b.defId),

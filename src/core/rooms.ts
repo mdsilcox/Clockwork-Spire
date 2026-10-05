@@ -5,6 +5,7 @@ import { int, pick, shuffle } from './rng';
 import { PARTS } from './content/parts';
 import { TRINKETS } from './content/trinkets';
 import { eligible, foldDown, rollTier, canTakeLegendary } from './pool';
+import { oilHealFor, traderPrice } from './difficulty';
 import { addScrap, gainTrinket, heal, markOfferTaken, newPart, recordOffers, scrapOf } from './rewards';
 import { spendHour } from './section';
 import type { Family, Pending, Rarity, RunState, TradeItem } from './types';
@@ -39,9 +40,9 @@ const discount = (run: RunState): number => (run.trinkets.includes('gilded-cog')
 
 /** The Scrap price of a trader item when handing over a part worth `offered` (null: Scrap alone, value + 25%). */
 export function barterPrice(run: RunState, item: TradeItem, offered: number | null): number {
-  if (item.kind === 'oil') return Math.round(item.value * discount(run));
+  if (item.kind === 'oil') return traderPrice(run, Math.round(item.value * discount(run))); // B10b hook (modes-overwind): Overwind 1
   const base = offered === null ? Math.round(item.value * BUY_MARKUP) : Math.max(0, item.value - offered);
-  return Math.round(base * discount(run));
+  return traderPrice(run, Math.round(base * discount(run))); // B10b hook (modes-overwind)
 }
 
 function pendingOf<K extends Pending['kind']>(run: RunState, kind: K): Extract<Pending, { kind: K }> | null {
@@ -191,7 +192,7 @@ export function barter(run: RunState, index: number, offerUid: number | null): b
   } else if (item.kind === 'trinket' && item.id) {
     gainTrinket(run, item.id);
   } else if (item.kind === 'oil') {
-    heal(run, OIL_HEAL);
+    heal(run, oilHealFor(run, OIL_HEAL)); // B10b hook (modes-overwind)
   }
   item.sold = true;
   return true;
@@ -213,7 +214,7 @@ function useOil(run: RunState, p: Extract<Pending, { kind: 'oil' }>): void {
 export function rest(run: RunState): boolean {
   const p = oilReady(run);
   if (!p) return false;
-  heal(run, Math.floor(run.maxHp * 0.3) + (run.trinkets.includes('sprocket-tag') ? 5 : 0));
+  heal(run, oilHealFor(run, Math.floor(run.maxHp * 0.3) + (run.trinkets.includes('sprocket-tag') ? 5 : 0))); // B10b hook (modes-overwind)
   spendHour(run);
   useOil(run, p);
   return true;
@@ -233,7 +234,7 @@ export function polish(run: RunState): boolean {
 export function useOilFlask(run: RunState): boolean {
   if ((run.oilFlasks ?? 0) <= 0 || run.combat || run.phase === 'combat' || run.phase === 'victory' || run.phase === 'defeat' || run.hp >= run.maxHp) return false;
   run.oilFlasks -= 1;
-  heal(run, OIL_HEAL);
+  heal(run, oilHealFor(run, OIL_HEAL)); // B10b hook (modes-overwind)
   return true;
 }
 

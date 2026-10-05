@@ -5,6 +5,7 @@ import { CELLS, MAINSPRING } from './types';
 import type { ActionDef, CombatState, EnemyPartState, EnemyState, GameEvent, Intent, PartIntent } from './types';
 import type { EnemyPartDef, FrameDef } from './defs';
 import { enemyDef } from './content/enemies';
+import { enemyAmount, scaleEnemy } from './difficulty';
 import { setOrder } from './frames';
 import {
   actionLabel,
@@ -61,6 +62,7 @@ export function summonEnemy(c: CombatState, defId: string, events: GameEvent[] |
   if (c.enemies.length >= MAX_ENEMIES) return -1;
   c.enemies.push(newEnemy(defId, mem));
   const idx = c.enemies.length - 1;
+  scaleEnemy(c, c.enemies[idx]); // B10b hook (modes-overwind): summons scale like the rest
   chooseIntent(c, idx);
   events?.push({ kind: 'summon', tick: 0, step: 0, target: idx, note: defId });
   return idx;
@@ -365,7 +367,7 @@ function makeIntent(c: CombatState, e: EnemyState, partId: string, actions: Acti
     const amt = a.amount ?? 0;
     if (a.kind === 'echo') return { ...a, amount: echoAmount(c) };
     if (a.kind === 'shell' && a.pct !== undefined) return { ...a, amount: pctShell(c, a) };
-    if (a.kind === 'attack' || a.kind === 'pierce' || a.kind === 'siphon') return { ...a, amount: amt + strength + (k === 0 ? (bonus ?? 0) : 0) };
+    if (a.kind === 'attack' || a.kind === 'pierce' || a.kind === 'siphon') return { ...a, amount: enemyAmount(c, amt + (k === 0 ? (bonus ?? 0) : 0), strength) }; // B10b hook (modes-overwind)
     if (k === 0 && bonus) return { ...a, amount: amt + bonus };
     return { ...a };
   });
@@ -514,7 +516,7 @@ export function chooseIntent(c: CombatState, idx: number): void {
   }
   const strength = e.statuses.strength ?? 0;
   if (intent.kind === 'attack' && strength > 0) {
-    intent.amount = (intent.amount ?? 0) + strength;
+    intent.amount = enemyAmount(c, intent.amount ?? 0, strength); // B10b hook (modes-overwind)
     intent.label = attackLabel(intent.amount, intent.hits);
   }
   if (intent.kind === 'sabotage' && (intent.sabotage === 'rust' || intent.sabotage === 'magnetize')) {
@@ -841,7 +843,7 @@ function performAction(
   switch (a.kind) {
     case 'attack':
     case 'siphon': {
-      let dmg = amt + strength;
+      let dmg = enemyAmount(c, amt, strength); // B10b hook (modes-overwind)
       if (dazed) dmg = Math.floor(dmg * 0.75);
       let drained = 0;
       for (let h = 0; h < hitCount; h++) {
@@ -859,7 +861,7 @@ function performAction(
     }
     case 'pierce':
     case 'echo': {
-      let dmg = (a.kind === 'echo' ? echoAmount(c) : amt) + strength; // the Echo Mouth echoes as a Pierce
+      let dmg = enemyAmount(c, a.kind === 'echo' ? echoAmount(c) : amt, strength); // B10b hook (modes-overwind); the Echo Mouth echoes as a Pierce
       if (dazed) dmg = Math.floor(dmg * 0.75);
       for (let h = 0; h < hitCount; h++) {
         const lost = Math.min(c.playerHp, dmg);

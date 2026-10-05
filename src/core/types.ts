@@ -180,6 +180,9 @@ export interface CombatState {
   outcome: 'ongoing' | 'won' | 'lost';
   /** B9a: this fight's play style so far, accumulated per turn from the event timeline; recordFight moves it into the run. */
   planAcc?: PlanStats;
+  /** B10b: the run's mode and Overwind level, copied at combat start so summons scale too (missing: journeyman, 0). */
+  mode?: string;
+  overwind?: number;
   /** B9b: the Inventor's Watch snapshot taken just before the last Run (only while the trinket is held): the whole combat
    * state (board, charges, Pressure, HP, statuses, every enemy, hand, draw order, every random stream, tallies), minus
    * these two fields. A reload keeps it. */
@@ -430,6 +433,10 @@ export interface RunConfig {
   legacyMap?: boolean;
   /** B10a: the resident stalls' combined effect on this run (docs/content.md 6); `runConfigFor` fills it. Undefined: none. */
   residentPatch?: RunConfigPatch;
+  /** B10b: the difficulty mode id (content/modes.ts); missing means 'journeyman'. */
+  mode?: string;
+  /** B10b: the Overwind level 0 to 10; missing means 0. */
+  overwind?: number;
   /** B10a: the landmarks' combined effect on map generation; `startAct` passes it to `generateSection`. Undefined: none. */
   mapPatch?: MapGenPatch;
   /** B10a: resident ids living in Bellfoot when the run started (resident events that would offer them again are not placed). */
@@ -509,6 +516,9 @@ export interface RunRecord {
   act: number;
   floor: number;
   killedBy?: string;
+  /** B10b: the mode and Overwind level the run was played on (missing on older records: journeyman, 0). */
+  mode?: string;
+  overwind?: number;
   brassEarned: number;
   blueprintsFound: string[];
   partsAtEnd: string[];
@@ -548,6 +558,11 @@ export interface Profile {
   bestiary: string[]; // enemy ids met
   collars: string[]; // collar ids earned (content/collars.ts)
   collar: string | null; // the collar Sprocket wears
+  /** B10b: modes open to the player (starts ['apprentice', 'journeyman']; migrates to that). */
+  modesUnlocked: string[];
+  /** B10b: the last mode and Overwind level chosen at the clock tower door (defaults 'journeyman', 0). */
+  lastMode: string;
+  lastOverwind: number;
   /** B9b: achievement id -> ISO time it was earned (docs/content.md section 7). Migrates to {}. */
   achievements: Record<string, string>;
   /** B9b: counters across runs (pets, bells with 3+ hours, parts broken, wrecking wins, per-chassis win flags). Migrates to {}. */

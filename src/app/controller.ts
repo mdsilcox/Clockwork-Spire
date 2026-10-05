@@ -1549,6 +1549,12 @@ export function installDebug(): void {
       places: townPlaces(active?.profile.residents ?? []).map((p) => ({ id: p.id, label: p.label, x: p.x })),
     }),
     // ---- end B10a.0 block ----
+    // ---- B10b.0 CONTRACT (modes-overwind fills clocktower(); nobody else edits these blocks) ----
+    /** The clock tower door: the modes (with what opens each locked one), the Overwind levels open, and the current choice. */
+    clocktower: (): unknown => {
+      throw new Error('B10b');
+    },
+    // ---- end B10b.0 block ----
     cheat: {
       // ---- B9b.0 CONTRACT (progression lane): earn an achievement now, as finishRun would (unlocks, rewards, one save write) ----
       unlock: (id: string): void => {
@@ -1567,6 +1573,14 @@ export function installDebug(): void {
         saveActive();
       },
       // ---- end B10a.0 block ----
+      // ---- B10b.0 CONTRACT (modes-overwind): pick the mode or Overwind level for the next run on the active profile, then save ----
+      setMode: (_id: string): void => {
+        throw new Error('B10b');
+      },
+      setOverwind: (_n: number): void => {
+        throw new Error('B10b');
+      },
+      // ---- end B10b.0 block ----
       /** B9a: set the active profile's planHistory (the Clockmaker's memory), save, and re-render the Workshop. */
       setPlanHistory: (plans: Plan[]): void => {
         if (!active) return;

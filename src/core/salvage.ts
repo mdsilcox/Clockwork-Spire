@@ -1,6 +1,7 @@
 // Salvage (docs/rules.md 2.5). B7: the 'salvage' Pending replaces the part reward after fights and elites;
 // Scrap in the climb (run.scrap); v1 runs without it still pay Cogs.
 import { PARTS } from './content/parts';
+import { salvageKeepLimit } from './difficulty';
 import { partOpen } from './pool';
 import { addScrap, newPart, recordOffers, markOfferTaken } from './rewards';
 import type { CombatState, RunState, SalvageItem } from './types';
@@ -41,6 +42,7 @@ export function takeSalvage(run: RunState, keep: number[]): boolean {
   const p = run.pending;
   if (run.phase !== 'reward' || !p || p.kind !== 'salvage' || p.done) return false;
   if (keep.some((k) => !Number.isInteger(k) || k < 0 || k >= p.items.length)) return false;
+  if (keep.length > salvageKeepLimit(run)) return false; // B10b hook (modes-overwind): Overwind 7
   const { kept, scrap } = salvagePayout(p.items, keep, p.wrecked ?? 0);
   const keepSet = new Set(keep);
   p.items.forEach((it, i) => {

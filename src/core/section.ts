@@ -8,6 +8,7 @@ import type { RngState } from './rng';
 import { addScrap } from './rewards';
 import { traderStock } from './rooms';
 import { startCombat } from './startfight';
+import { eliteSteps, hoursFor } from './difficulty';
 import type { ActSection, MapGenPatch, Passage, Room, RoamingElite, RoomKind, RunState } from './types';
 
 export const DEFAULT_HOURS = 12; // Journeyman (rules 5.7)
@@ -259,7 +260,7 @@ export function startAct(run: RunState, act: 1 | 2 | 3): void {
   // the lit beacon: act 3 has 1 extra hour (the base is kept so starting act 3 twice does not add twice)
   const base = run.flags.beaconHour && run.hours !== undefined ? run.hours - 1 : (run.hours ?? DEFAULT_HOURS);
   run.flags.beaconHour = !!patch?.beacon && act === 3;
-  run.hours = base + (run.flags.beaconHour ? 1 : 0);
+  run.hours = hoursFor(run, base + (run.flags.beaconHour ? 1 : 0)); // B10b hook (modes-overwind)
   run.scrap = run.scrap ?? run.config.cogs;
   run.keys = run.keys ?? 0;
   run.prepared = undefined;
@@ -302,10 +303,13 @@ function startEliteFight(run: RunState, defId: string): void {
 /** Every undefeated elite steps one room along its patrol; returns the first one now in the player's room. */
 function stepElites(run: RunState): RoamingElite | null {
   let hit: RoamingElite | null = null;
+  const steps = eliteSteps(run); // B10b hook (modes-overwind): Overwind 5
   for (const e of run.elites ?? []) {
     if (e.defeated) continue;
-    e.at = (e.at + 1) % e.patrol.length;
-    if (!hit && e.patrol[e.at] === run.roomId) hit = e;
+    for (let s = 0; s < steps; s++) {
+      e.at = (e.at + 1) % e.patrol.length;
+      if (!hit && e.patrol[e.at] === run.roomId) hit = e;
+    }
   }
   return hit;
 }

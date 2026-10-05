@@ -5,6 +5,7 @@ import { inBoard } from './board';
 import { enemyDef } from './content/enemies';
 import { afterPlayerTurn, chooseIntent, enemyTurn, newEnemy, summonEnemy } from './enemy';
 import { initPart } from './framelib';
+import { afterPlacement, scaleEnemy, wardenExtraPart } from './difficulty';
 import { beforeEnemyTurn, canPlaceAt, onPlatingFall, onTurnStart } from './itemhooks';
 import { defaultOrder, defaultOrderFor, syncTargetIdx } from './frames';
 import { PARTS } from './content/parts';
@@ -40,6 +41,9 @@ export interface CreateCombatOpts {
   prepared?: number;
   /** B9a: the plan the Clockmaker remembers; he starts with the matching memory part (frame.memoryParts). */
   memory?: Plan | null;
+  /** B10b: the run's mode and Overwind level (missing: journeyman, 0). */
+  mode?: string;
+  overwind?: number;
 }
 
 export function createCombat(o: CreateCombatOpts): CombatState {
@@ -85,13 +89,17 @@ export function createCombat(o: CreateCombatOpts): CombatState {
     chassis: o.chassis,
     flags: {},
   };
+  if (o.mode !== undefined) c.mode = o.mode;
+  if (o.overwind !== undefined) c.overwind = o.overwind;
   for (const id of o.enemies) c.enemies.push(newEnemy(id));
+  for (const e of c.enemies) scaleEnemy(c, e); // B10b hook (modes-overwind): mode and Overwind 3 HP (summons scale in summonEnemy)
   if (o.memory) {
     for (const e of c.enemies) {
       const m = enemyDef(e.defId).frame?.memoryParts?.[o.memory];
       if (m) e.parts.push(initPart(m));
     }
   }
+  wardenExtraPart(c); // B10b hook (modes-overwind): Overwind 9's extra warden part
   if (o.overwound) {
     for (const e of c.enemies) {
       e.statuses.strength = 3;
@@ -169,6 +177,8 @@ export function cloneCombat(c: CombatState): CombatState {
     chassis: c.chassis,
     flags: { ...(c.flags ?? {}) },
     swapsUsed: c.swapsUsed,
+    ...(c.mode !== undefined ? { mode: c.mode } : {}),
+    ...(c.overwind !== undefined ? { overwind: c.overwind } : {}),
   };
 }
 
@@ -198,6 +208,7 @@ export function placePart(c: CombatState, handIndex: number, cellIdx: number): b
     firedThisTurn: 0,
   };
   if (!refund) c.placementsLeft -= 1;
+  afterPlacement(c, cellIdx); // B10b hook (modes-overwind): Overwind 4's Cold Joints
   return true;
 }
 

@@ -175,8 +175,9 @@ interface AchievementDef { id; name; text; tier: 'easy'|'medium'|'hard'; hidden:
   reward: { parts?: string[]; chassis?: string; landmark?: string; overwind?: number; journal?: string; collar?: string }; }
 interface ResidentDef { id; name; eventId: string; choice: number; stall: string; effect: RunConfigPatch; }
 interface LandmarkDef { id; name; effect: MapGenPatch; }
-interface ModeDef { id: 'apprentice'|'journeyman'|'master'|'clockwork'; enemyHp: number; enemyDmg: number; hours: number; oilHeal: number; brass: number; }
-interface OverwindDef { level: number; name: string; text: string; patch: RunConfigPatch; }
+interface ModeDef { id: 'apprentice'|'journeyman'|'master'|'clockwork'; name: string; enemyHp: number; enemyDamage: number; hours: number; oilHeal: number; brass: number; unlock: 'start'|'journeyman-win'|'master-win'; } // percents; B10b: content/modes.ts
+interface OverwindTwistDef { level: number; name: string; text: string; } // B10b: content/overwind.ts; applied through src/core/difficulty.ts hooks
+// B10b: RunConfig.mode ('journeyman' default) and overwind (0); CombatState.mode and overwind copy them at combat start; RunRecord.mode and overwind record the run.
 ```
 
 ### State

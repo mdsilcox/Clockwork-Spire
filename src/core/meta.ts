@@ -2,6 +2,8 @@
 // Pure: no DOM, no clock (times are passed in).
 import { CHASSIS } from './content/chassis';
 import { STORY_NOTES } from './content/story';
+import { DEFAULT_MODE, START_MODES } from './content/modes';
+import { scaleBrass } from './difficulty';
 import { ACHIEVEMENTS } from './content/achievements';
 import { TRINKETS } from './content/trinkets';
 import { checkAchievements } from './achievements';
@@ -47,6 +49,9 @@ export function newProfile(name: string, createdAt: string): Profile {
     bestiary: [],
     collars: [],
     collar: null,
+    modesUnlocked: START_MODES.slice(),
+    lastMode: DEFAULT_MODE,
+    lastOverwind: 0,
     achievements: {},
     achievementProgress: {},
     rewards: { journal: [], collars: [], landmarks: [], overwind: 0, chassis: [] },
@@ -95,6 +100,8 @@ export function runConfigFor(profile: Profile, seed: number, chassis: string): R
     extraEliteBlueprint: lv('notes') >= 2,
     secondWind: lv('secondwind') >= 1,
     memory: memoryPlan(profile.planHistory),
+    mode: profile.lastMode ?? DEFAULT_MODE,
+    overwind: profile.lastOverwind ?? 0,
   };
   return applyMemory(cfg, profile);
 }
@@ -182,7 +189,7 @@ export function finishRun(
     const record = prior ?? { ...runRecord(run), n: profile.runsFinished, endedAt };
     return { record, mood: profile.lastSprocketMood ?? 'comfort', brass: 0, newUnlocks: [], newNotes: [], newAchievements: [] };
   }
-  const brass = brassFor(run);
+  const brass = scaleBrass(run, brassFor(run)); // B10b hook (modes-overwind)
   const base = runRecord(run);
   const bestBefore = profile.bestFloor;
   profile.runsFinished += 1;

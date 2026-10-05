@@ -38,6 +38,10 @@ export function migrateSlot(stored: unknown): MigrationResult {
     p.bestiary ??= [];
     p.collars ??= [];
     p.collar ??= null;
+    // B10b: any version
+    p.modesUnlocked ??= ['apprentice', 'journeyman'];
+    p.lastMode ??= 'journeyman';
+    p.lastOverwind ??= 0;
   }
   if (input.run) {
     const r = input.run;

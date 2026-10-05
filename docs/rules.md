@@ -222,7 +222,7 @@ v1's reactions, now in Bellfoot (painted and rigged: idle, happy, sleepy, walk).
 | Journeyman | 100% | 100% | 12 | 30% | 100% | from the start (default) |
 | Master | 115% | 115% | 11 | 25% | 125% | after a Journeyman win |
 | Clockwork | 130% | 125% | 10 | 20% | 150% | after a Master win |
-All *(tune)*. The curve (5.8) is set on Journeyman. **Overwind** unlocks after your first win on Journeyman or harder (an Apprentice win doesn't open it): a dial of 10 levels on top of the mode, each adding one named twist (content.md); level N includes all twists below it; +10% Brass per level.
+All *(tune)*. The mode's damage % applies to the amount the player takes from an enemy action, in this order: base times the % (rounded half up), then Strength, then Overwind 8's +2, then the player's reductions (Dazed and the like), then Plating; it never touches Shell, Mend, Bulwark, Governor or Drain. Brass at the end of a run is the mode's % times (1 + 0.1 times the Overwind level), multiplied once. The first win on Journeyman or harder opens Overwind 1 to 3 (an Apprentice win does not). The curve (5.8) is set on Journeyman. **Overwind** unlocks after your first win on Journeyman or harder (an Apprentice win doesn't open it): a dial of 10 levels on top of the mode, each adding one named twist (content.md); level N includes all twists below it; +10% Brass per level.
 
 ### 5.8 The curve (enforced by the simulator, 7.4)
 - With no meta progression, the expert bot wins under 5% of Journeyman runs (the greedy bot under 2%).

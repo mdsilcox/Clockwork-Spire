@@ -637,12 +637,16 @@ Unlocked only after a first win on Journeyman or harder (rules 5.7), in stages (
 | 2 | Short Days | Each act has 1 hour fewer. |
 | 3 | Thick Plates | Enemy parts have 20% more HP. |
 | 4 | Cold Joints | The first part you place each combat is Rusted until your next turn. |
-| 5 | Restless Elites | Roaming elites step twice after your move on every 3rd move. |
-| 6 | Thin Oil | Oil stations heal half as much. |
-| 7 | Salvage Rot | You may keep only one salvaged part per combat; the rest scrap for 2 Scrap each. |
+| 5 | Restless Elites | On every third hour spent, roaming elites step twice (elites step once per hour spent, 4.3). |
+| 6 | Thin Oil | Oil stations and Oil Flasks heal half as much (after the mode's oil %, rounded half up). |
+| 7 | Salvage Rot | You may keep only one salvaged part per combat; the rest scrap for 2 Scrap each. The Scrapper's and the Tow Hook's extra offers are not limited by this. |
 | 8 | Wound Springs | Every enemy attack deals +2. |
-| 9 | The Warden Stirs | Wardens start with one extra part (a Pierce Drill, a Governor Cap, a Drain Valve or a Purge Chime, picked from your plan as the Clockmaker's memory does). |
+| 9 | The Warden Stirs | The Foreman and the Queen start with one extra part (a Pierce Drill, a Governor Cap, a Drain Valve or a Purge Chime, from the same `memoryParts` and your plan history as the Clockmaker's memory); with no plan history they gain none. The Clockmaker is unchanged: he already has one. Until B11 adds a `memory` anchor to each warden rig the marker uses the fallback position. |
 | 10 | The Thirteenth Hour | The Clockmaker gains a fourth phase after Midnight: his core re-seals behind two keystones, Thirteenth Chime (HP 30, Pierce 18 every turn) and Hourless Dial (HP 30, Rewind 3 combinations), both Braced to 15 a turn, and Plating is lost at the start of each of his turns. The core then reopens with 40 HP, Braced to 13 a turn (3 turns at least), and no Governor. Phase beat: "There is one more hour. I kept it for you." |
+
+The Thirteenth Hour in detail (B10b): Midnight's core does not die at 0 HP; the phase change runs as if its last keystone broke (the beat, the phase action) and the core re-seals behind the two keystones (HP 30 each, Braced to 15; Thirteenth Chime Pierce 18 every turn, Hourless Dial Rewind 3 combinations). Midnight's own core stays Braced to 26. Plating is lost only in this phase, at the start of his turn, before his Rewind and his attacks (Sprocket's Blanket keeps Plating only at the player's own turn start, so it does not help). The Hour Wheel and the Midnight Bell stay into this phase if standing; the Governor Frame retracts (`lastPhase: 3` under Overwind 10). When both keystones break the core reopens at 40 HP, Braced to 13, no Governor. The win check treats a Midnight core at 0 HP with the phase change pending as alive. The new parts pay Brass 4 and count for h-whole-clock; their markers use the existing bell and head-dial anchors until B11.
+
+Application order and rounding (B10b; one rule for all twists and modes). Enemy HP: the mode's HP % times Overwind 3's +20% on parts, multiplied, rounded half up once at the end, on every part and core, summons included. A hit the player takes: the base amount times the mode's damage % (rounded half up; Attack, Pierce, Siphon, Countdown and Build-up payloads only, never Shell, Mend, Bulwark, Governor or Drain), then Strength, then Overwind 8's +2, then the player's reductions (Dazed and the like), then Plating. Hours per act: the mode's hours, minus 1 with Overwind 2, plus 1 in act 3 with the beacon, never below 6. Oil: base times the mode's oil % times 0.5 with Overwind 6, rounded half up, for stations and Oil Flasks alike. Brass: the mode's % times (1 + 0.1 times the Overwind level), multiplied once at the end of the run. Overwind 4's Rust is an ordinary Rust (trinkets that clear or prevent Rust work on it). Journeyman at Overwind 0 gives exactly the numbers of v2 before B10b.
 
 ## 10. Prices and values *(tune)*
 

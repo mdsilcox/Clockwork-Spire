@@ -5,7 +5,7 @@ Built on the approved D3 design (`docs/vision-v2.md`, `docs/rules.md`, `docs/con
 ## Order
 
 ```
-Gameplay:  B7 Enemy machines ──> B8 The climb ──> B9 Wardens and rarity ──> B10 Bellfoot and difficulty ─┐
+Gameplay:  B7 Enemy machines ──> B8 The climb ──> B9 Wardens and rarity ──> B10a Bellfoot, B10b Modes and Overwind, B10c The curve ─┐
 Art:       A1 Fixes + act 1 cast ──> A2 Acts 2 and 3 cast ──> A3 Parts, scenes, events ──────────────────┤
                                                                                                          v
                                                                        B11 Art integration ──> B12 Hardening and release
@@ -20,7 +20,8 @@ A1 starts with B7. Art phases need only the approved style; gameplay phases need
 | **B8 The climb** | gameplay | the roaming act: generated sections, the Spire clock, roaming elites, workbench (fuse), traders (barter), oil, locked doors and keys, vaults, Overwound and the bell; save version 2 and migration; route bots | 12, 13 (rest), AD4 hours, BV11 |
 | **B9 Wardens and rarity** | gameplay | the three wardens with phases, Rewind parts, the Clockmaker's memory; Masterwork and Legendary parts and trinkets; achievements and the trophy list | 11, 15 (AD1 to AD3, AD6, AD7), BV4 |
 | **B10a Bellfoot** | gameplay | Bellfoot as a walkable street with its places, residents and landmarks, the archivist, collars, the Scrapper; the Bellfoot street scene (pulled forward from A3: painted layered scene with a code-drawn fallback) | 14 (BF1 to BF3, BF5; BF6's Bellfoot half) |
-| **B10b Modes, Overwind and the curve** | gameplay | the four modes, the ten Overwind twists, the hard achievements, the clock tower door's content; the retune to the curve | AD4, AD5, BV1, BV2, BV5, BV10 |
+| **B10b Modes and Overwind** | gameplay | the four modes, the clock tower door, the ten Overwind twists (including the Clockmaker's Thirteenth Hour), the six hard achievements | AD4, AD5 |
+| **B10c The curve** | gameplay | measure first (baselines, autoplay against the simulator), the retune to the curve (levers in the order of the B10b brief), the `coreTookThisTurn` reset, Plating viability, heavy sims behind `test:curve` | BV1, BV2, BV5, BV10, BV4 kept |
 | **A1 Art: fixes and act 1 cast** | art | owner's D4 notes (Sprocket's happy, the rat's motion, the title at 2x); the tinker; act 1's 5 regulars, 2 elites and the Foreman (two phase paintings if needed), each rigged with anchors for its content.md parts | AR2 (act 1), AR5 |
 | **A2 Art: acts 2 and 3 cast** | art | the remaining 10 regulars, 4 elites, the Clockmaker (phase paintings), summons | AR2, AR5 |
 | **A3 Art: parts, scenes and events** | art | painted sprites for the 70 parts; the three act cross-sections as layered scenes (2x; Bellfoot's street moved to B10a); key event and journal illustrations; trinket icons | AR5, AR6 (scenes) |

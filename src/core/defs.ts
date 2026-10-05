@@ -237,3 +237,29 @@ export interface CollarDef {
   /** The band color drawn at the Sprocket rig's `collar` anchor. */
   color: string;
 }
+
+// ---------- B10b: modes and Overwind (docs/rules.md 5.7; docs/content.md section 9) ----------
+
+export interface ModeDef {
+  id: 'apprentice' | 'journeyman' | 'master' | 'clockwork';
+  name: string;
+  /** Enemy HP, percent (100 = unchanged). */
+  enemyHp: number;
+  /** Damage the player takes from enemy actions, percent. */
+  enemyDamage: number;
+  /** Hours per act. */
+  hours: number;
+  /** Oil heal, percent of the base heal. */
+  oilHeal: number;
+  /** Brass at the end of a run, percent. */
+  brass: number;
+  /** What opens it: 'start', or the win that does ('journeyman-win', 'master-win'). */
+  unlock: 'start' | 'journeyman-win' | 'master-win';
+}
+
+export interface OverwindTwistDef {
+  /** 1 to 10; level N applies twists 1 to N and +10% Brass per level. */
+  level: number;
+  name: string;
+  text: string;
+}

@@ -18,6 +18,8 @@ export function startCombat(run: RunState, enemies: string[], kind: CombatState[
     handSize,
     chassis: run.config.chassis,
     memory: run.config.memory,
+    mode: run.config.mode,
+    overwind: run.config.overwind,
     ...extra,
   };
   const met = (run.met ??= []);
