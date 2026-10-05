@@ -16,3 +16,9 @@ Round 2 (wave 2 review):
 - Broken embers are baked into the texture: a hard-edged two-tone ember (#C2461A, #FFB547, ink edge) inside the notch, masked by the painting's alpha, so nothing floats off the silhouette. No radial glows.
 - Shock rings are ink-edged two-tone dust bands.
 - Not done: death is still a lean and sink, not a bent knee (the legs share the boot weights; a knee bend smeared).
+
+
+## B9a: in the game (RigHub)
+`src/art/foreman.ts` is this rig converted (scripts/rig-convert.mjs, then by hand): both paintings ship as WebP (`cut.webp`, `cut-phase2.webp` as the stacked layer `phase2`, crossfaded by `view.layers.phase2`; a fight that starts in phase 2 starts with the layer up). The broken look is `bakeBroken`: notches, ember rim and cracks baked into a copy of each painting by the hub. Effects clear when a new fight restarts the rig clock. `clip.webp` is re-recorded from the game itself (`node art/lib/record-game.mjs`, forced moods, 15 fps).
+
+Round 2 (art review): the Foreman loses the stray rod under his left hand (cut.png and cut-phase2.png, alpha erased below y 898 at x 190 to 240) and dies lower (lift -150, lean -22).

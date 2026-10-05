@@ -21,6 +21,8 @@ export interface RigHandle {
   setBroken(partIds: string[]): void;
   /** Crossfade a stacked layer (0..1), e.g. the Foreman's phase 2. */
   setLayer(name: string, mix: number): void;
+  /** Set the phase look at once (a fight that starts in phase 2); a phase change is played with the `phase` mood instead. */
+  setPhase(phase: number): void;
   setRect(rect: RigRect): void;
   /** An anchor's current position in stage CSS pixels: [x, y, radius], or null before the first frame. */
   anchor(id: string): [number, number, number] | null;
@@ -131,6 +133,8 @@ interface Tex {
   img: Img;
 }
 
+const IDENT = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+
 class Handle implements RigHandle {
   rect: RigRect;
   mood: string;
@@ -139,7 +143,8 @@ class Handle implements RigHandle {
   broken: Record<string, boolean> = {};
   brokenKey = '';
   brokenDirty = false;
-  brokenTex: WebGLTexture | null = null;
+  /** Broken-look textures by layer name ('' is the base painting); a layer without one draws its own texture. */
+  brokenTexs: Record<string, WebGLTexture | null> = {};
   layerMix: Record<string, number> = {};
   verts: Float32Array;
   posBuf: WebGLBuffer | null = null;
@@ -172,6 +177,7 @@ class Handle implements RigHandle {
       image: null,
       sprites: {},
       layers: this.layerMix,
+      phase: 0,
     };
     def.onMood?.(this.mood, this.view);
     this.view.state.broken = this.broken;
@@ -199,15 +205,20 @@ class Handle implements RigHandle {
 
   setBroken(ids: string[]): void {
     const notched = this.def.notches ?? {};
+    const baked = !!this.def.bakeBroken;
     const next: Record<string, boolean> = {};
     for (const id of ids) next[id] = true;
     for (const k of Object.keys(this.broken)) delete this.broken[k];
     Object.assign(this.broken, next);
-    const key = ids.filter((id) => notched[id]).sort().join(',');
+    const key = ids.filter((id) => baked || notched[id]).sort().join(',');
     if (key !== this.brokenKey) {
       this.brokenKey = key;
       this.brokenDirty = true;
     }
+  }
+
+  setPhase(phase: number): void {
+    this.view.phase = phase;
   }
 
   setLayer(name: string, mix: number): void {
@@ -245,6 +256,8 @@ class Hub implements RigHub {
   private gl: WebGLRenderingContext | null = null;
   private uBox: WebGLUniformLocation | null = null;
   private uFlash: WebGLUniformLocation | null = null;
+  private uMat: WebGLUniformLocation | null = null;
+  private uAdd: WebGLUniformLocation | null = null;
   private uAlpha: WebGLUniformLocation | null = null;
   private lost = false;
   /** False until the driver warm-up (warmUpDriver) is over. */
@@ -321,8 +334,8 @@ class Hub implements RigHub {
       p,
       this.shader(
         gl.FRAGMENT_SHADER,
-        `precision mediump float; varying vec2 v_uv; uniform sampler2D t; uniform float u_flash; uniform float u_alpha;
-         void main(){ vec4 c=texture2D(t,v_uv); c.rgb=mix(c.rgb,vec3(c.a),u_flash); gl_FragColor=c*u_alpha; }`,
+        `precision mediump float; varying vec2 v_uv; uniform sampler2D t; uniform float u_flash; uniform float u_alpha; uniform mat3 u_m; uniform vec3 u_add;
+         void main(){ vec4 c=texture2D(t,v_uv); c.rgb=u_m*c.rgb+u_add*c.a; c.rgb=mix(c.rgb,vec3(c.a),u_flash); gl_FragColor=c*u_alpha; }`,
       ),
     );
     gl.bindAttribLocation(p, 0, 'a_pos');
@@ -331,6 +344,8 @@ class Hub implements RigHub {
     gl.useProgram(p);
     this.uBox = gl.getUniformLocation(p, 'u_box');
     this.uFlash = gl.getUniformLocation(p, 'u_flash');
+    this.uMat = gl.getUniformLocation(p, 'u_m');
+    this.uAdd = gl.getUniformLocation(p, 'u_add');
     this.uAlpha = gl.getUniformLocation(p, 'u_alpha');
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -372,7 +387,7 @@ class Hub implements RigHub {
     for (const t of this.texs.values()) t.tex = this.makeTexture(t.img.bmp ?? t.img.el, !!t.img.bmp);
     for (const h of this.handles) {
       this.uploadHandle(h);
-      h.brokenTex = null;
+      h.brokenTexs = {};
       if (h.brokenKey) h.brokenDirty = true;
     }
   }
@@ -433,10 +448,10 @@ class Hub implements RigHub {
     if (i >= 0) this.handles.splice(i, 1);
     if (this.gl && !this.lost) {
       if (h.posBuf) this.gl.deleteBuffer(h.posBuf);
-      if (h.brokenTex) this.gl.deleteTexture(h.brokenTex);
+      for (const t of Object.values(h.brokenTexs)) if (t) this.gl.deleteTexture(t);
     }
     h.posBuf = null;
-    h.brokenTex = null;
+    h.brokenTexs = {};
   }
 
   private async attachTextures(h: Handle): Promise<void> {
@@ -495,33 +510,44 @@ class Hub implements RigHub {
     this.loseExt?.restoreContext();
   }
 
-  /** Rebuild a handle's broken-look texture: the painting with the broken parts' notches erased. */
+  /**
+   * Rebuild a handle's broken-look textures (the base painting and each layer): the painting with the broken parts' notches
+   * erased (def.notches) and, when the character has one, its own baking (def.bakeBroken: ember, rim and cracks), drawn at
+   * the character's full size.
+   */
   private buildBroken(h: Handle): void {
     const gl = this.gl as WebGLRenderingContext;
     h.brokenDirty = false;
-    if (h.brokenTex) gl.deleteTexture(h.brokenTex);
-    h.brokenTex = null;
+    for (const t of Object.values(h.brokenTexs)) if (t) gl.deleteTexture(t);
+    h.brokenTexs = {};
     if (!h.brokenKey || !h.base) return;
-    const img = h.base.img.el;
-    const cv = document.createElement('canvas');
-    cv.width = img.naturalWidth;
-    cv.height = img.naturalHeight;
-    const g = cv.getContext('2d');
-    if (!g) return;
-    g.drawImage(img, 0, 0);
-    g.globalCompositeOperation = 'destination-out';
-    g.fillStyle = '#000';
-    const sx = cv.width / h.def.size[0];
-    const sy = cv.height / h.def.size[1];
-    for (const id of h.brokenKey.split(',')) {
-      const poly = (h.def.notches ?? {})[id];
-      if (!poly) continue;
-      g.beginPath();
-      poly.forEach(([x, y], i) => (i ? g.lineTo(x * sx, y * sy) : g.moveTo(x * sx, y * sy)));
-      g.closePath();
-      g.fill();
+    const ids = h.brokenKey.split(',');
+    const [W, H] = h.def.size;
+    const layers: [string, Img][] = [['', h.base.img], ...Object.entries(h.layers).map(([n, t]) => [n, t.img] as [string, Img])];
+    for (const [name, img] of layers) {
+      const cv = document.createElement('canvas');
+      cv.width = W;
+      cv.height = H;
+      const g = cv.getContext('2d');
+      if (!g) continue;
+      g.drawImage(img.el, 0, 0, W, H);
+      const broken: Record<string, boolean> = {};
+      for (const id of ids) broken[id] = true;
+      if (h.def.bakeBroken) h.def.bakeBroken(g, img.el, name, broken);
+      else if (name === '') {
+        g.globalCompositeOperation = 'destination-out';
+        g.fillStyle = '#000';
+        for (const id of ids) {
+          const poly = (h.def.notches ?? {})[id];
+          if (!poly) continue;
+          g.beginPath();
+          poly.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+          g.closePath();
+          g.fill();
+        }
+      }
+      h.brokenTexs[name] = this.makeTexture(cv);
     }
-    h.brokenTex = this.makeTexture(cv);
   }
 
   mount(anchor: HTMLCanvasElement): HTMLCanvasElement | null {
@@ -629,11 +655,19 @@ class Hub implements RigHub {
         const layerNames = Object.keys(h.layers);
         // A stacked layer (same geometry) fades in over the base; once it is solid the base is skipped (one layer so far).
         const mix = layerNames.length ? Math.min(1, Math.max(0, h.layerMix[layerNames[0]] ?? 0)) : 0;
-        gl.bindTexture(gl.TEXTURE_2D, h.brokenTex ?? (h.base as Tex).tex);
+        const cm = P.tint as number[] | undefined;
+        if (cm) {
+          gl.uniformMatrix3fv(this.uMat, false, cm.slice(0, 9));
+          gl.uniform3f(this.uAdd, cm[9], cm[10], cm[11]);
+        } else {
+          gl.uniformMatrix3fv(this.uMat, false, IDENT);
+          gl.uniform3f(this.uAdd, 0, 0, 0);
+        }
+        gl.bindTexture(gl.TEXTURE_2D, h.brokenTexs[''] ?? (h.base as Tex).tex);
         gl.uniform1f(this.uAlpha, 1);
         if (mix < 0.999) gl.drawElements(gl.TRIANGLES, h.mesh.tri.length, gl.UNSIGNED_SHORT, 0);
         if (mix > 0) {
-          gl.bindTexture(gl.TEXTURE_2D, h.layers[layerNames[0]].tex);
+          gl.bindTexture(gl.TEXTURE_2D, h.brokenTexs[layerNames[0]] ?? h.layers[layerNames[0]].tex);
           gl.uniform1f(this.uAlpha, mix);
           gl.drawElements(gl.TRIANGLES, h.mesh.tri.length, gl.UNSIGNED_SHORT, 0);
         }

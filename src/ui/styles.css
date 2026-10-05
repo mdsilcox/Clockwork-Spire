@@ -3409,3 +3409,26 @@ button:disabled {
   font-size: 12px;
   font-style: italic;
 }
+
+/* the warden phase line: over the enemy side, not the board; about 2.5 s, tap to dismiss */
+.phasebanner.phase {
+  left: auto;
+  right: 8px;
+  top: 28px;
+  transform: none;
+  max-width: 44%;
+  pointer-events: auto;
+  cursor: pointer;
+  animation: beatin 0.3s ease-out;
+}
+
+@keyframes beatin {
+  from {
+    transform: translateY(-10px) scale(1.12);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}

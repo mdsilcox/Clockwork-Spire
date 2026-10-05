@@ -8,6 +8,7 @@ import { PARTS } from '../core/content/parts';
 import { GLOSSARY } from '../core/content/glossary';
 import type { CombatState, GameEvent, PartInstance, RunState, SalvageItem, TargetRef, TurnPreview, TurnResult } from '../core/types';
 import { frontOf, setOrder, toggleTarget as toggleOrder } from '../core/frames';
+import { breakPartState } from '../core/enemy';
 import { takeSalvage } from '../core/salvage';
 import * as core from '../core/run';
 import * as sect from '../core/section';
@@ -1127,6 +1128,25 @@ function cheatRunFight(enemies: string[]): void {
   afterRun(true);
 }
 
+/**
+ * Test cheat (B9a): break every standing keystone of an enemy's current phase as a Run does (the engine's own rules:
+ * the last one sets phaseLocked), then play the turn like the Run button; resolves when the replay is done.
+ */
+async function cheatBreakPhase(enemy: number): Promise<void> {
+  const c = live;
+  const e = c?.enemies[enemy];
+  if (!c || !e) return;
+  const ph = enemyDef(e.defId).frame?.phases?.[e.phase];
+  if (!ph) return;
+  const events: GameEvent[] = [];
+  for (const id of ph.keystones) {
+    const p = e.parts.find((x) => x.id === id);
+    if (p && !p.broken) breakPartState(c, enemy, p, events);
+  }
+  publish();
+  await run();
+}
+
 /** Test cheat: break a part as if it had been hit, recording its salvage (the engine's breaking rules are not re-run). */
 function cheatBreakPart(enemy: number, partId: string): void {
   const c = live;
@@ -1479,6 +1499,7 @@ export function installDebug(): void {
         afterRun(true);
       },
       breakPart: (enemy: number, partId: string): void => cheatBreakPart(enemy, partId),
+      breakPhase: (enemy: number): Promise<void> => cheatBreakPhase(enemy),
       setHp: (n: number): void => {
         if (!liveRun) return;
         liveRun.hp = n;
@@ -1587,6 +1608,14 @@ export function installDebug(): void {
   // painted enemies (B8 AR4): the RigHub's frame stats and a simulated WebGL context loss
   Object.defineProperty(w.__game, 'rig', {
     configurable: true,
-    value: { stats: () => sharedRigHub().stats(), reset: () => sharedRigHub().resetStats(), loseContext: () => sharedRigHub().loseContext(), restoreContext: () => sharedRigHub().restoreContext() },
+    value: {
+      stats: () => sharedRigHub().stats(),
+      reset: () => sharedRigHub().resetStats(),
+      loseContext: () => sharedRigHub().loseContext(),
+      restoreContext: () => sharedRigHub().restoreContext(),
+      moods: (enemy: number): string[] => stage?.rigMoods(enemy) ?? [],
+      mood: (enemy: number): string => stage?.rigMood(enemy) ?? '',
+      force: (enemy: number, mood: string): void => stage?.forceRig(enemy, mood), // for recording a rig's moods
+    },
   });
 }

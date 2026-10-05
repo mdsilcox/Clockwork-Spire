@@ -72,6 +72,14 @@ export function CombatScreen() {
   const runNow = screen.value === 'run' ? runView.value : null;
   const intro = bossIntro.value;
   const ban = banner.value;
+  // the warden's phase line shows for about 2.5 s (under a second on skip speed) and a tap dismisses it
+  const [beatGone, setBeatGone] = useState(0);
+  const beatN = ban && ban.kind === 'phase' ? ban.n : 0;
+  useEffect(() => {
+    if (!beatN) return;
+    const id = window.setTimeout(() => setBeatGone(beatN), speed.value === 'skip' ? 900 : 2500);
+    return () => window.clearTimeout(id);
+  }, [beatN]);
   const gloss = glossaryOpen.value !== null;
   const cb = colorBlind.value;
   const [toast, setToast] = useState<string>('');
@@ -696,8 +704,14 @@ export function CombatScreen() {
             </div>
           </>
         )}
-        {ban && (
-          <div class={`phasebanner ${ban.kind}`} key={ban.n} data-testid="phase-banner" role="status">
+        {ban && !(ban.kind === 'phase' && beatGone === ban.n) && (
+          <div
+            class={`phasebanner ${ban.kind}`}
+            key={ban.n}
+            data-testid={ban.kind === 'phase' ? 'phase-beat' : 'phase-banner'}
+            role="status"
+            onClick={ban.kind === 'phase' ? () => setBeatGone(ban.n) : undefined}
+          >
             {ban.text}
           </div>
         )}

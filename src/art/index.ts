@@ -12,6 +12,9 @@ const LOADERS: Record<string, () => Promise<{ default: CharacterDef }>> = {
   'spring-imp': () => import('./spring-imp'),
   gearhound: () => import('./gearhound'),
   'tinpot-general': () => import('./tinpot-general'),
+  foreman: () => import('./foreman'),
+  boilermaker: () => import('./boilermaker'),
+  clockmaker: () => import('./clockmaker'),
   tinker: () => import('./tinker'),
   sprocket: () => import('./sprocket'),
 };

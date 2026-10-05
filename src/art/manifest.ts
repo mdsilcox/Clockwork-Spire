@@ -62,6 +62,31 @@ export const MANIFEST: ManifestEntry[] = [
     source: 'art/tinpot-general',
   },
   {
+    id: 'foreman',
+    act: 1,
+    files: [
+      { path: 'art/foreman/cut.webp', bytes: 108144 },
+      { path: 'art/foreman/cut-phase2.webp', bytes: 110266 },
+    ],
+    source: 'art/foreman',
+  },
+  {
+    id: 'boilermaker',
+    act: 2,
+    files: [
+      { path: 'art/boilermaker/cut.webp', bytes: 144434 },
+    ],
+    source: 'art/boilermaker',
+  },
+  {
+    id: 'clockmaker',
+    act: 3,
+    files: [
+      { path: 'art/clockmaker/cut.webp', bytes: 103970 },
+    ],
+    source: 'art/clockmaker',
+  },
+  {
     id: 'tinker',
     act: 0,
     files: [

@@ -3,6 +3,7 @@
 // rig-hub additions (all optional, so the B8.0 contract holds): `RigView`, the `view` argument of pose/under/over,
 // `onMood`, `ease`, `durations`, `notches`, `sprites`.
 
+/** Pose values. Two names are read by the hub: `flash` (0..1, whitens the painting) and `tint` (12 numbers: a 3x3 color matrix, column-major, then an added color) for light that changes with the mood. */
 export type Pose = Record<string, number | number[] | null | undefined>;
 
 /**
@@ -24,6 +25,8 @@ export interface RigView {
   sprites: Record<string, CanvasImageSource>;
   /** Crossfade mixes set with RigHandle.setLayer (0..1), by layer name. */
   layers: Record<string, number>;
+  /** The warden phase the painting shows, 0-based (the Clockmaker's look, the Foreman's painting); the character moves it when its phase mood shifts the look. */
+  phase: number;
 }
 
 /** The rig.js character contract plus id and textures. `weights` and `deform` are pure. Coordinates are painting pixels. */
@@ -54,6 +57,12 @@ export interface CharacterDef {
   over?(ctx: CanvasRenderingContext2D, P: Pose, t: number, view?: RigView): void;
   /** Per part id, the jagged rest-pose polygon (painting px) erased from the painting when the part is broken. */
   notches?: Record<string, [number, number][]>;
+  /**
+   * Bakes the broken look into a copy of each painting (the base, name '', and every layer): the hub has drawn the
+   * painting scaled to `size` onto `g`; draw ember, rim and cracks, erase notches. `img` is the painting itself (draw
+   * it at (0, 0, size[0], size[1]) to mask against its shape). Used instead of `notches` when present.
+   */
+  bakeBroken?(g: CanvasRenderingContext2D, img: CanvasImageSource, layer: string, broken: Record<string, boolean>): void;
   /** One per content.md part id, plus 'core' and 'eyes': [x, y, radius] in painting pixels. */
   anchors: Record<string, [number, number, number]>;
 }
