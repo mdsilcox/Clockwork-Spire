@@ -23,6 +23,8 @@ export interface FightStats {
   /** v2: enemy turns that tried to damage you, and those where Plating took all of it (no HP lost). */
   damageTurns: number;
   absorbedTurns: number;
+  /** Player turns that started while the first enemy (a warden) was in phase k. */
+  phaseStartTurns: number[];
   /** Total time spent deciding, in ms (timing only). */
   decideMs: number;
   /** Turn on which the boss phase counter first became 1 and 2 (Clockmaker): turns each phase lasted. */
@@ -45,6 +47,7 @@ export function playCombatWith(c: CombatState, policy: Policy, turnCap = TURN_CA
     damageTurns: 0,
     absorbedTurns: 0,
     decideMs: 0,
+    phaseStartTurns: [],
     phaseTurns: [],
     fired: {},
   };
@@ -54,6 +57,8 @@ export function playCombatWith(c: CombatState, policy: Policy, turnCap = TURN_CA
   for (let t = 0; t < turnCap && c.outcome === 'ongoing'; t++) {
     const attacking = c.enemies.some((_e, i) => incomingOf(c, i) > 0);
     const hp0 = c.playerHp;
+    const ph0 = c.enemies[0]?.phase ?? 0;
+    st.phaseStartTurns[ph0] = (st.phaseStartTurns[ph0] ?? 0) + 1;
     const d0 = performance.now();
     const turn = policy(c);
     st.decideMs += performance.now() - d0;

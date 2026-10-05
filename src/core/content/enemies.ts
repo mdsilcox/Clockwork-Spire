@@ -517,7 +517,7 @@ const list: EnemyDef[] = [
         part({ id: 'clock-tock', name: 'Tock Weight', hp: 30, r: 'R', cadence: every, actions: [{ kind: 'rewind', amount: 1 }, { kind: 'reset-pressure' }], salvage: null, key: true, anchor: 'the pendulum weight under his ribs' }),
       ]),
       phaseDef('If the hour ends, the inventor ends with it.', { kind: 'jam' }, [], [
-        part({ id: 'clock-gov', name: 'Governor Frame', hp: 24, r: 'R', cadence: passive, passive: { kind: 'governor', cap: 14 }, salvage: null, anchor: 'the brass frame around his core' }),
+        part({ id: 'clock-gov', name: 'Governor Frame', hp: 24, r: 'R', cadence: passive, passive: { kind: 'governor', cap: 10 }, salvage: null, anchor: 'the brass frame around his core' }),
         part({ id: 'clock-wheel', name: 'Hour Wheel', hp: 26, r: 'R', cadence: every, actions: [{ kind: 'rewind', amount: 2 }], salvage: null, anchor: 'the great wheel behind his head' }),
         part({
           id: 'clock-bell',

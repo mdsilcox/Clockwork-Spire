@@ -5,6 +5,7 @@
 //   grinder: clears every fight room it can reach before the clock runs out.
 // The combat bot is the v2 expert with a narrower beam (a climb is about 60 turns; the full beam is for the fight report).
 import { defaultRunConfig } from '../../core/run';
+import { mainPlan } from '../../core/record';
 import { playClimb } from './climb';
 import type { RoutePolicy } from './climb';
 import { makeExpert2 } from './v2combat';
@@ -29,6 +30,8 @@ export interface RouteOptsV2 {
 export const ROUTE_COMBAT = makeExpert2({ width: 6, swapStates: 2, finalists: 3 });
 
 export interface RouteRun {
+  /** The run's main plan (plating, burst, pressure, statuses), or null when it dealt and gained nothing. */
+  plan: ReturnType<typeof mainPlan>;
   won: boolean;
   act: number;
   illegal: string[];
@@ -38,7 +41,7 @@ export interface RouteRun {
 export function routeRun(policy: RoutePolicyV2, seed: number, index: number): RouteRun {
   const cfg = { ...defaultRunConfig(seed * 100003 + index), legacyMap: false };
   const r = playClimb(cfg, seed * 31 + index, policy, ROUTE_COMBAT);
-  return { won: r.won, act: r.act, illegal: r.illegal };
+  return { plan: mainPlan(r.run.stats.plan), won: r.won, act: r.act, illegal: r.illegal };
 }
 
 export function summarize(policy: RoutePolicyV2, rows: RouteRun[]): RouteStatsV2 {

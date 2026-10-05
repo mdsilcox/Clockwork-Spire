@@ -9,6 +9,7 @@ import { ROUTE_COMBAT } from './v2routes';
 import type { FightSnapshot } from './drive';
 import { playCombatWith } from './fight';
 import type { FightStats } from './fight';
+import { enemyDef } from '../../core/content/enemies';
 import { burst2, expert2, maxburst2, turtle2 } from './v2combat';
 
 
@@ -72,6 +73,8 @@ export function replay(bot: V2Bot, snap: FightSnapshot, seed: number): FightStat
     trinkets: snap.trinkets,
     handSize: snap.handSize,
     chassis: snap.chassis,
+    overwound: snap.overwound,
+    prepared: snap.prepared,
   });
   return playCombatWith(c, V2_POLICY[bot]);
 }
@@ -136,8 +139,46 @@ export interface WardenFightOpts {
   bots: V2Bot[];
 }
 
-/** B9a.0 STUB: the warden-bots lane (B9a.3) implements it: the same bot against each warden on bins snapshotted from expert climbs. */
+/**
+ * Snapshots of the warden fights expert climbs reached (Journeyman, no meta, so no Clockmaker memory): `need` per warden,
+ * or as many as `maxRuns` climbs give. Climbs alternate the expert route and the rusher so act 3 is reached often enough.
+ */
+export function collectWardenBins(seed: number, need: number, maxRuns = 2500): FightSnapshot[] {
+  const snaps: FightSnapshot[] = [];
+  const count = (a: number): number => snaps.filter((x) => x.act === a).length;
+  const routes = ['expert', 'expert', 'rusher'] as const;
+  for (let i = 0; i < maxRuns && !([1, 2, 3] as const).every((a) => count(a) >= need); i++) {
+    const cfg = { ...defaultRunConfig(seed * 100003 + 5000 + i), legacyMap: false };
+    playClimb(cfg, seed * 31 + 7000 + i, routes[i % 3], ROUTE_COMBAT, { onFight: (rec) => rec.snap.tier === 'boss' && count(rec.snap.act) < need && snaps.push(rec.snap) });
+  }
+  return snaps;
+}
+
+const WARDEN_OF: Record<number, WardenId> = { 1: 'foreman', 2: 'boilermaker', 3: 'clockmaker' };
+
+function median(xs: number[]): number {
+  const s = xs.slice().sort((a, b) => a - b);
+  return s.length === 0 ? 0 : s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
+}
+
+/** The same bot against each warden on bins snapshotted from expert climbs. */
+export function wardenStatsFromBins(o: WardenFightOpts, bins: FightSnapshot[]): WardenFightStats[] {
+  const out: WardenFightStats[] = [];
+  for (const bot of o.bots) {
+    for (const act of [1, 2, 3]) {
+      const warden = WARDEN_OF[act];
+      const here = bins.filter((b) => b.act === act);
+      const rows: FightStats[] = [];
+      for (let i = 0; i < o.fights && here.length > 0; i++) rows.push(replay(bot, here[i % here.length], o.seed * 9973 + 131 * i + act));
+      const phases = enemyDef(warden).frame?.phases?.length ?? 1;
+      const won = rows.filter((r) => r.won);
+      const min = Array.from({ length: phases }, (_, k) => (won.length ? Math.min(...won.map((r) => r.phaseStartTurns[k] ?? 0)) : 0));
+      out.push({ bot, warden, fights: rows.length, turnsMedian: median(rows.map((r) => r.turns)), phaseTurnsMin: min });
+    }
+  }
+  return out;
+}
+
 export function wardenStatsV2(o: WardenFightOpts): WardenFightStats[] {
-  void o;
-  throw new Error('B9a: wardenStatsV2 not implemented');
+  return wardenStatsFromBins(o, collectWardenBins(o.seed, o.fights));
 }

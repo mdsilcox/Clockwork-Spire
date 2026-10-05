@@ -419,7 +419,7 @@ Punishes: burst and slow builds (three Moons Shell it for 6 each per turn; the R
 | orrery-ring | Brass Ring | 40 | Bulwark (passive) | passive | U | none | no | the great ring around the core |
 The Orrery is 210 HP, v1's 150 plus 3 moons of 20.
 
-**The Clockmaker** (`clockmaker`): core 78 (exposed only in Midnight), Scrap 0 (Brass instead, 4 per part), Bump 8. Warden, three phases. Sizes (tune): phase 1 keystones 26 and 24 (Braced to 13 and 12), phase 2 keystones 32 and 30 (16 and 15), core 78 (Braced to 26 per turn, and no Strike over 14 while the Governor Frame stands). **Floor: 2 + 2 + 3 = 7 turns for any build; expert about 9.**
+**The Clockmaker** (`clockmaker`): core 78 (exposed only in Midnight), Scrap 0 (Brass instead, 4 per part), Bump 8. Warden, three phases. Sizes (tune): phase 1 keystones 26 and 24 (Braced to 13 and 12), phase 2 keystones 32 and 30 (16 and 15), core 78 (Braced to 26 per turn, and no Strike over 10 while the Governor Frame stands). **Floor: 2 + 2 + 3 = 7 turns for any build; expert about 9.**
 Opening line: "Welcome back. It's still evening."
 **He remembers** (rules 5.4): he starts the fight with one extra non-keystone part answering your last three runs' main plan (below); with no history yet he has none.
 **Rewind** is the action of each phase's Rewind part (rules 4.9): at the start of each of his turns it lifts your strongest combination off the board and he heals half its damage; breaking the part stops Rewind for that phase.
@@ -427,7 +427,7 @@ Opening line: "Welcome back. It's still evening."
 - Phase beat: "I have all the time there is. I kept it." Phase action (the enemy turn after phase 1, no attacks): **Rewind** (lifts your strongest combination at once, even if the Tick Spring is broken).
 - **Phase 2: Tock** (mechanic: Pressure reset). Keystones: Minute Hand, Tock Weight (its Rewind also sets Pressure to 0). Cadences restart.
 - Phase beat: "If the hour ends, the inventor ends with it." Phase action: **Jam the Mainspring** for your next turn.
-- **Phase 3: Midnight** (mechanic: Governor and two Rewinds). The core is exposed behind the Governor Frame (24 HP; no Strike over 14). Hour Wheel rewinds two combinations; the Midnight Bell strikes on odd turns and, on even turns, Jams the Mainspring with an Attack.
+- **Phase 3: Midnight** (mechanic: Governor and two Rewinds). The core is exposed behind the Governor Frame (24 HP; no Strike over 10). Hour Wheel rewinds two combinations; the Midnight Bell strikes on odd turns and, on even turns, Jams the Mainspring with an Attack.
 - Defeat: "...Then let it be morning."
 | id | Name | HP | Action | Cadence | R | Salvage | Key | Anchor | Phase |
 |---|---|---|---|---|---|---|---|---|---|
@@ -435,7 +435,7 @@ Opening line: "Welcome back. It's still evening."
 | clock-tick | Tick Spring | 24 | Rewind 1 combination | every | R | Brass 4 | yes | the mainspring in his side | 1 |
 | clock-minute | Minute Hand | 32 | Corrode 75%, then Attack 28 | every | R | Brass 4 | yes | the minute hand he carries like a spear | 2 |
 | clock-tock | Tock Weight | 30 | Rewind 1 combination and Pressure to 0 | every | R | Brass 4 | yes | the pendulum weight under his ribs | 2 |
-| clock-gov | Governor Frame | 24 | Governor 14 (passive) | passive | R | none | no | the brass frame around his core | 3 |
+| clock-gov | Governor Frame | 24 | Governor 10 (passive) | passive | R | none | no | the brass frame around his core | 3 |
 | clock-wheel | Hour Wheel | 26 | Rewind 2 combinations | every | R | Brass 4 | no | the great wheel behind his head | 3 |
 | clock-bell | Midnight Bell | 24 | Corrode 75%, then Attack 32 (odd turns); Jam the Mainspring and Attack 36 (even turns) | odd / even | R | Brass 4 | no | the bell in his chest | 3 |
 Totals without the memory part: phase 1 parts 50, phase 2 parts 62, phase 3 core 78 plus parts 74: 264. With the memory part: 288 (v1: 390 over three phases, which the bot reached in 4 turns; Braced is what holds the length now).
