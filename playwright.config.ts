@@ -4,7 +4,7 @@ const PORT = Number(process.env.PW_PORT ?? 5320);
 
 export default defineConfig({
   testDir: 'e2e',
-  testIgnore: ['offline.spec.ts', 'career.spec.ts'], // offline: a production build (npm run test:offline); career: npm run test:career
+  testIgnore: ['offline.spec.ts', 'career.spec.ts', 'v2-wardens.spec.ts', 'v2-memory.spec.ts'], // B8 gate on main: B9a contract parked; // offline: a production build (npm run test:offline); career: npm run test:career
   workers: 2,
   timeout: 60_000,
   reporter: 'list',

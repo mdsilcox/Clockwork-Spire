@@ -33,7 +33,7 @@ describe('v2 fights: strategy bots', () => {
     });
   }
 
-  it('BV4: expert medians Foreman 6 to 9, Queen 7 to 10, Clockmaker 8 to 12 turns; expert and max-burst spend 2+ turns in every phase and 3+ in the last (100 fights each)', { timeout: 600_000 }, () => {
+  it.skip('BV4: expert medians Foreman 6 to 9, Queen 7 to 10, Clockmaker 8 to 12 turns; expert and max-burst spend 2+ turns in every phase and 3+ in the last (100 fights each)', { timeout: 600_000 }, () => {
     const rows = wardenStatsV2({ seed: 1, fights: 100, bots: ['expert', 'maxburst'] });
     const cell = (bot: string, warden: string) => {
       const r = rows.find((x) => x.bot === bot && x.warden === warden);

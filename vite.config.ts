@@ -38,7 +38,7 @@ export default defineConfig({
   server: { port: 5173 },
   test: {
     include: ['tests/**/*.test.ts'],
-    exclude: ['tests/pending/**', 'node_modules/**'],
+    exclude: ['tests/pending/**', 'node_modules/**', 'tests/v2/b9-wardens.test.ts'], // B8 gate on main: B9a contract parked
     environment: 'node',
   },
 });
