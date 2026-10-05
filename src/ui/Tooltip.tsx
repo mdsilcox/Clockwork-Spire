@@ -43,18 +43,26 @@ export function Tooltip({ tip, onEnter, onLeave }: { tip: TipInfo; onEnter: () =
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const w = Math.min(WIDTH, vw - 8);
-    const h = el.offsetHeight;
-    const cx = (tip.rect.left + tip.rect.right) / 2;
-    const left = Math.max(4, Math.min(vw - w - 4, cx - w / 2));
-    const above = tip.rect.top - h - 6 >= 4;
-    const below = tip.rect.bottom + 6 + h <= vh - 4;
-    const top = above ? tip.rect.top - h - 6 : below ? tip.rect.bottom + 6 : Math.max(4, Math.min(vh - h - 4, tip.rect.top + 4));
-    el.style.left = `${left}px`;
-    el.style.top = `${Math.max(4, top)}px`;
-    el.style.visibility = 'visible';
+    // Placed again whenever its size changes (text settling, a live detail updating), so it never runs off the screen.
+    const place = (): void => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const w = Math.min(WIDTH, vw - 8);
+      const h = Math.min(el.offsetHeight, vh - 8);
+      const cx = (tip.rect.left + tip.rect.right) / 2;
+      const left = Math.max(4, Math.min(vw - w - 4, cx - w / 2));
+      const above = tip.rect.top - h - 6 >= 4;
+      const below = tip.rect.bottom + 6 + h <= vh - 4;
+      const top = above ? tip.rect.top - h - 6 : below ? tip.rect.bottom + 6 : tip.rect.top + 4;
+      el.style.left = `${left}px`;
+      el.style.top = `${Math.max(4, Math.min(vh - h - 4, top))}px`;
+      el.style.visibility = 'visible';
+    };
+    place();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(place);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, [tip]);
   return (
     <div
@@ -64,7 +72,7 @@ export function Tooltip({ tip, onEnter, onLeave }: { tip: TipInfo; onEnter: () =
       data-testid="tooltip"
       onPointerEnter={onEnter}
       onPointerLeave={onLeave}
-      style={{ width: `min(${WIDTH}px, calc(100vw - 8px))`, visibility: 'hidden' }}
+      style={{ width: `min(${WIDTH}px, calc(100vw - 8px))`, maxHeight: 'calc(100vh - 8px)', overflowY: 'auto', visibility: 'hidden' }}
     >
       <b>{tip.title}</b> <Linked text={tip.text} />
       {tip.detail && <span class="tipdetail">{tip.detail}</span>}
