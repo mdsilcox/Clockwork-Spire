@@ -1,7 +1,9 @@
 // B1 acceptance tests (docs/acceptance.md). Written before the build; never weaken an assertion.
 import { describe, expect, it } from 'vitest';
-import { readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, extname } from 'node:path';
+import { MANIFEST } from '../../src/art/manifest';
+import { ENEMIES } from '../../src/core/content/enemies';
 import { combatWith, cell } from '../../src/core/testkit';
 import { createCombat, placePart, previewTurn, runTurn } from '../../src/core/combat';
 import { MAINSPRING } from '../../src/core/types';
@@ -108,24 +110,48 @@ describe('B1 combat', () => {
 });
 
 describe('B1 assets', () => {
-  it('A1: no image, font or audio files ship with the game', () => {
-    const banned = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.mp3', '.ogg', '.wav', '.m4a', '.ttf', '.otf', '.woff', '.woff2']);
-    const found: string[] = [];
-    const walk = (dir: string) => {
-      let entries: string[] = [];
-      try {
-        entries = readdirSync(dir);
-      } catch {
-        return;
+  // A1, rescoped to AR1 by D-033 (docs/spike-art.md): painted art ships as WebP under public/art/, listed in the manifest.
+  // v1 banned every image; the sound and font bans stay, and so does "nothing hand-drawn outside the manifest".
+  const walk = (dir: string): string[] => {
+    if (!existsSync(dir)) return [];
+    return readdirSync(dir).flatMap((name) => {
+      const p = join(dir, name);
+      return statSync(p).isDirectory() ? walk(p) : [p];
+    });
+  };
+  const norm = (p: string): string => p.replace(/\\/g, '/');
+
+  it('A1: no audio or font files in src/ or public/, and no SVG', () => {
+    const banned = new Set(['.mp3', '.ogg', '.wav', '.m4a', '.flac', '.aac', '.opus', '.ttf', '.otf', '.woff', '.woff2', '.eot', '.svg']);
+    expect([...walk('src'), ...walk('public')].filter((p) => banned.has(extname(p).toLowerCase())).map(norm)).toEqual([]);
+  });
+
+  it('A1: images only as WebP under public/art/, none in src/', () => {
+    const images = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.bmp', '.ico']);
+    expect(walk('src').filter((p) => images.has(extname(p).toLowerCase())).map(norm)).toEqual([]);
+    const stray = walk('public')
+      .filter((p) => images.has(extname(p).toLowerCase()))
+      .filter((p) => !(norm(p).startsWith('public/art/') && extname(p).toLowerCase() === '.webp'));
+    expect(stray.map(norm)).toEqual([]);
+  });
+
+  it('A1: every file under public/art/ is in the manifest with a source under art/, and every entry has its file', () => {
+    const listed = new Set(MANIFEST.flatMap((e) => e.files.map((f) => `public/${f.path}`)));
+    for (const p of walk('public/art').map(norm)) expect(listed.has(p), p).toBe(true);
+    for (const e of MANIFEST) {
+      expect(existsSync(e.source), `${e.id} source ${e.source}`).toBe(true);
+      for (const f of e.files) expect(existsSync(join('public', f.path)), f.path).toBe(true);
+    }
+  });
+
+  it('A1: size budget, 120 KB per regular cut-out, 250 KB per warden, 6 MB in all', () => {
+    let total = 0;
+    for (const e of MANIFEST) {
+      for (const f of e.files) {
+        expect(statSync(join('public', f.path)).size, f.path).toBeLessThanOrEqual(ENEMIES[e.id]?.tier === 'boss' ? 250 * 1024 : 120 * 1024);
+        total += statSync(join('public', f.path)).size;
       }
-      for (const name of entries) {
-        const p = join(dir, name);
-        if (statSync(p).isDirectory()) walk(p);
-        else if (banned.has(extname(name).toLowerCase())) found.push(p);
-      }
-    };
-    walk('src');
-    walk('public');
-    expect(found).toEqual([]);
+    }
+    expect(total).toBeLessThanOrEqual(6 * 1024 * 1024);
   });
 });

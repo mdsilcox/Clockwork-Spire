@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "art": "node scripts/art.mjs",
+    "build": "npm run art && tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "npm run test:unit && npm run test:e2e && npm run test:offline && npm run test:career",
     "test:unit": "vitest run",

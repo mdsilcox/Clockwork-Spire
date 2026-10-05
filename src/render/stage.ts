@@ -7,9 +7,15 @@ import * as audio from '../audio/synth';
 import { drawEcho, drawEnemy, drawMainspring, drawPart, drawShell, drawStatuses, newLook, newVis, partFamily, isBig, BOSS_IDS, attackStyle } from './draw';
 import type { EnemyLook, Vis } from './draw';
 import { TAU, gearPath } from './kit';
-import { partAnchors } from './anchors';
+import { partAnchors, rigAnchorsEpoch, setRigSource } from './anchors';
 import { cellRect, computeLayout, enemyBar, enemyBody, enemySlots } from './layout';
 import type { Layout, Rect } from './layout';
+import { sharedRigHub } from './rig';
+import type { RigHandle, RigRect } from './rig';
+import { characterFor, loadCharacter } from '../art';
+import type { CharacterDef } from '../art/types';
+import { GEOMETRY } from '../art/geometry';
+import type { Geometry } from '../art/geometry';
 import { COLOR, FONT } from './palette';
 import { applyEvent, timeline, viewFromState } from './replay';
 import type { StageView, Timed } from './replay';
@@ -68,6 +74,22 @@ interface Pulse {
 
 const rnd = Math.random;
 
+/** A painted enemy on the stage (RigHub handle) and what the replay last told it. */
+interface Rig {
+  h: RigHandle;
+  def: CharacterDef;
+  mood: string;
+  /** Stage time the current attack or hurt mood is over and the rig goes back to idle. */
+  until: number;
+  since: number;
+  /** Broken part ids last sent to the handle. */
+  broken: string;
+  /** Mood cued by the replay and not yet applied. */
+  cue: string;
+}
+/** A rig whose painting has not come up after this long is dropped and tried again. */
+const RIG_RETRY_S = 8;
+
 export class Stage {
   onView: (v: StageView) => void = () => {};
   onEvent: (e: GameEvent, speed: Speed) => void = () => {};
@@ -122,12 +144,25 @@ export class Stage {
   private slots: Rect[] = [];
   private slotsN = -1;
   private shellAt: number[] = [];
+  private hub = sharedRigHub();
+  /** Painted enemies by enemy index (undefined: the code-drawn enemy is shown). */
+  private rigs: (Rig | undefined)[] = [];
+  private paintedKey = '';
+  /** Characters whose painting did not load (the code-drawn enemy shows and the markers go back to the ring). */
+  private failed = new Set<string>();
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas 2D is not available');
     this.ctx = ctx;
     this.relayout();
+    // the DOM part markers sit on the painting's anchors (anchors.ts asks which rig fills a slot)
+    setRigSource((slot) => {
+      const i = this.slotList().findIndex((s) => Math.abs(s.x - slot.x) < 1 && Math.abs(s.y - slot.y) < 1 && Math.abs(s.w - slot.w) < 1 && Math.abs(s.h - slot.h) < 1);
+      const geo = i >= 0 ? this.geometryOf(i) : undefined;
+      return geo ? { def: geo, rect: this.rigRect(i, geo) } : null;
+    });
+    rigAnchorsEpoch.value++; // markers already on screen re-place themselves now that someone paints the slots
   }
 
   start(): void {
@@ -141,6 +176,8 @@ export class Stage {
   stop(): void {
     cancelAnimationFrame(this.raf);
     this.finishNow();
+    for (let i = 0; i < this.rigs.length; i++) this.dropRig(i);
+    setRigSource(null);
   }
 
   /** Match the canvas to its CSS size (device pixels, DPR capped at 2). */
@@ -151,6 +188,7 @@ export class Stage {
     this.canvas.width = Math.round(w * this.dpr);
     this.canvas.height = Math.round(h * this.dpr);
     this.layout = computeLayout(w, h);
+    this.hub.resize(w, h, this.dpr);
     this.relayout();
   }
 
@@ -194,6 +232,7 @@ export class Stage {
     while (this.looks.length < c.enemies.length) this.looks.push(newLook(this.looks.length * 1.7));
     c.enemies.forEach((e, i) => {
       this.looks[i].phase = e.phase;
+      void loadCharacter(e.defId); // a painted character, if there is one, loads in the background; until then the code-drawn enemy shows
     });
     this.slotsN = -1;
     // boss intro: once when a boss fight starts
@@ -289,6 +328,11 @@ export class Stage {
 
   /** Where part `part` of enemy `i` sits (anchors.ts decides; the core and unknown parts sit at the body center). */
   private partAt(i: number, part: string | undefined): { x: number; y: number } {
+    const r = this.rigs[i];
+    if (r && r.h.ready()) {
+      const a = r.h.anchor(part ?? 'core') ?? r.h.anchor('core'); // a painted enemy: where that part of the painting is right now
+      if (a) return { x: a[0], y: a[1] };
+    }
     const slot = this.slotList()[i];
     if (!slot) return { x: this.enemyX(i), y: this.enemyY(i) };
     const ids = (this.after?.enemies[i] ?? this.state?.enemies[i])?.parts?.map((p) => p.id) ?? [];
@@ -303,6 +347,111 @@ export class Stage {
 
   private dir(i: number): number {
     return (colOf(i) + rowOf(i)) % 2 === 0 ? 1 : -1;
+  }
+
+  // ---------- painted enemies (the RigHub, D-033) ----------
+
+  /** The replay says enemy `i` attacked, was hit or buffed: the rig plays that mood at the next frame. */
+  private cueRig(i: number, mood: string): void {
+    const r = this.rigs[i];
+    if (r) r.cue = mood;
+  }
+
+  /**
+   * The painting's geometry for enemy `i` when the stage will paint it: a painted character exists, WebGL is live and
+   * its painting has not failed to load. Known before the character module loads, so the part markers are placed on
+   * the painting from the first render and never jump (anchors.ts).
+   */
+  private geometryOf(i: number): Geometry | undefined {
+    const e = this.after?.enemies[i] ?? this.state?.enemies[i];
+    const geo = e ? GEOMETRY[e.defId] : undefined;
+    return geo && this.hub.ready() && !this.failed.has(e?.defId ?? '') ? geo : undefined;
+  }
+
+  private dropRig(i: number): void {
+    const r = this.rigs[i];
+    if (!r) return;
+    r.h.dispose();
+    this.rigs[i] = undefined;
+  }
+
+  /**
+   * Where enemy `i`'s painting goes: the whole rig frame (painting plus its pad), centered on the enemy's body area
+   * and sized so the painting is about as wide as the body (the pad is empty margin, so it may spill a little).
+   */
+  private rigRect(i: number, def: Geometry): RigRect {
+    const slot = this.slotList()[i];
+    const e = this.after?.enemies[i] ?? this.state?.enemies[i];
+    const b = enemyBody(slot, e?.parts?.length ?? 0);
+    const WW = def.size[0] + 2 * def.pad[0];
+    const WH = def.size[1] + 2 * def.pad[1];
+    // fit the painting itself, not its pad, to the body: a little wider than it, never taller
+    const paintW = Math.min(b.w * 1.05, (b.h / def.size[1]) * def.size[0]);
+    const w = (paintW / def.size[0]) * WW;
+    const h = (w / WW) * WH;
+    return { x: b.x + b.w / 2 - w / 2, y: b.y + b.h / 2 - h / 2, w, h };
+  }
+
+  /** Create, move, re-mood and drop the painted enemies for this frame; true per enemy when its painting is drawn. */
+  private syncRigs(s: CombatState, now: number): boolean[] {
+    const painted: boolean[] = [];
+    const slots = this.slotList();
+    const live = this.hub.ready();
+    for (let i = 0; i < s.enemies.length; i++) {
+      const e = s.enemies[i];
+      const def = characterFor(e.defId);
+      let r = this.rigs[i];
+      if (r && (!def || r.def !== def)) {
+        this.dropRig(i);
+        r = undefined;
+      }
+      if (!def || !slots[i] || !live) {
+        painted[i] = false;
+        continue;
+      }
+      const rect = this.rigRect(i, def);
+      if (r && !r.h.ready() && now - r.since > RIG_RETRY_S) {
+        this.failed.add(e.defId); // the painting never came up: the code-drawn enemy shows; try again
+        this.dropRig(i);
+        r = undefined;
+      }
+      if (!r) {
+        r = { h: this.hub.add(def, rect), def, mood: 'idle', until: 0, since: now, broken: '', cue: '' };
+        this.rigs[i] = r;
+      }
+      r.h.setRect(rect);
+      const look = this.looks[i];
+      const hp = this.view ? this.view.enemyHp[i] : e.hp;
+      let want = r.mood;
+      if (hp <= 0 && look && look.dead > 0) want = 'death';
+      else {
+        if (r.mood === 'death') want = 'idle'; // revived (a summon dropped in)
+        if (r.cue && def.moods[r.cue]) {
+          // a new hit restarts the flinch only once the last one is mostly over
+          if (!(r.cue === 'hurt' && r.mood === 'hurt' && now < r.until - (def.durations?.hurt ?? 1.5) * 0.6)) {
+            want = r.cue;
+            r.until = now + (def.durations?.[r.cue] ?? 1.5);
+          }
+        } else if ((r.mood === 'attack' || r.mood === 'hurt' || r.mood === 'buff') && now >= r.until) want = 'idle';
+      }
+      r.cue = '';
+      if (want !== r.mood) {
+        r.mood = want;
+        r.h.setMood(want);
+      }
+      const broken = (e.parts ?? [])
+        .filter((p) => (this.view ? this.view.partBroken[`e${i}.${p.id}`] : p.hp <= 0))
+        .map((p) => p.id)
+        .join(',');
+      if (broken !== r.broken) {
+        r.broken = broken;
+        r.h.setBroken(broken ? broken.split(',') : []);
+      }
+      painted[i] = r.h.ready();
+      if (painted[i]) this.failed.delete(e.defId);
+    }
+    for (let i = s.enemies.length; i < this.rigs.length; i++) this.dropRig(i);
+    return painted;
   }
 
   // ---------- effect helpers ----------
@@ -468,6 +617,7 @@ export class Stage {
       case 'strike': {
         if (ti < 0) break;
         if (look) look.hit = 1;
+        if ((e.amount ?? 0) > 0) this.cueRig(ti, 'hurt');
         const amt = e.amount ?? 0;
         const blocked = amt === 0;
         this.addFloat(ex + ((this.fcursor % 3) - 1) * es * 0.15, ey - es * 0.35, blocked ? 'Blocked' : String(amt), blocked ? COLOR.inkSoft : amt >= 7 ? COLOR.lamp : COLOR.hurt, amt >= 7);
@@ -636,6 +786,8 @@ export class Stage {
         if (ti < 0) break;
         const kind = e.note ?? '';
         if (look && (kind === 'attack' || kind === 'special' || kind === 'sabotage' || kind === 'debuff' || kind === 'charge')) look.lunge = 0;
+        if (kind === 'attack' || kind === 'special' || kind === 'sabotage' || kind === 'debuff' || kind === 'charge') this.cueRig(ti, 'attack');
+        else if (kind === 'buff') this.cueRig(ti, 'buff');
         const def = this.state?.enemies[ti]?.defId ?? '';
         this.bigAttack = kind === 'attack' && isBig(def);
         if (kind === 'attack') {
@@ -1041,8 +1193,23 @@ export class Stage {
       ctx.strokeRect(r.x + 5, r.y + 5, r.w - 10, r.h - 10);
     }
 
-    // enemies
+    // enemies: painted ones (the RigHub draws them all in one pass), the code-drawn enemy where there is no painting yet
     const slots = this.slotList();
+    const painted = this.syncRigs(s, now);
+    const placeKey = s.enemies.map((_, i) => (this.geometryOf(i) ? 1 : 0)).join('');
+    if (placeKey !== this.paintedKey) {
+      this.paintedKey = placeKey;
+      rigAnchorsEpoch.value++; // the DOM part markers move onto (or off) the paintings
+    }
+    for (let i = 0; i < s.enemies.length; i++) {
+      const e = s.enemies[i];
+      const look = this.looks[i];
+      const slot = slots[i];
+      if (!look || !slot || painted[i]) continue;
+      const b0 = enemyBody(slot, e.parts?.length ?? 0);
+      drawEnemy(ctx, e.defId, b0.x + b0.w / 2, b0.y + b0.h / 2, b0.w, look);
+    }
+    if (painted.some(Boolean)) this.hub.frame(ctx, now);
     for (let i = 0; i < s.enemies.length; i++) {
       const e = s.enemies[i];
       const look = this.looks[i];
@@ -1051,7 +1218,6 @@ export class Stage {
       const body = enemyBody(slot, e.parts?.length ?? 0);
       const x = body.x + body.w / 2;
       const y = body.y + body.h / 2;
-      drawEnemy(ctx, e.defId, x, y, body.w, look);
       const hp = this.view ? this.view.enemyHp[i] : e.hp;
       const shell = this.view ? this.view.enemyShell[i] : e.shell;
       if (hp > 0 && look.drop <= 0) {

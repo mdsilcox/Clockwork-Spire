@@ -25,6 +25,8 @@ describe('generated icons', () => {
     const walk = (d: string): string[] =>
       readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]));
     const files = [...walk('src'), ...(existsSync('public') ? walk('public') : [])];
-    expect(files.filter((f) => /\.(png|ico|jpe?g|gif|webp)$/.test(f))).toEqual([]);
+    // D-033: painted art ships as WebP under public/art/ (b1.acceptance A1 checks it against the manifest); icons never go there
+    const isArt = (f: string): boolean => /^public[\\/]art[\\/].*\.webp$/.test(f);
+    expect(files.filter((f) => /\.(png|ico|jpe?g|gif|webp)$/.test(f)).filter((f) => !isArt(f))).toEqual([]);
   });
 });

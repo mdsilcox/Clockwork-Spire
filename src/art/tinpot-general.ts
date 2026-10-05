@@ -1,0 +1,476 @@
+// @ts-nocheck
+// tinpot-general: converted from art/tinpot-general/tinpot-general.template.html by scripts/rig-convert.mjs, then fixed by hand (D-033).
+// The rig code is the template's own (loose types on purpose: it is animation code, checked by looking at it);
+// the typed surface is the CharacterDef export at the bottom. Mesh grid is half the template's.
+import { band, finishDef, makeView, rad, rot, smooth } from './kit';
+import type { CharacterDef } from './types';
+
+
+const clamp = v => Math.min(1, Math.max(0, v)), ease = v => v * v * (3 - 2 * v);
+const kf = (u, T, V) => { if (u <= T[0]) return V[0]; for (let i = 1; i < T.length; i++) if (u <= T[i]) return V[i - 1] + (V[i] - V[i - 1]) * ease((u - T[i - 1]) / (T[i] - T[i - 1])); return V[V.length - 1]; };
+
+// Painting 896x1152 (cut.png without the hat; hat.png is the hat alone, drawn as a sprite). Front view. Ground y about 1115.
+const W = 896, H = 1152, PADX = 380, PADY = 130;
+const NECK = [445, 495], PELV = [450, 880], SH_R = [700, 590], WR_R = [740, 602], SH_L = [180, 655], WR_L = [112, 788];
+const HEEL = [[235, 1100], [650, 1090]], FOOT = [[235, 1122], [650, 1104]];
+const HATB = [445, 352], HATC = [445, 200], FY = 1115;
+const BLADE_TIP = [735, 58], BUGLE_TIP = [64, 906], CORE = [445, 625], EYES = [[415, 413], [490, 413]];
+const INK = "#14100C", CREAM = "#F2E6CF", ORANGE = "#FFB547", EMBER = "#FF8C32", BRASS = "#C9A24A", TEAL = "#1F9A94", STEEL = "#B8C4C8", DUST = "#8C9A97";
+const flashK = c => c < 0.034 ? 0.25 : c < 0.068 ? 0.16 : c < 0.1 ? 0.07 : 0;
+
+const tin = {
+  size: [W, H], grid: [112, 144], pad: [PADX, PADY],
+  anchors: { "tinpot-horn": [655, 826, 70], "tinpot-bugle": [100, 850, 70], "tinpot-sabre": [735, 280, 90], "tinpot-hat": [445, 200, 130], core: [445, 625, 110], eyes: [452, 413, 70] },
+  weights(x, y) {
+    const w = {};
+    w.lL = band(x, 148, 326, 10) * smooth(866, 898, y);
+    w.lR = band(x, 548, 762, 10) * smooth(872, 904, y);
+    w.b = 1 - Math.max(w.lL, w.lR);
+    w.h = band(x, 270, 620, 18) * smooth(502, 470, y);                         // head (the hat is a sprite)
+    w.s = band(x, 236, 664, 14) * smooth(868, 830, y);                         // chest swell
+    w.ar = smooth(676, 712, x) * smooth(872, 842, y);                                                // sabre arm
+    w.wr = smooth(691, 703, x) * Math.max(smooth(578, 550, y), smooth(652, 688, y)) * smooth(850, 822, y);   // wrist: the blade above and below the fist
+    w.aL = smooth(216, 196, x) * smooth(645, 690, y) * smooth(960, 930, y) * Math.max(smooth(880, 850, y), smooth(140, 118, x));    // off arm below the shoulder plate
+    w.hL = smooth(212, 192, x) * smooth(772, 812, y) * smooth(960, 930, y) * Math.max(smooth(880, 850, y), smooth(140, 118, x));    // off hand and tool
+    return w;
+  },
+  deform(x, y, w, P) {
+    [x, y] = rot(x, y, ...WR_R, rad(P.wr), w.wr);
+    [x, y] = rot(x, y, ...SH_R, rad(P.ar), w.ar);
+    [x, y] = rot(x, y, ...WR_L, rad(P.hl), w.hL);
+    [x, y] = rot(x, y, ...SH_L, rad(P.al), w.aL);
+    [x, y] = rot(x, y, ...NECK, rad(P.nod), w.h);
+    const s = P.swell * w.s; x = 450 + (x - 450) * (1 + 0.5 * s); y = 860 + (y - 860) * (1 + s);
+    const q = P.sq * w.b; y = 880 + (y - 880) * (1 + q); x = 450 + (x - 450) * (1 - 0.5 * q);
+    [x, y] = rot(x, y, ...PELV, rad(P.pitch), w.b);
+    x += P.bx * w.b; y += P.by * w.b;
+    for (let i = 0; i < 2; i++) {
+      const wl = i ? w.lR : w.lL;
+      [x, y] = rot(x, y, ...HEEL[i], rad(P.lr[i]), wl);
+      x += P.lx[i] * wl; y -= P.ly[i] * wl;
+    }
+    if (P.fall) y = FY + (y - FY) * Math.cos(P.fall * rad(68));
+    return [x, y];
+  },
+  moods: { idle: {}, attack: {}, hurt: {}, death: {}, buff: {} },
+  ease: 3,
+  onMood(m, api) { const S = api.state; S.start = undefined; S.did = {}; S.next = {}; },
+  pose(L, t, dt, S, mood, api = makeView(tin, mood, S)) {
+    AV = api;
+    if (S.start === undefined) {
+      S.start = t; S.did = {}; S.next = {}; S.broken = S.broken || {}; S.bursts = []; S.puffs = []; S.sparks = [];
+      S.trail = []; S.segs = []; S.rings = []; S.bits = []; S.hat = { mode: "on" }; S.spring = null; S.lag = null; S.cyc = -1;
+    }
+    syncBroken(S);
+    const u = t - S.start, m = api.mood;
+    const P = { wr: 0, ar: 0, hl: 0, al: 0, nod: 0, swell: 0, sq: 0, pitch: 0, bx: 0, by: 0, lr: [0, 0], lx: [0, 0], ly: [0, 0], fall: 0, fl: 0, flash: 0, shake: null, hat: [0, 0, 0], blink: 0, eyes: 1, t };
+    const once = (k, cond, fn) => { if (cond && !S.did[k]) { S.did[k] = true; fn(); } };
+    const newCycle = len => { const n = Math.floor(u / len); if (n !== S.cyc) { S.cyc = n; S.did = {}; S.trail = []; } return u - n * len; };
+    if (m === "idle") {
+      const c = newCycle(4), n = S.cyc;
+      // A pompous little march in place (four steps), a pause with the chest out, a sabre twirl, a blink.
+      const steps = [[0.15, 0], [0.7, 1], [1.25, 0], [1.8, 1]];
+      const lift = [0, 0];
+      for (const [t0, i] of steps) {
+        const q = (c - t0) / 0.42; if (q > 0 && q < 1) lift[i] = Math.pow(Math.sin(Math.PI * q), 0.8);
+        once("pl" + t0, c > t0 + 0.4, () => S.puffs.push(dust(FOOT[i], P, 0.7)));
+      }
+      P.ly = [26 * lift[0], 26 * lift[1]]; P.lr = [-4 * lift[0], 4 * lift[1]]; P.lx = [0, 0];
+      const lt = lift[0] + lift[1];
+      P.by = -5 * lt; P.bx = 10 * (lift[0] - lift[1]); P.pitch = 1.3 * (lift[0] - lift[1]);
+      P.al = 5 * (lift[1] - lift[0]); P.ar = 2 * (lift[0] - lift[1]); P.nod = -1.2 * lt * (lift[0] - lift[1]);
+      const pause = ease(clamp((c - 2.0) / 0.4)) * (1 - ease(clamp((c - 3.5) / 0.4)));
+      P.swell = 0.012 + 0.012 * Math.sin(c / 4 * Math.PI * 2 - 1.2) + 0.035 * pause;
+      P.nod += -3.5 * pause; P.sq = 0.012 * pause; P.hat = [0, -4 * pause, 0];
+      const tw = kf(c, [2.7, 2.95, 3.2, 3.4, 3.6], [0, -20, 28, -6, 0]);
+      P.wr = tw; P.ar = P.ar - 3 * Math.sin(clamp((c - 2.7) / 0.9) * Math.PI);
+      
+      P.blink = (c > 3.7 && c < 3.82) ? 1 : 0;
+    } else if (m === "attack") {
+      const c = newCycle(2.2), T = [0, 0.35, 0.5, 0.62, 0.7, 1.05, 1.7, 2.2];
+      // windup: sabre high and back; strike: a fast diagonal cut down across the body toward the player (left); hold; recover.
+      P.ar = kf(c, T, [0, 30, 32, -25, -25, -22, -4, 0]); P.wr = kf(c, T, [0, 26, 30, -108, -112, -105, -10, 0]);
+      P.sq = kf(c, T, [0, -0.04, -0.05, 0.05, -0.09, -0.07, -0.01, 0]);
+      P.pitch = kf(c, T, [0, 3, 3.5, -4, -5, -4, -0.5, 0]); P.bx = kf(c, T, [0, 8, 10, -24, -30, -24, -4, 0]); P.by = kf(c, T, [0, 4, 5, 0, 7, 6, 1, 0]);
+      P.nod = kf(c, T, [0, -4, -5, 5, 6, 4, 0, 0]); P.swell = kf(c, T, [0, 0.04, 0.05, 0, 0, 0, 0, 0]); P.al = kf(c, T, [0, -5, -6, 8, 9, 6, 0, 0]);
+      if (c > 0.5 && c < 0.8) S.sweepOn = true; else S.sweepOn = false;
+      if (S.sweepOn) sweep(S, P, t); else S.prevB = null;
+      P.ly[0] = kf(c, [0, 0.4, 0.55, 0.62, 2.2], [0, 0, 14, 0, 0]); P.lx[0] = -P.ly[0] * 0.3;
+      P.lx[1] = kf(c, T, [0, 0, 0, -4, -6, -4, 0, 0]);
+      P.hat = [kf(c, T, [0, 0, 0, 0, 3, 0, 0, 0]), 0, kf(c, T, [0, -6, -8, 7, 9, 6, 0, 0])];
+      once("stomp", c >= 0.62, () => { S.puffs.push(dust(FOOT[0], P, 1.1)); S.puffs.push(dust(FOOT[1], P, 0.8)); });
+      once("sp", c >= 0.64, () => { const p = at(BLADE_TIP, P); for (let i = 0; i < 8; i++) S.sparks.push({ born: t, x: p[0], y: p[1] + 10 * i, vx: -(260 + Math.random() * 520), vy: -240 + Math.random() * 420, r: 12 + Math.random() * 12 }); });
+      if (c > 0.62 && c < 0.8) { const d = Math.exp(-(c - 0.62) * 10); P.shake = [-(5 + Math.random() * 4) * d, (Math.random() - 0.5) * 4 * d]; }
+      P.blink = (c > 0.55 && c < 0.8) ? 0.55 : 0;
+    } else if (m === "hurt") {
+      const c = newCycle(1.5), T = [0, 0.07, 0.25, 0.8, 1.5];
+      P.fl = flashK(c);
+      P.bx = kf(c, T, [0, 26, 20, 0, 0]); P.pitch = kf(c, T, [0, 3.5, 2.5, 0, 0]); P.by = kf(c, T, [0, -8, -3, 0, 0]); P.sq = kf(c, T, [0, -0.05, -0.02, 0, 0]);
+      P.ar = kf(c, T, [0, 8, 5, 0, 0]); P.al = kf(c, T, [0, -10, -6, 0, 0]); P.nod = kf(c, T, [0, -6, -4, 0, 0]);
+      P.lx = [0.7 * P.bx, 0.7 * P.bx]; P.ly = [kf(c, T, [0, 5, 0, 0, 0]), kf(c, T, [0, 5, 0, 0, 0])];
+      const wob = Math.exp(-c * 3.2) * Math.sin(c * 21);
+      P.hat = [kf(c, [0, 0.07, 0.25, 1.0, 1.5], [0, 24, 20, 6, 0]) + 5 * wob, kf(c, [0, 0.07, 0.25, 1.0, 1.5], [0, -10, -4, 0, 0]), kf(c, [0, 0.07, 0.25, 1.0, 1.5], [0, 30, 26, 10, 0]) + 7 * wob];
+      P.blink = c < 0.5 ? 0.6 : 0;
+      once("hit", c < 0.2, () => { S.bursts.push({ born: t, at: CORE, r: 95 }); S.puffs.push(dust(FOOT[0], P, 0.8)); S.puffs.push(dust(FOOT[1], P, 0.8)); });
+      const d = Math.exp(-c * 7); if (c < 0.4) P.shake = [(Math.random() - 0.5) * 8 * d, (Math.random() - 0.5) * 5 * d];
+    } else if (m === "buff") {
+      const c = Math.min(u, 1.999), T = [0, 0.3, 0.45, 1.6, 2.0];
+      P.al = kf(c, T, [0, 125, 135, 135, 0]); P.hl = kf(c, T, [0, 40, 55, 55, 0]);
+      P.ar = kf(c, T, [0, 5, 6, 6, 0]); P.nod = kf(c, T, [0, -4, -6, -6, 0]); P.pitch = kf(c, T, [0, 1.5, 2, 2, 0]);
+      P.swell = kf(c, T, [0, 0.03, 0.04, 0.04, 0]); P.sq = 0;
+      const blows = [0.5, 0.85, 1.2];
+      for (const b of blows) {
+        const q = (c - b) / 0.25; if (q > 0 && q < 1) { const k = Math.sin(q * Math.PI); P.swell += 0.03 * k; P.hat[1] -= 7 * k; P.by -= 2 * k; P.hl += 6 * k; P.al += 3 * k; }
+        once("bl" + b, c >= b, () => S.rings.push({ born: t, n: 3 }));
+      }
+      if (c > 0.45 && c < 1.5) P.shake = [(Math.random() - 0.5) * 2.5, (Math.random() - 0.5) * 2];
+      P.ly = [0, 0]; P.blink = c > 0.4 && c < 1.5 ? 0.5 : 0;
+    } else if (m === "death") {
+      const c = Math.min(u, 2.999);
+      P.fl = flashK(c);
+      const rec = ease(clamp(c / 0.14));
+      P.bx = kf(c, [0, 0.14, 0.7, 1.45, 3], [0, 28, 20, 40, 40]); P.by = kf(c, [0, 0.14, 0.7, 1.45, 1.7, 3], [0, -6, 0, 0, 0, 0]);
+      P.pitch = kf(c, [0, 0.14, 0.4, 0.7, 1.45, 3], [0, 4, -2.5, 3.5, 0, 0]);
+      const f = c < 0.7 ? 0 : c < 1.45 ? Math.pow((c - 0.7) / 0.75, 2) : c < 1.65 ? 1 - 0.07 * Math.sin((c - 1.45) / 0.2 * Math.PI) : c < 2.0 ? 1 - 0.03 * Math.sin((c - 1.65) / 0.35 * Math.PI) : 1;
+      P.fall = f;
+      P.ar = kf(c, [0, 0.7, 1.45, 3], [0, 0, 38, 38]); P.al = kf(c, [0, 0.14, 0.7, 1.45, 3], [0, -10, 0, 55, 55]); P.wr = kf(c, [0, 0.7, 1.5, 3], [0, 0, -20, -20]);
+      P.nod = kf(c, [0, 0.14, 0.7, 1.45, 3], [0, -6, 0, -8, -8]);
+      P.sq = kf(c, [0, 0.14, 1.45, 1.6, 3], [0, -0.05, 0, -0.04, 0]);
+      P.ly = [kf(c, [0, 0.7, 1.45, 3], [0, 0, 14, 14]), kf(c, [0, 0.7, 1.45, 3], [0, 0, 10, 10])]; P.lr = [kf(c, [0, 0.7, 1.45, 3], [0, 0, -6, -6]), kf(c, [0, 0.7, 1.45, 3], [0, 0, 6, 6])];
+      { const k = ease(clamp((c - 0.8) / 0.7));
+        P.ly = [34 * Math.sin(Math.PI * clamp((c - 0.8) / 0.9)) + 14 * k, 28 * Math.sin(Math.PI * clamp((c - 0.8) / 0.9)) + 10 * k];
+        P.lr = [-34 * k, 34 * k]; P.lx = [0.5 * P.bx - 40 * k, 0.5 * P.bx + 40 * k]; }
+      P.eyes = c < 1.4 ? 1 : c < 2.2 ? (Math.sin(c * 30) > 0.1 ? 1 : 0.3) : 0;
+      once("hit", c < 0.2, () => { S.bursts.push({ born: t, at: CORE, r: 100 }); S.puffs.push(dust(FOOT[0], P, 0.9)); });
+      once("pop", c >= 0.14, () => {
+        const h = at(HATC, P); S.hat = { mode: "fly", born: t, x0: h[0], y0: h[1], vx: -430, vy: -640, a0: 0, w: -7 };
+        for (let i = 0; i < 5; i++) S.sparks.push({ born: t, x: h[0] + (Math.random() - 0.5) * 120, y: h[1] + 130, vx: (Math.random() - 0.5) * 500, vy: -200 - Math.random() * 300, r: 11 + Math.random() * 8 });
+      });
+      once("thud", c >= 1.45, () => { for (const i of [0, 1]) S.puffs.push(dust(FOOT[i], P, 1.3)); S.bursts.push({ born: t, at: [445, 760], r: 80 }); P.shake = [0, 8]; });
+      once("sproing", c >= 1.55, () => { S.spring = { born: t }; for (let i = 0; i < 3; i++) S.bits.push({ born: t, x: 560 + i * 25, y: 860, vx: 120 + Math.random() * 300, vy: -500 - Math.random() * 300 }); });
+      if (c > 1.45 && c < 1.75) { const d = Math.exp(-(c - 1.45) * 9); P.shake = [0, 9 * d * Math.sin((c - 1.45) * 60)]; }
+      if (c > 0.14 && c < 0.7) P.shake = [(Math.random() - 0.5) * 6 * Math.exp(-(c - 0.14) * 4), 0];
+    }
+    // Broken parts leak flat steam.
+    const bk = S.broken || {};
+    for (const [id, pt] of [["tinpot-horn", [660, 800]], ["tinpot-bugle", [100, 840]], ["tinpot-sabre", [738, 230]], ["tinpot-hat", [400, 110]]]) {
+      if (bk[id] && m !== "death") { const n = Math.floor((u - (id.length % 5) * 0.13) / 0.7); if (S.next["st" + id] !== n) { S.next["st" + id] = n; const q = id === "tinpot-hat" ? at(HATB, P) : at(pt, P); const pp = dust(id === "tinpot-hat" ? [pt[0], pt[1] + 0] : pt, P, 1); if (id === "tinpot-hat") { pp.x = at([pt[0], pt[1]], P)[0] + (P.hat[0]); pp.y = at(HATB, P)[1] - 240 + P.hat[1]; } pp.steam = true; pp.life = 0.7; pp.r = 18; S.puffs.push(pp); } }
+    }
+    P.flash = P.fl;
+    return P;
+  },
+  under(c, P, t, api) {
+    // Flat ink shadow on the floor: it widens as he lies back.
+    const f = P.fall || 0, sx = 330 + 70 * f, sy = 34 + 48 * f, cx = 445 + (P.bx || 0) * 0.3 * f;
+    c.fillStyle = "rgba(6,24,28,0.6)"; c.beginPath(); c.ellipse(cx, 1112, sx, sy, 0, 0, 2 * Math.PI); c.fill();
+    c.fillStyle = "rgba(6,24,28,0.45)"; c.beginPath(); c.ellipse(cx, 1112, sx * 0.62, sy * 0.6, 0, 0, 2 * Math.PI); c.fill();
+  },
+  over(c, P, t, api) {
+    AV = api;
+    const S = api.state; if (!S.bursts) return;
+    drawEyes(c, P, t);
+    drawHat(c, P, t, S);
+    drawBlade(c, P, t, S);
+    drawSmear(c, t, S);
+    drawDamageMesh(c, S, t);
+    drawEffects(c, P, t, S);
+  },
+};
+function smear(S, P, t, pivot, w) {
+  const tip = at(BLADE_TIP, P), pv = at(pivot, P), an = Math.atan2(tip[1] - pv[1], tip[0] - pv[0]), R = Math.hypot(tip[0] - pv[0], tip[1] - pv[1]);
+  if (S.prevA !== undefined && Math.abs(an - S.prevA) > 0.01) { const d = Math.sign(an - S.prevA); (S.arcs = S.arcs || []).push({ a0: S.prevA, a1: an + d * 0.05, R, cx: pv[0], cy: pv[1], w, born: t }); }
+  S.prevA = an;
+}
+function at(p, P) { return tin.deform(p[0], p[1], tin.weights(p[0], p[1]), P); }
+
+// ---------- images, alpha and the broken-look kit ----------
+let AV = null; // the hub view of the frame being drawn: the painting, its alpha and the hat and blade sprites
+const spr = n => (AV ? AV.sprites[n] : undefined);
+const alphaAt = (x, y) => (AV ? AV.alpha(x, y) : 0);
+const sprAlpha = {};
+function spriteAlphaOf(name) {
+  return (x, y) => {
+    const im = spr(name); if (!im) return 0;
+    let A = sprAlpha[name];
+    if (!A) { const k = document.createElement("canvas"); k.width = im.naturalWidth; k.height = im.naturalHeight; const g = k.getContext("2d", { willReadFrequently: true }); g.drawImage(im, 0, 0); A = sprAlpha[name] = g.getImageData(0, 0, k.width, k.height); }
+    const ix = Math.round(x * A.width / W), iy = Math.round(y * A.height / H);
+    return ix < 0 || iy < 0 || ix >= A.width || iy >= A.height ? 0 : A.data[(iy * A.width + ix) * 4 + 3];
+  };
+}
+const hatAlpha = spriteAlphaOf("hat"), bladeAlpha = spriteAlphaOf("blade");
+const alphaSabre = (x, y) => Math.max(alphaAt(x, y), bladeAlpha(x, y));
+function seeded(seed) { return () => (seed = (seed * 9301 + 49297) % 233280) / 233280; }
+function jaggedBlob(cx, cy, r, n, j, seed) {
+  const rnd = seeded(seed), pts = [];
+  for (let i = 0; i < n; i++) { const an = i / n * 2 * Math.PI, rr = r * (i % 2 ? 1 - j * (0.4 + 0.6 * rnd()) : 1 + j * 0.5 * rnd()); pts.push([cx + Math.cos(an) * rr, cy + Math.sin(an) * rr]); }
+  return pts;
+}
+// DMG: id -> { poly (rest-pose polygon erased from the painting), c: crack origin, r, cracks, crack0, crackStep, seed }
+const DMG = {
+  // the sabre snaps: everything above a zigzag across the blade is gone
+  "tinpot-sabre": { poly: [[640, 20], [860, 20], [860, 236], [818, 214], [790, 250], [764, 206], [738, 252], [714, 210], [688, 244], [640, 230]], c: [738, 300], r: 40, cracks: 3, crack0: 1.0, crackStep: 0.5, seed: 11 },
+  // the bugle hand: a bite out of the grip and the tool end
+  "tinpot-bugle": { poly: jaggedBlob(98, 840, 84, 14, 0.45, 7), c: [150, 780], r: 50, cracks: 3, crack0: -0.4, crackStep: 0.7, seed: 5 },
+  // the hip horn: a chunk gone from the skirt edge
+  "tinpot-horn": { poly: jaggedBlob(676, 822, 100, 14, 0.45, 3), c: [610, 806], r: 60, cracks: 3, crack0: 2.5, crackStep: 0.5, seed: 9 },
+};
+// The hat is a sprite: its dent, notch and split are painted into a copy of it.
+const HAT_DMG = { poly: [[290, 0], [470, 0], [474, 60], [436, 46], [432, 100], [396, 78], [380, 134], [344, 104], [318, 132], [290, 112]], c: [410, 150], r: 30, cracks: 4, crack0: 1.0, crackStep: 0.4, seed: 21 };
+function edgeSegs(poly, alphaFn) {
+  const segs = []; let cur = [];
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length], n = Math.max(2, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 4));
+    for (let k = 0; k < n; k++) { const x = a[0] + (b[0] - a[0]) * k / n, y = a[1] + (b[1] - a[1]) * k / n; if (alphaFn(x, y) > 128) cur.push([x, y]); else if (cur.length) { segs.push(cur); cur = []; } }
+  }
+  if (cur.length) segs.push(cur);
+  return segs;
+}
+function crackPaths(d, alphaFn) {
+  // short, angular splits: straight runs with sharp kinks, from the crack origin outward
+  const rnd = seeded((d.seed || 3) + 40), paths = [];
+  for (let k = 0; k < (d.cracks || 3); k++) {
+    let an = (d.crack0 || 0) + k * (d.crackStep || 1.3) + rnd() * 0.3, x = d.c[0], y = d.c[1]; const pts = [[x, y]];
+    for (let s = 0; s < 8; s++) { if (s % 2 === 0) an += (rnd() - 0.5) * 1.5; x += Math.cos(an) * 24; y += Math.sin(an) * 24; if (alphaFn(x, y) > 128) pts.push([x, y]); else break; }
+    if (pts.length > 2) paths.push(pts);
+  }
+  return paths;
+}
+// Flat broken-edge ember rim (ink, orange, cream) and thick ink cracks with a cream edge. map: rest point -> drawn point.
+function paintDamage(c, d, alphaFn, map, flick) {
+  c.lineCap = "round"; c.lineJoin = "round";
+  const segs = edgeSegs(d.poly, alphaFn), paths = crackPaths(d, alphaFn);
+  for (const [col, lw] of [[INK, 28], [flick ? ORANGE : EMBER, 17], [CREAM, 6]]) {
+    c.strokeStyle = col; c.lineWidth = lw;
+    for (const s of segs) { c.beginPath(); s.forEach(([x, y], i) => { const p = map([x, y]); i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]); }); c.stroke(); }
+  }
+  c.lineJoin = "miter";
+  for (const [col, lw, off] of [[INK, 24, 0], [CREAM, 6, -3]]) {
+    c.strokeStyle = col; c.lineWidth = lw;
+    for (const pts of paths) { c.beginPath(); pts.forEach(([x, y], i) => { const p = map([x, y]); i ? c.lineTo(p[0] + off, p[1] + off) : c.moveTo(p[0] + off, p[1] + off); }); c.stroke(); }
+  }
+}
+function syncBroken(S) {
+  const sk = !!(S.broken && S.broken["tinpot-sabre"]);
+  if (S.bladeKey !== sk && spr("blade")) {
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const g = cv.getContext("2d");
+    g.drawImage(spr("blade"), 0, 0, W, H);
+    if (sk) { g.globalCompositeOperation = "destination-out"; g.fillStyle = "#000"; g.beginPath(); DMG["tinpot-sabre"].poly.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); }
+    S.bladeCv = cv; S.bladeKey = sk;
+  }
+  const hk = !!(S.broken && S.broken["tinpot-hat"]);
+  if (S.hatKey !== hk && spr("hat")) {
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H; const g = cv.getContext("2d");
+    g.drawImage(spr("hat"), 0, 0, W, H);
+    if (hk) {
+      g.globalCompositeOperation = "destination-out"; g.fillStyle = "#000"; g.beginPath(); HAT_DMG.poly.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill();
+      g.globalCompositeOperation = "source-over";
+      paintDamage(g, HAT_DMG, hatAlpha, p => p, false);
+      // a dent: two ink creases across the crown and a crack through the band
+      g.lineCap = "round"; g.lineJoin = "miter";
+      for (const [col, lw] of [[INK, 13], [CREAM, 3]]) { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); g.moveTo(520, 52); g.lineTo(486, 104); g.lineTo(512, 140); g.lineTo(478, 196); g.lineTo(500, 232); g.stroke(); }
+    }
+    S.hatCv = cv; S.hatKey = hk;
+  }
+}
+function drawDamageMesh(c, S, t) {
+  const bk = S.broken || {};
+  for (const id in bk) {
+    if (!bk[id] || !DMG[id]) continue;
+    paintDamage(c, DMG[id], id === "tinpot-sabre" ? alphaSabre : alphaAt, p => at(p, S.P), Math.sin(t * 6 + DMG[id].seed) > 0);
+  }
+}
+
+// ---------- the hat sprite ----------
+function drawHat(c, P, t, S) {
+  S.P = P;
+  const src = S.hatCv || spr("hat"); if (!src) return;
+  let drawSrc = src;
+  if (P.fl > 0) {
+    if (!S.hatFl) { S.hatFl = document.createElement("canvas"); S.hatFl.width = W; S.hatFl.height = H; }
+    const g = S.hatFl.getContext("2d"); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H); g.globalCompositeOperation = "source-over"; g.drawImage(src, 0, 0, W, H);
+    g.globalCompositeOperation = "source-atop"; g.fillStyle = "rgba(255,244,225," + P.fl + ")"; g.fillRect(0, 0, W, H); drawSrc = S.hatFl;
+  }
+  const h = S.hat;
+  c.save();
+  if (h.mode === "fly") {
+    const e = t - h.born, g = 1500, GY = FY - 195;
+    // flight with one low bounce, then a roll that slows down and settles lying on its side (crown pointing left)
+    const tl = (-h.vy + Math.sqrt(h.vy * h.vy + 4 * g * (GY - h.y0))) / (2 * g);
+    let x, y, a;
+    if (e < tl) { x = h.x0 + h.vx * e; y = h.y0 + h.vy * e + g * e * e; a = h.a0 + h.w * e; }
+    else {
+      const xl = h.x0 + h.vx * tl, al = h.a0 + h.w * tl, q = e - tl, hop = 0.32, vb = -330, tb = 2 * -vb / (2 * g);
+      y = GY; if (q < tb) y = GY + vb * q + g * q * q;
+      const roll = 1 - Math.exp(-q * 3.2);
+      x = xl + (-130) * roll; a = al + (-7.854 - al) * ease(clamp(q / 0.9)) + (q > 0.9 ? 0.09 * Math.exp(-(q - 0.9) * 4) * Math.sin((q - 0.9) * 22) : 0);
+    }
+    c.translate(x, y); c.rotate(a); c.translate(-HATC[0], -HATC[1]);
+  } else {
+    const B = at(HATB, P), B2 = at([HATB[0] + 100, HATB[1]], P), ang = Math.atan2(B2[1] - B[1], B2[0] - B[0]);
+    // overlapping action: the hat trails the head and settles after it
+    if (!S.lag) S.lag = [B[0], B[1]];
+    const dtl = Math.min(0.05, Math.max(0.001, t - (S.lt === undefined ? t - 0.033 : S.lt))); S.lt = t;
+    const k = 1 - Math.exp(-dtl * 9); S.lag[0] += (B[0] - S.lag[0]) * k; S.lag[1] += (B[1] - S.lag[1]) * k;
+    const dx = Math.max(-40, Math.min(40, (S.lag[0] - B[0]) * 0.7)), dy = Math.max(-30, Math.min(30, (S.lag[1] - B[1]) * 0.7));
+    c.translate(B[0] + dx + P.hat[0], B[1] + dy + P.hat[1]); c.rotate(ang + rad(P.hat[2] + dx * 0.12)); c.translate(-HATB[0], -HATB[1]);
+  }
+  c.drawImage(drawSrc, 0, 0, W, H);
+  c.restore();
+}
+
+// ---------- the sabre sprite (blade, guard, pommel above the fist), drawn above the hat ----------
+function drawBlade(c, P, t, S) {
+  const src = S.bladeCv || spr("blade"); if (!src) return;
+  const A = [735, 520], B = [735, 200], a = at(A, P), b = at(B, P);
+  const ang = Math.atan2(b[0] - a[0], -(b[1] - a[1])), sc = Math.hypot(b[0] - a[0], b[1] - a[1]) / 320;
+  let img = src;
+  if (P.fl > 0) {
+    if (!S.bladeFl) { S.bladeFl = document.createElement("canvas"); S.bladeFl.width = W; S.bladeFl.height = H; }
+    const g = S.bladeFl.getContext("2d"); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H); g.globalCompositeOperation = "source-over"; g.drawImage(src, 0, 0, W, H);
+    g.globalCompositeOperation = "source-atop"; g.fillStyle = "rgba(255,244,225," + P.fl + ")"; g.fillRect(0, 0, W, H); img = S.bladeFl;
+  }
+  c.save(); c.translate(a[0], a[1]); c.rotate(ang); c.scale(sc, sc); c.translate(-A[0], -A[1]); c.drawImage(img, 0, 0, W, H); c.restore();
+}
+// ---------- the slash smear: the area the blade edge sweeps each frame, flat two-tone, ink edged, gone in about 4 frames ----------
+function sweep(S, P, t) {
+  const pv = at(WR_R, P), tip = at(BLADE_TIP, P), cur = [Math.atan2(tip[1] - pv[1], tip[0] - pv[0]), Math.hypot(tip[0] - pv[0], tip[1] - pv[1])];
+  if (S.prevB) S.segs.push({ a0: S.prevB[0], a1: cur[0], r0: S.prevB[1], r1: cur[1], pv: S.prevB[2], pv1: pv, born: t });
+  S.prevB = [cur[0], cur[1], pv];
+}
+function drawSmear(c, t, S) {
+  S.segs = (S.segs || []).filter(g => t - g.born < 0.14);
+  c.lineJoin = "round";
+  for (const g of S.segs) {
+    const a = (t - g.born) / 0.14; c.globalAlpha = a < 0.35 ? 1 : a < 0.7 ? 0.6 : 0.3;
+    let da = g.a1 - g.a0; if (da > Math.PI) da -= 2 * Math.PI; if (da < -Math.PI) da += 2 * Math.PI;
+    const n = 8, pt = (f, k) => { const an = g.a0 + da * f, r = (g.r0 + (g.r1 - g.r0) * f) * k, px = g.pv[0] + (g.pv1[0] - g.pv[0]) * f, py = g.pv[1] + (g.pv1[1] - g.pv[1]) * f; return [px + Math.cos(an) * r, py + Math.sin(an) * r]; };
+    c.beginPath();
+    for (let i = 0; i <= n; i++) { const p = pt(i / n, 1); i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]); }
+    for (let i = n; i >= 0; i--) { const p = pt(i / n, 0.88); c.lineTo(p[0], p[1]); }
+    c.closePath(); c.fillStyle = CREAM; c.fill(); c.strokeStyle = INK; c.lineWidth = 9; c.stroke();
+    c.beginPath(); for (let i = 0; i <= n; i++) { const p = pt(i / n, 0.995); i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]); }
+    c.strokeStyle = ORANGE; c.lineWidth = 7; c.stroke();
+    c.globalAlpha = 1;
+  }
+}
+// ---------- eyes ----------
+function drawEyes(c, P, t) {
+  for (const e of EYES) {
+    const p = at(e, P);
+    if (P.eyes < 1) {
+      c.globalAlpha = 1 - P.eyes; c.fillStyle = "#3A1010"; c.strokeStyle = INK; c.lineWidth = 6;
+      c.beginPath(); c.ellipse(p[0], p[1], 26, 26, 0, 0, 2 * Math.PI); c.fill(); c.stroke(); c.globalAlpha = 1;
+    }
+    if (P.blink > 0) {
+      // a flat teal lid that closes over the eye (to P.blink of its height)
+      c.save(); c.beginPath(); c.ellipse(p[0], p[1], 29, 29, 0, 0, 2 * Math.PI); c.clip();
+      c.fillStyle = "#1B8F8A"; c.fillRect(p[0] - 32, p[1] - 32, 64, 64 * P.blink);
+      c.fillStyle = INK; c.fillRect(p[0] - 32, p[1] - 32 + 64 * P.blink - 4, 64, 5);
+      c.restore();
+    }
+  }
+}
+
+// ---------- flat effects ----------
+function dust(p, P, k) {
+  const [x, y] = at(p, P);
+  return { x, y: y - 6, born: undefined, r: 15 * k, life: 0.55, lumps: [[-0.8, 0.1, 0.7], [0, -0.1, 1], [0.8, 0.1, 0.7]], vx: 0 };
+}
+function drawEffects(c, P, t, S) {
+  // dust: small flat two-tone puffs, ink edged
+  S.puffs = S.puffs.filter(p => { if (p.born === undefined) p.born = t; return t - p.born < p.life; });
+  for (const p of S.puffs) {
+    if (p.steam) {
+      const a = (t - p.born) / p.life, r = p.r * (0.8 + 1.0 * a), y = p.y - 70 * a, x = p.x + 18 * Math.sin(a * 5);
+      c.globalAlpha = a < 0.5 ? 1 : a < 0.8 ? 0.6 : 0.3;
+      const lumps = [[0, 0, 1], [-0.7, 0.2, 0.7], [0.7, 0.15, 0.65], [0.1, -0.6, 0.55]].map(([ox, oy, k]) => [x + ox * r, y + oy * r, r * k]);
+      c.fillStyle = INK; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr + 4, 0, 2 * Math.PI); c.fill(); }
+      c.fillStyle = DUST; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr, 0, 2 * Math.PI); c.fill(); }
+      c.fillStyle = "#D4DAD6"; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx - lr * 0.15, ly - lr * 0.18, lr * 0.7, 0, 2 * Math.PI); c.fill(); }
+      c.globalAlpha = 1; continue;
+    }
+    const a = (t - p.born) / p.life, r = p.r * (0.7 + 1.0 * a), y = p.y - 24 * a;
+    c.globalAlpha = a < 0.5 ? 1 : a < 0.8 ? 0.65 : 0.35;
+    for (const dir of [-1, 1]) {
+      const lumps = p.lumps.map(([ox, oy, k]) => [p.x + dir * (20 + 70 * a) + ox * r * dir * 0.5, y + oy * r, r * k]);
+      c.fillStyle = INK; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr + 3, 0, 2 * Math.PI); c.fill(); }
+      c.fillStyle = DUST; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx, ly, lr, 0, 2 * Math.PI); c.fill(); }
+      c.fillStyle = "#D4DAD6"; for (const [lx, ly, lr] of lumps) { c.beginPath(); c.arc(lx - lr * 0.15, ly - lr * 0.18, lr * 0.7, 0, 2 * Math.PI); c.fill(); }
+    }
+    c.globalAlpha = 1;
+  }
+  // sabre trail: a tapering two-tone ribbon along the blade tip's path
+  S.trail = S.trail.filter(s => t - s.born < 0.2);
+  if (S.trail.length > 1) {
+    for (const [col, k] of [[INK, 1], [CREAM, 0.55]]) {
+      for (let i = 1; i < S.trail.length; i++) {
+        const a = S.trail[i - 1], b = S.trail[i], age = (t - b.born) / 0.2;
+        c.globalAlpha = age < 0.5 ? 1 : age < 0.8 ? 0.6 : 0.3; c.strokeStyle = col; c.lineCap = "round"; c.lineWidth = (k === 1 ? 40 : 22) * (1 - age * 0.6) * (0.4 + 0.6 * i / S.trail.length);
+        c.beginPath(); c.moveTo(a.p[0], a.p[1]); c.lineTo(b.p[0], b.p[1]); c.stroke();
+      }
+    }
+    c.globalAlpha = 1;
+  }
+  // ink sparks: flat four-point stars, ink edge, orange and cream
+  S.sparks = S.sparks.filter(s => t - s.born < 0.55);
+  for (const s of S.sparks) {
+    const e = t - s.born, x = s.x + s.vx * e, y = s.y + s.vy * e + 900 * e * e, a = e / 0.55, r = s.r * (1 - a * 0.5);
+    c.globalAlpha = a < 0.7 ? 1 : 0.5; c.save(); c.translate(x, y); c.rotate(e * 6);
+    for (const [k, col, lw] of [[1, ORANGE, 4], [0.5, CREAM, 0]]) {
+      c.beginPath(); for (let i = 0; i < 8; i++) { const an = i / 8 * 2 * Math.PI, rr = (i % 2 ? 0.28 : 1) * r * k * 1.5; i ? c.lineTo(Math.cos(an) * rr, Math.sin(an) * rr) : c.moveTo(Math.cos(an) * rr, Math.sin(an) * rr); }
+      c.closePath(); c.fillStyle = col; c.fill(); if (lw) { c.strokeStyle = INK; c.lineWidth = lw; c.lineJoin = "miter"; c.stroke(); }
+    }
+    c.restore(); c.globalAlpha = 1;
+  }
+  // flying rivets (death)
+  S.bits = S.bits.filter(b => t - b.born < 1.1);
+  for (const b of S.bits) {
+    const e = t - b.born, x = b.x + b.vx * e, y = b.y + b.vy * e + 1700 * e * e; if (y > 1090) continue;
+    c.fillStyle = INK; c.beginPath(); c.arc(x, y, 18, 0, 2 * Math.PI); c.fill(); c.fillStyle = BRASS; c.beginPath(); c.arc(x, y, 12, 0, 2 * Math.PI); c.fill(); c.fillStyle = CREAM; c.beginPath(); c.arc(x - 4, y - 4, 4, 0, 2 * Math.PI); c.fill();
+  }
+  // sound rings from the bugle: flat arcs, ink edge and cream
+  S.rings = S.rings.filter(r => t - r.born < 0.75);
+  if (S.rings.length) {
+    const tip = at(BUGLE_TIP, P), wr = at(WR_L, P), d = Math.atan2(tip[1] - wr[1], tip[0] - wr[0]);
+    for (const r of S.rings) for (let k = 0; k < r.n; k++) {
+      const e = (t - r.born) - k * 0.09; if (e <= 0) continue;
+      const q = e / 0.6, R = 40 + 230 * q, ox = tip[0] + Math.cos(d) * 24, oy = tip[1] + Math.sin(d) * 24;
+      c.globalAlpha = q < 0.5 ? 1 : q < 0.8 ? 0.6 : 0.3; c.lineCap = "round";
+      for (const [col, lw] of [[INK, 20], [k % 2 ? ORANGE : CREAM, 9]]) { c.strokeStyle = col; c.lineWidth = lw; c.beginPath(); c.arc(ox, oy, R, d - 0.62, d + 0.62); c.stroke(); }
+      c.globalAlpha = 1;
+    }
+  }
+  // the spring that sproings out of his hip when he is down
+  if (S.spring) {
+    const e = t - S.spring.born, B = at([585, 880], P), N = 6;
+    const ext = 30 + 190 * (1 - Math.exp(-e * 9)) * (1 + 0.28 * Math.exp(-e * 3.2) * Math.cos(e * 24)) - 60 * ease(clamp((e - 1.0) / 0.8));
+    const sway = 22 * Math.exp(-e * 2.5) * Math.sin(e * 15);
+    const pts = []; for (let i = 0; i <= 90; i++) { const ph = i / 90 * N * 2 * Math.PI; pts.push([B[0] + 30 * Math.cos(ph) + sway * i / 90, B[1] - ext * i / 90 + 10 * Math.sin(ph)]); }
+    c.lineCap = "round"; c.lineJoin = "round";
+    for (const [col, lw] of [[INK, 17], [BRASS, 10], [CREAM, 3]]) { c.strokeStyle = col; c.lineWidth = lw; c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.stroke(); }
+  }
+  // hit stars: jagged, ink edged, orange over cream
+  S.bursts = S.bursts.filter(b => t - b.born < 0.28);
+  for (const b of S.bursts) {
+    const a = (t - b.born) / 0.28, p = at(b.at, P), R = b.r * (0.6 + 0.7 * ease(a));
+    c.globalAlpha = a < 0.6 ? 1 : 0.6; c.lineJoin = "miter";
+    for (const [k, col, lw] of [[1, ORANGE, 4], [0.55, CREAM, 0]]) {
+      c.beginPath();
+      for (let i = 0; i < 16; i++) { const an = i / 16 * 2 * Math.PI, rr = (i % 2 ? 0.45 : 1 + 0.25 * ((i * 7) % 3 - 1)) * R * k; i ? c.lineTo(p[0] + Math.cos(an) * rr, p[1] + Math.sin(an) * rr) : c.moveTo(p[0] + Math.cos(an) * rr, p[1] + Math.sin(an) * rr); }
+      c.closePath(); c.fillStyle = col; c.fill(); if (lw) { c.strokeStyle = INK; c.lineWidth = lw; c.stroke(); }
+    }
+    c.globalAlpha = 1;
+  }
+}
+
+const def: CharacterDef = {
+  // the body loses its notch where the bugle hand or the hip horn breaks; the sabre and the hat are sprites with their own damage
+  notches: { "tinpot-bugle": DMG["tinpot-bugle"].poly, "tinpot-horn": DMG["tinpot-horn"].poly },
+  ...tin,
+  id: 'tinpot-general',
+  grid: [46, 60],
+  facing: 'left',
+  durations: {"idle":4,"attack":2.2,"hurt":1.5,"death":3,"buff":2},
+  texture: { regular: 'art/tinpot-general/cut.webp', sprites: { hat: 'art/tinpot-general/hat.webp', blade: 'art/tinpot-general/blade.webp' } },
+};
+export default finishDef(def);

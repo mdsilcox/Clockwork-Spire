@@ -1,0 +1,212 @@
+// @ts-nocheck
+// sprocket: converted from art/sprocket/sprocket.template.html by scripts/rig-convert.mjs, then fixed by hand (D-033).
+// The rig code is the template's own (loose types on purpose: it is animation code, checked by looking at it);
+// the typed surface is the CharacterDef export at the bottom. Mesh grid is half the template's.
+import { band, finishDef, makeView, rad, rot, smooth } from './kit';
+import type { CharacterDef } from './types';
+
+
+const EYE = { x: 193, y: 240, rx: 17, ry: 18, rot: -0.2 };
+const GROUND = 752;
+const FEETPT = [[575, 750], [485, 750], [790, 750], [1045, 752]];   // far front, near front, far hind, near hind
+const INK = "#14100C";
+
+// Legs: 0 far front, 1 near front, 2 far hind, 3 near hind. x1 of the near front and x0 of the far front follow bx(y).
+const bx = y => 565 - 42 * smooth(660, 715, y);
+const LEG = [
+  { x0: 520, x1: 650, soft: 5, r0: 600, r1: 650, up: [570, 590], k0: 660, k1: 710, kp: [575, 690] },
+  { x0: 425, x1: 567, soft: 5, r0: 575, r1: 635, up: [505, 570], k0: 650, k1: 700, kp: [495, 680] },
+  { x0: 740, x1: 930, soft: 10, r0: 585, r1: 640, up: [880, 560], k0: 640, k1: 690, kp: [895, 655] },
+  { x0: 1000, x1: 1110, soft: 8, r0: 610, r1: 660, up: [1050, 620], k0: 690, k1: 725, kp: [1050, 705] },
+];
+const TAIL_P = [1040, 340];
+
+function legId(x, y) { return x < bx(y) ? 1 : x < 700 ? 0 : x < 940 ? 2 : 3; }
+
+const sprocket = {
+  size: [1216, 832], grid: [114, 78], pad: [40, 30],
+  weights(x, y) {
+    const w = {
+      earF: band(x, 222, 262, 6) * smooth(185, 135, y),
+      earN: band(x, 262, 350, 10) * smooth(245, 175, y),
+      head: smooth(440, 340, x) * smooth(450, 380, y),
+      tail: smooth(980, 1030, x) * smooth(400, 310, y),
+      rear: smooth(600, 820, x),
+      low: smooth(548, 600, y),
+      chest: smooth(565, 430, y),
+      grd: smooth(640, 745, y),
+      jaw: smooth(318, 334, y) * smooth(290, 250, x) * smooth(420, 380, y),
+      front: smooth(780, 520, x),
+    };
+    const bxy = bx(y), bnd = LEG.map((l, i) => i === 0 ? band(x, bxy, l.x1, 12) : i === 1 ? band(x, l.x0, bxy, 12) : band(x, l.x0, l.x1, l.soft));
+    w.legU = LEG.map((l, i) => bnd[i] * smooth(l.r0, l.r1, y));
+    w.legL = LEG.map((l, i) => bnd[i] * smooth(l.k0, l.k1, y));
+    return w;
+  },
+  // Near and far legs overlap: tear the mesh along their boundaries below the belly.
+  // Front legs overlap in the painting: they blend softly (a tear would leave a stair-stepped edge); the hind legs are torn apart across the gap.
+  part(x, y) { return y < 585 ? 0 : x < 700 ? 1 : x < 940 ? 2 : 3; },
+  tear(x, y) { return y > 650; },
+  deform(x, y, w, P) {
+    [x, y] = rot(x, y, 245, 165, rad(P.earF), w.earF);
+    [x, y] = rot(x, y, 305, 205, rad(P.earN), w.earN);
+    if (w.tail) {
+      const d = Math.hypot(x - TAIL_P[0], y - TAIL_P[1]), a = rad(P.tail) * smooth(40, 300, d);
+      [x, y] = rot(x, y, TAIL_P[0], TAIL_P[1], a, w.tail);
+    }
+    for (let i = 0; i < 4; i++) {
+      const l = LEG[i];
+      [x, y] = rot(x, y, l.kp[0], l.kp[1], rad(P.legK[i]), w.legL[i]);
+      y -= P.legLift[i] * w.legL[i];
+      [x, y] = rot(x, y, l.up[0], l.up[1], rad(P.legA[i]), w.legU[i]);
+    }
+    y += P.pant * w.jaw;
+    [x, y] = rot(x, y, 345, 305, rad(P.head), w.head);
+    x += P.wiggle * w.rear * (1 - w.grd);
+    const k = 1 - 0.36 * P.crouch, drop = (GROUND - 560) * (1 - k);
+    const yc = GROUND - (GROUND - y) * k;
+    y = y + (yc - y) * w.low + drop * (1 - w.low);
+    y = 560 + drop - (560 + drop - y) * (1 + P.breath * w.chest * (1 - w.low));
+    y -= (P.hop + P.bob) * (1 - w.grd);
+    y += P.dip * w.front * (1 - w.grd);
+    return [x, y];
+  },
+  moods: {
+    idle:   { tailAmp: 8,  tailHz: 0.5, tailBase: 0,  head: 0,   ear: 0,  crouch: 0,    breath: 0.02, breathHz: 0.25, hop: 0,  wiggle: 0, tap: 0, eyes: 0, walk: 0, mouth: 0, z: 0, pant: 0, bow: 0 },
+    happy:  { tailAmp: 28, tailHz: 6,   tailBase: -3, head: 5,   ear: 7,  crouch: 0,    breath: 0.016, breathHz: 1,    hop: 0,  wiggle: 3, tap: 0, eyes: 0, walk: 0, mouth: 0, z: 0, pant: 1, bow: 1 },
+    sleepy: { tailAmp: 2,  tailHz: 0.2, tailBase: 22, head: -16, ear: 16, crouch: 0.22, breath: 0.036, breathHz: 0.2,  hop: 0,  wiggle: 0, tap: 0, eyes: 1, walk: 0, mouth: 0, z: 1, pant: 0, bow: 0 },
+    walk:   { tailAmp: 9,  tailHz: 3,   tailBase: -4, head: 0,   ear: 0,  crouch: 0,    breath: 0.012, breathHz: 1.5,  hop: 0,  wiggle: 0, tap: 0, eyes: 0, walk: 1, mouth: 0, z: 0, pant: 0, bow: 0 },
+  },
+  onMood(m, api) { api.state = { start: undefined }; },
+  pose(L, t, dt, S, mood, api = makeView(sprocket, mood, S)) {
+    if (S.start === undefined) { S.start = t; S.p = { tail: 0, breath: 0, hop: 0, wig: 0, tap: 0, walk: 0 }; S.dust = []; S.prev = [0, 0, 0, 0]; }
+    const p = S.p, TAU = 2 * Math.PI, u = t - S.start, m = api.mood;
+    p.tail += dt * L.tailHz * TAU; p.breath += dt * L.breathHz * TAU;
+    p.hop += dt * 2 * TAU; p.wig += dt * 3 * TAU; p.tap += dt * 2 * TAU;
+    p.walk += dt * 1.5 * TAU * L.walk;
+    const bump = (a, b) => (u >= a && u < b) ? Math.sin(Math.PI * (u - a) / (b - a)) : 0;
+    const c4 = u % 4;
+    let blink = 0, flickN = 0, flickF = 0, eyes = L.eyes, headX = 0;
+    if (m === "idle") {
+      blink = Math.max(bump(1.6, 1.78) * 0 + ((c4 >= 1.6 && c4 < 1.78) ? Math.sin(Math.PI * (c4 - 1.6) / 0.18) : 0),
+                       (c4 >= 3.3 && c4 < 3.48) ? Math.sin(Math.PI * (c4 - 3.3) / 0.18) : 0);
+      flickN = (c4 >= 1 && c4 < 1.35) ? Math.sin(Math.PI * (c4 - 1) / 0.35) * 12 : 0;
+      flickF = (c4 >= 2.6 && c4 < 2.95) ? Math.sin(Math.PI * (c4 - 2.6) / 0.35) * 14 : 0;
+    } else if (m === "happy") {
+      const c3 = u % 3;
+      blink = (c3 >= 1.9 && c3 < 2.08) ? Math.sin(Math.PI * (c3 - 1.9) / 0.18) : 0;
+      flickF = (c3 >= 0.6 && c3 < 0.9) ? Math.sin(Math.PI * (c3 - 0.6) / 0.3) * 8 : 0;
+    } else if (m === "sleepy") {
+      // Drowsy cycle (5 s): lids sink, hold shut, then a sluggish half-wake and back.
+      const c = u % 5, s = v => v * v * (3 - 2 * v);
+      const k = c < 1.2 ? s(c / 1.2) : c < 3.8 ? 1 : 1 - s((c - 3.8) / 1.2);
+      eyes = L.eyes * (0.6 + 0.4 * k);
+      headX = -4 * k + 3 * s(Math.max(0, 1 - Math.abs(c - 4.5) / 0.5));
+      flickN = (c >= 4.3 && c < 4.7) ? Math.sin(Math.PI * (c - 4.3) / 0.4) * 8 : 0;
+    }
+    // Happy: one play-bow dip (front end sinks, rump stays), quick pants at 4 Hz.
+    const bow = m === "happy" ? Math.pow(Math.sin(Math.PI * Math.min(1, Math.max(0, (u % 3 - 0.8) / 1.1))), 2) : 0;
+    const sw = Math.sin(p.walk), cw = Math.cos(p.walk);
+    const legA = [0, 0, 0, 0], legK = [0, 0, 0, 0], legLift = [0, 0, 0, 0];
+    const ph = [Math.PI, 0, 0, Math.PI], amp = [8, 9, 14, 15];
+    for (let i = 0; i < 4; i++) {
+      const a = Math.sin(p.walk + ph[i]), c = Math.cos(p.walk + ph[i]), sw2 = Math.max(0, c);
+      legA[i] = L.walk * amp[i] * a;
+      legK[i] = -L.walk * (i < 2 ? 9 : 22) * sw2;
+      legLift[i] = L.walk * 11 * sw2;
+      // Paw taps while happy (front legs).
+      if (i < 2) { legA[i] += (i === 0 ? 1 : -1) * L.tap * (i === 0 ? Math.max(0, Math.sin(p.tap)) : Math.max(0, -Math.sin(p.tap))); }
+      if (S.prev[i] > 0.02 && c <= 0.02 && L.walk > 0.5) S.dust.push({ born: t, i });
+      S.prev[i] = c;
+    }
+    const w2 = Math.sin(2 * p.walk);
+    return {
+      tail: L.tailBase + L.tailAmp * Math.sin(p.tail) + L.walk * 6 * Math.sin(2 * p.walk + 0.9),
+      earN: L.ear + flickN + L.walk * 6 * Math.sin(2 * p.walk - 0.8),
+      earF: L.ear + flickF + L.walk * 6 * Math.sin(2 * p.walk - 1.2),
+      head: L.head + headX + 1.3 * Math.sin(p.breath * 0.5) + (m === "happy" ? 1.2 * Math.sin(p.hop) - 4 * bow : 0) + L.walk * 2.2 * w2,
+      legA, legK, legLift,
+      bob: L.walk * 5 * Math.abs(cw) + 0,
+      hop: L.hop * Math.abs(Math.sin(p.hop)),
+      dip: 9 * L.bow * bow,
+      pant: L.pant * (m === "happy" ? 1.4 * Math.sin(u * 4 * TAU) : 0),
+      wiggle: L.wiggle * Math.sin(p.wig),
+      crouch: L.crouch,
+      breath: L.breath * Math.sin(p.breath),
+      eyes: Math.max(eyes, blink),
+      mouth: L.mouth, z: L.z, t, u,
+    };
+  },
+  anchors: { nose: [103, 288, 14], eye: [193, 240, 16], collar: [608, 380, 24], tail: [1068, 75, 30], core: [600, 420, 120], eyes: [193, 240, 30] },
+  under(c, P, t, api) {
+    dirty(c, t);
+    const s = 1 - (P.hop + P.bob) / 70;
+    c.fillStyle = `rgba(0,0,0,${0.32 * s})`;
+    c.beginPath(); c.ellipse(765, 754, 360 * s, 20 * s, 0, 0, 2 * Math.PI); c.fill();
+  },
+  over(c, P, t, api) {
+    dirty(c, t);
+    // Two rigs share one pose: only the visible layer draws the effects.
+    const at = (x, y) => api.point(x, y, P);
+    let lid = lidColor(api);
+    // Eyelid: fur color sweeping down over the eye, then a closed-eye curve.
+    if (P.eyes > 0.02) {
+      const [ex, ey] = at(EYE.x, EYE.y), a = EYE.rot + rad(P.head);
+      c.save(); c.translate(ex, ey); c.rotate(a);
+      c.beginPath(); c.ellipse(0, 0, EYE.rx, EYE.ry, 0, 0, 2 * Math.PI); c.clip();
+      const h = 2 * EYE.ry * P.eyes; c.fillStyle = lid; c.fillRect(-EYE.rx - 2, -EYE.ry - 2, 2 * EYE.rx + 4, h + 2);
+      c.restore();
+      c.save(); c.translate(ex, ey); c.rotate(a);
+      const ly = -EYE.ry + h; c.strokeStyle = "rgba(20,16,12,0.95)"; c.lineWidth = 3.4; c.lineCap = "round";
+      c.beginPath(); c.moveTo(-EYE.rx + 2, ly - 3); c.quadraticCurveTo(0, ly + 6 * P.eyes, EYE.rx + 4, ly - 2); c.stroke();
+      c.restore();
+    }
+    // Collar glint: a brass sparkle on the harness ring (happy, and once per idle loop).
+    const gl = api.mood === "happy" ? Math.max(0, Math.sin(P.t * 2 * Math.PI * 1.5)) : api.mood === "idle" ? Math.max(0, Math.sin(Math.PI * ((P.u % 4) - 2.2) / 0.5)) * ((P.u % 4) > 2.2 && (P.u % 4) < 2.7 ? 1 : 0) : 0;
+    if (gl > 0.02) {
+      const [gx, gy] = at(602, 372), r = 16 * gl;
+      c.save(); c.globalCompositeOperation = "lighter"; c.strokeStyle = `rgba(255,224,150,${gl})`; c.lineWidth = 3; c.lineCap = "round";
+      c.beginPath(); c.moveTo(gx - r, gy); c.lineTo(gx + r, gy); c.moveTo(gx, gy - r); c.lineTo(gx, gy + r); c.stroke(); c.restore();
+    }
+    // Sleepy Z puffs from the nose: three in a ring, staggered over the 5 s loop.
+    if (P.z > 0.02) {
+      const [nx, ny] = at(103, 288);
+      for (let k = 0; k < 3; k++) {
+        const age = (P.u + k * 5 / 3) % 5; if (age > 3.4) continue;
+        const a = age / 3.4, s = 9 + 14 * a, x = nx - 4 - 22 * a + 8 * Math.sin(a * 7), y = ny - 18 - 110 * a;
+        c.save(); c.globalAlpha = Math.sin(Math.PI * a) * 0.75 * P.z; c.strokeStyle = "#E8EEF0"; c.lineWidth = 3 + 2 * a; c.lineJoin = "round"; c.lineCap = "round";
+        c.beginPath(); c.moveTo(x - s, y - s); c.lineTo(x + s, y - s); c.lineTo(x - s, y + s); c.lineTo(x + s, y + s); c.stroke(); c.restore();
+      }
+    }
+    // Walk dust where a paw lands, drifting back as the ground slides past.
+    const S = api.state; S.dust = (S.dust || []).filter(d => t - d.born < 0.5);
+    for (const d of S.dust) {
+      const a = (t - d.born) / 0.5, [fx, fy] = at(FEETPT[d.i][0], FEETPT[d.i][1]);
+      c.fillStyle = `rgba(232,238,240,${0.35 * (1 - a)})`;
+      c.beginPath(); c.arc(fx + 40 * a + 10, fy - 6 - 10 * a, 7 + 9 * a, 0, 2 * Math.PI); c.fill();
+    }
+  },
+};
+// An almost invisible mark each frame keeps the browser from showing a stale canvas buffer when nothing else is drawn.
+function dirty(c, t) { c.fillStyle = `rgba(0,0,0,${0.004 + 0.002 * (Math.round(t * 30) % 2)})`; c.fillRect(0, 0, 2, 2); }
+let lidCache = null;
+function lidColor(api) { return lidCache || "rgb(222,165,101)"; }
+
+// Two paintings, one pose: the neutral painting below, the one with an open, panting mouth crossfaded over it in ~0.2 s.
+// The hub draws the 'happy' layer at view.layers.happy; the mix lives on the view so it survives mood changes.
+const poseBase = sprocket.pose;
+sprocket.pose = (L, t, dt, S, mood, api = makeView(sprocket, mood, S)) => {
+  const mix = api.layers.happy ?? 0;
+  api.layers.happy = mix + ((mood === "happy" ? 1 : 0) - mix) * (1 - Math.exp(-dt * 12));
+  return poseBase.call(sprocket, L, t, dt, S, mood, api);
+};
+
+const def: CharacterDef = {
+  ...sprocket,
+  id: 'sprocket',
+  grid: [58, 40],
+  facing: 'left',
+  durations: { idle: 4, happy: 3, sleepy: 5, walk: 2 },
+  texture: { regular: 'art/sprocket/cut.webp', layers: { happy: 'art/sprocket/cut-happy.webp' } },
+};
+export default finishDef(def);
