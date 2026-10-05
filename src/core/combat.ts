@@ -10,6 +10,7 @@ import { defaultOrder, defaultOrderFor, syncTargetIdx } from './frames';
 import { PARTS } from './content/parts';
 import { trinketDef } from './content/trinkets';
 import { anyAlive, hasTrinket, MAX_TICKS, runEnemyAttackHooks, runMachine, runTurnStartHooks } from './machine';
+import { noteFacts } from './record';
 import { initStreams, shuffle } from './rng';
 
 export { chooseIntent };
@@ -239,6 +240,7 @@ function accumulatePlan(c: CombatState, events: GameEvent[]): void {
 export function runTurn(c: CombatState): TurnResult {
   const r = runTurnInner(c);
   accumulatePlan(c, r.events);
+  noteFacts(c, r.events); // B9b: achievement facts and the Tow Hook (record.ts)
   return r;
 }
 

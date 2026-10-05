@@ -14,6 +14,8 @@ import * as core from '../core/run';
 import * as sect from '../core/section';
 import * as rooms from '../core/rooms';
 import { SAVE_VERSION } from '../core/migrate';
+import { earnAchievement } from '../core/achievements';
+import { ACHIEVEMENTS } from '../core/content/achievements';
 import { sectionFixture } from '../core/testkit';
 import { generateActMap } from '../core/map';
 import { partName } from '../core/content/parts';
@@ -467,6 +469,11 @@ export function poke(): void {
 }
 
 export function petSprocket(): void {
+  if (active) {
+    // the e-pet counter (content.md 7); the achievement itself lands when a run ends
+    active.profile.achievementProgress.pets = (active.profile.achievementProgress.pets ?? 0) + 1;
+    saveActive();
+  }
   window.clearTimeout(greetTimer);
   lastActive = Date.now();
   idleShift.value = 0;
@@ -481,6 +488,16 @@ export function petSprocket(): void {
 export function checkSleepy(): void {
   if (screen.value !== 'workshop') return;
   if (pose.value === 'idle' && Date.now() + idleShift.value - lastActive >= SLEEP_AFTER) pose.value = 'sleepy';
+}
+
+/** The trophy shelf's data (B9b): every achievement with its earned time and availability, and the rewards recorded so far. */
+export function trophyShelf(): { achievements: { id: string; earned: string | null; available: boolean }[]; rewards: Profile['rewards']; progress: Record<string, number> } {
+  const p = active?.profile;
+  return {
+    achievements: ACHIEVEMENTS.map((a) => ({ id: a.id, earned: p?.achievements[a.id] ?? null, available: a.available })),
+    rewards: clone(p?.rewards ?? { journal: [], collars: [], landmarks: [], overwind: 0, chassis: [] }),
+    progress: clone(p?.achievementProgress ?? {}),
+  };
 }
 
 function nowIso(): string {
@@ -649,6 +666,8 @@ export const goNode = (id: string): boolean => runAction((r) => core.enterNode(r
 export const rewardPart = (i: number | null): boolean => runAction((r) => core.takeRewardPart(r, i)) ?? false;
 export const salvageDone = (keep: number[]): boolean => runAction((r) => takeSalvage(r, keep)) ?? false;
 export const rewardTrinket = (i: number | null): boolean => runAction((r) => core.takeRewardTrinket(r, i)) ?? false;
+/** B9b: the Queen's pick (Pending 'legendary'). */
+export const takeLegendary = (id: string): boolean => runAction((r) => core.takeLegendary(r, id)) ?? false;
 export const chooseEvent = (i: number): string | null =>
   runAction((r) => {
     const hp0 = r.hp;
@@ -1461,14 +1480,12 @@ export function installDebug(): void {
     move: (id: string): boolean => moveRoom(id),
     // ---- B9b.0 CONTRACT (progression lane, B9b.3, replaces the bodies; nobody else edits this block) ----
     /** Trophy shelf data: achievements (with earned times and progress), rewards and what each unlocks. */
-    trophies: (): unknown => {
-      throw new Error('B9b: progression');
-    },
+    trophies: (): unknown => trophyShelf(),
     // ---- end B9b.0 block ----
     cheat: {
       // ---- B9b.0 CONTRACT (progression lane): earn an achievement now, as finishRun would (unlocks, rewards, one save write) ----
-      unlock: (_id: string): void => {
-        throw new Error('B9b: progression');
+      unlock: (id: string): void => {
+        if (active && earnAchievement(active.profile, id, nowIso())) saveActive();
       },
       // ---- end B9b.0 block ----
       /** B9a: set the active profile's planHistory (the Clockmaker's memory), save, and re-render the Workshop. */

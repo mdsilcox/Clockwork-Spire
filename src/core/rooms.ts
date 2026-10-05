@@ -1,13 +1,13 @@
 // The climb's rooms: workbench (upgrade, remove, fuse), traders (barter), oil stations, vaults; Scrap
 // (docs/rules.md 4.4, 4.5; prices in docs/content.md section 10). Every action is allowed once per visit where rules 4.4
 // says so. The caller opens the room's screen (sets `phase` and `pending`); these functions act on that pending.
-import { int, next, pick, shuffle } from './rng';
+import { int, pick, shuffle } from './rng';
 import { PARTS } from './content/parts';
 import { TRINKETS } from './content/trinkets';
-import { addScrap, gainTrinket, heal, markOfferTaken, newPart, partPool, randomTrinket, recordOffers, scrapOf } from './rewards';
-import { isPartUnlocked } from './salvage';
+import { eligible, foldDown, rollTier, canTakeLegendary } from './pool';
+import { addScrap, gainTrinket, heal, markOfferTaken, newPart, recordOffers, scrapOf } from './rewards';
 import { spendHour } from './section';
-import type { Pending, Rarity, RunState, TradeItem } from './types';
+import type { Family, Pending, Rarity, RunState, TradeItem } from './types';
 
 export const UPGRADE_SCRAP: Record<string, number> = { common: 15, uncommon: 25, rare: 40, masterwork: 60, legendary: 80 };
 export const REMOVE_SCRAP_BASE = 25;
@@ -22,10 +22,17 @@ export const VAULT_SCRAP = 40;
 const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'masterwork', 'legendary'];
 
 /** Trader stock odds by act (docs/content.md section 1), in percent: common, uncommon, rare, masterwork. */
-const TRADER_PARTS: Record<number, number[]> = { 1: [62, 33, 5, 0], 2: [46, 38, 14, 2], 3: [36, 38, 21, 5] };
-const TRADER_TRINKETS: Record<number, number[]> = { 1: [60, 35, 5], 2: [40, 45, 15], 3: [28, 44, 24] };
+const TRADER_PARTS: Record<number, Partial<Record<Rarity, number>>> = {
+  1: { common: 62, uncommon: 33, rare: 5 },
+  2: { common: 46, uncommon: 38, rare: 14, masterwork: 2 },
+  3: { common: 36, uncommon: 38, rare: 21, masterwork: 5 },
+};
+const TRADER_TRINKETS: Record<number, Partial<Record<Rarity, number>>> = {
+  1: { common: 60, uncommon: 35, rare: 5 },
+  2: { common: 40, uncommon: 45, rare: 15 },
+  3: { common: 28, uncommon: 44, rare: 24, masterwork: 4 },
+};
 
-const isSellable = (id: string): boolean => id !== 'mainspring' && id !== 'spire-key' && !!PARTS[id];
 
 /** Gilded Cog: -20% on the Scrap you pay at a trader. */
 const discount = (run: RunState): number => (run.trinkets.includes('gilded-cog') ? 0.8 : 1);
@@ -101,14 +108,12 @@ export function fuseCandidates(run: RunState, a: number, b: number): { candidate
   if (typeof inp === 'string') return { reason: inp };
   const cached = p.fuse;
   if (cached && ((cached.a === a && cached.b === b) || (cached.a === b && cached.b === a))) return { candidates: cached.candidates.slice() };
-  const open = partPool(run).filter((d) => isSellable(d.id) && d.family === inp.family && d.rarity === inp.target && isPartUnlocked(run, d.id));
+  const open = eligible(null, run, { kind: 'part', tier: inp.target, family: inp.family as Family });
   if (open.length === 0) return { reason: 'Nothing here is ready yet.' };
   // content.md section 1 prefers parts sharing a role tag with an input; the data carries no role tags, so every unlocked
   // part of that family and rarity qualifies, shuffled by `reward`. Spectacles show a third candidate.
   const count = run.trinkets.includes('spectacles') ? 3 : 2;
-  const candidates = shuffle(run.rng, 'reward', open)
-    .slice(0, count)
-    .map((d) => d.id);
+  const candidates = shuffle(run.rng, 'reward', open).slice(0, count);
   p.fuse = { a, b, candidates };
   recordOffers(run, candidates, 'fuse');
   return { candidates: candidates.slice() };
@@ -124,47 +129,38 @@ export function fuse(run: RunState, a: number, b: number, pick: number): boolean
   run.bin = run.bin.filter((x) => x.uid !== a && x.uid !== b);
   newPart(run, id);
   markOfferTaken(run, id, 'fuse');
+  run.stats.fuses = (run.stats.fuses ?? 0) + 1;
   p.usedFuse = true;
   p.fuse = undefined;
   return true;
 }
 
 // Traders
-function rollIndex(run: RunState, weights: readonly number[]): number {
-  const r = next(run.rng, 'shop') * weights.reduce((x, y) => x + y, 0);
-  let acc = 0;
-  for (let i = 0; i < weights.length; i++) {
-    acc += weights[i];
-    if (r < acc) return i;
-  }
-  return 0;
-}
-
-/** Roll a trader's stock on entry (`shop` stream): 4 parts (5 with Spectacles), 1 trinket and oil. The parts are
- * recorded as offers (source 'trader'). A tier with nothing unlocked folds into the tier below. */
+/** Roll a trader's stock on entry (`shop` stream): 4 parts (5 with Spectacles), 1 trinket and oil, every item through the one
+ * pool (pool.ts). The parts are recorded as offers (source 'trader'). A tier with nothing unlocked folds into the tier below;
+ * Legendaries never appear. */
 export function traderStock(run: RunState): TradeItem[] {
   const act = run.act;
   const stock: TradeItem[] = [];
   const chosen: string[] = [];
   const nParts = 4 + (run.trinkets.includes('spectacles') ? 1 : 0);
-  const pool = partPool(run).filter((d) => isSellable(d.id) && d.rarity !== 'legendary');
   for (let n = 0; n < nParts; n++) {
-    let cand: typeof pool = [];
-    for (let tier = rollIndex(run, TRADER_PARTS[act] ?? TRADER_PARTS[1]); tier >= 0 && cand.length === 0; tier--) {
-      cand = pool.filter((d) => d.rarity === RARITY_ORDER[tier] && !chosen.includes(d.id));
-    }
-    if (cand.length === 0) cand = pool.filter((d) => !chosen.includes(d.id));
+    const tier = rollTier(run, 'shop', TRADER_PARTS[act] ?? TRADER_PARTS[1]);
+    let cand = foldDown(null, run, 'part', tier, (id) => !chosen.includes(id)).ids;
+    if (cand.length === 0) cand = (['common', 'uncommon', 'rare'] as const).flatMap((t) => eligible(null, run, { kind: 'part', tier: t })).filter((id) => !chosen.includes(id));
     if (cand.length === 0) break;
-    const def = pick(run.rng, 'shop', cand);
-    chosen.push(def.id);
-    stock.push({ kind: 'part', id: def.id, value: PART_VALUE[def.rarity], sold: false });
+    const id = pick(run.rng, 'shop', cand);
+    chosen.push(id);
+    stock.push({ kind: 'part', id, value: PART_VALUE[PARTS[id].rarity], sold: false });
   }
   recordOffers(run, chosen, 'trader');
-  const order = ['common', 'uncommon', 'rare'] as const;
-  let t: string | null = null;
-  for (let tier = rollIndex(run, TRADER_TRINKETS[act] ?? TRADER_TRINKETS[1]); tier >= 0 && !t; tier--) t = randomTrinket(run, [order[tier]], 'shop');
-  t ??= randomTrinket(run, ['common', 'uncommon', 'rare'], 'shop');
-  if (t) stock.push({ kind: 'trinket', id: t, value: TRINKET_VALUE[TRINKETS[t].rarity], sold: false });
+  const ttier = rollTier(run, 'shop', TRADER_TRINKETS[act] ?? TRADER_TRINKETS[1]);
+  let tc = foldDown(null, run, 'trinket', ttier).ids;
+  if (tc.length === 0) tc = (['common', 'uncommon', 'rare'] as const).flatMap((t) => eligible(null, run, { kind: 'trinket', tier: t }));
+  if (tc.length) {
+    const t = pick(run.rng, 'shop', tc);
+    stock.push({ kind: 'trinket', id: t, value: TRINKET_VALUE[TRINKETS[t].rarity], sold: false });
+  }
   stock.push({ kind: 'oil', value: OIL_SCRAP, sold: false });
   return stock;
 }
@@ -234,32 +230,41 @@ export function polish(run: RunState): boolean {
 
 // Vaults
 export interface VaultLoot {
-  partId: string;
+  partId?: string;
+  trinketId?: string; // a Masterwork or Legendary trinket instead of a part
   scrap: number;
   legendary: boolean;
 }
 
-/** Open the vault in the player's room (once): a Masterwork part and 40 Scrap; a random unlocked Rare if no Masterwork is
- * unlocked; in act 3 a Legendary part instead when one is unlocked and none is held. Rolled from `reward`. Call it when
- * the vault's guardian is beaten. Returns null if there is nothing to take. */
+/** Open the vault in the player's room (once), through the one pool: a Masterwork part or trinket (parts weighted to the act's
+ * families) and 40 Scrap; a random unlocked Rare if no Masterwork is unlocked; in act 3 a Legendary (part or trinket) instead
+ * when one is unlocked and none is held (it marks the run). Rolled from `reward`. Call it when the vault's guardian is beaten.
+ * Returns null if there is nothing to take. */
 export function takeVault(run: RunState): VaultLoot | null {
   const room = roomHere(run);
   if (!room || room.kind !== 'vault' || room.cleared) return null;
-  const pool = partPool(run).filter((d) => isSellable(d.id));
-  const held = run.bin.some((b) => PARTS[b.defId]?.rarity === 'legendary');
-  let cand = run.act === 3 && !held ? pool.filter((d) => d.rarity === 'legendary') : [];
-  const legendary = cand.length > 0;
-  if (!legendary) {
-    cand = pool.filter((d) => d.rarity === 'masterwork');
-    const families: string[] = run.act === 1 ? ['gear', 'cam'] : run.act === 2 ? ['spring', 'steam'] : ['tempo', 'chime'];
-    const weighted = cand.filter((d) => families.includes(d.family));
-    if (weighted.length) cand = weighted;
+  type Pick = { id: string; trinket: boolean };
+  let cand: Pick[] = [];
+  let legendary = false;
+  if (run.act === 3 && canTakeLegendary(run)) {
+    cand = [...eligible(null, run, { kind: 'part', tier: 'legendary' }).map((id) => ({ id, trinket: false })), ...eligible(null, run, { kind: 'trinket', tier: 'legendary' }).map((id) => ({ id, trinket: true }))];
+    legendary = cand.length > 0;
   }
-  if (cand.length === 0) cand = pool.filter((d) => d.rarity === 'rare');
+  if (!legendary) {
+    const parts = eligible(null, run, { kind: 'part', tier: 'masterwork' });
+    const families: string[] = run.act === 1 ? ['gear', 'cam'] : run.act === 2 ? ['spring', 'steam'] : ['tempo', 'chime'];
+    const weighted = parts.filter((id) => families.includes(PARTS[id].family));
+    cand = [...(weighted.length ? weighted : parts).map((id) => ({ id, trinket: false })), ...eligible(null, run, { kind: 'trinket', tier: 'masterwork' }).map((id) => ({ id, trinket: true }))];
+  }
+  if (cand.length === 0) cand = foldDown(null, run, 'part', 'rare').ids.map((id) => ({ id, trinket: false }));
   if (cand.length === 0) return null;
-  const def = cand[int(run.rng, 'reward', cand.length)];
-  newPart(run, def.id);
+  const got = cand[int(run.rng, 'reward', cand.length)];
+  if (got.trinket) gainTrinket(run, got.id);
+  else newPart(run, got.id);
+  if (legendary) run.legendary = got.id;
   addScrap(run, VAULT_SCRAP);
   room.cleared = true;
-  return { partId: def.id, scrap: VAULT_SCRAP, legendary };
+  const byAct = (run.stats.vaultsByAct ??= [0, 0, 0]);
+  byAct[run.act - 1] += 1;
+  return { ...(got.trinket ? { trinketId: got.id } : { partId: got.id }), scrap: VAULT_SCRAP, legendary };
 }

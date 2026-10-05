@@ -363,6 +363,7 @@ export function ringBell(run: RunState): boolean {
   addScrap(run, BELL_SCRAP_PER_HOUR * left);
   run.stats.bonusBrass = (run.stats.bonusBrass ?? 0) + BELL_BRASS_PER_HOUR * left;
   run.stats.brassEarned += BELL_BRASS_PER_HOUR * left;
+  (run.stats.bells ??= []).push({ act: run.act, hoursLeft: left });
   startWarden(run, false, Math.min(2, Math.floor(left / 3)));
   return true;
 }

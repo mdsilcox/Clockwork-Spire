@@ -5,15 +5,18 @@
 import { recordFight } from './record';
 import { BASE_PLACEMENTS, BASE_TICKS } from './combat';
 import { CHASSIS } from './content/chassis';
+import { PARTS } from './content/parts';
+import { TRINKETS } from './content/trinkets';
 import { bandForFloor, ENCOUNTERS, encounterPool } from './content/encounters';
 import type { Encounter } from './content/encounters';
 import { EVENTS } from './content/events';
 import { candidates, EFFECTS, randomPartOf } from './eventfx';
 import { generateActMap } from './map';
 import { initStreams, int, pick, shuffle } from './rng';
-import { addBlueprint, addScrap, bossTrinkets, eliteTrinket, gainTrinket, heal, markOfferTaken, newPart, offerParts, recordOffers, rollBlueprint } from './rewards';
+import { addBlueprint, addScrap, bossTrinkets, eliteTrinket, gainTrinket, heal, markOfferTaken, newPart, recordOffers, rollBlueprint } from './rewards';
 import { makeShop as buildShop, OIL_HEAL, removalPrice } from './shop';
 import { isPartUnlocked, salvageItems } from './salvage';
+import { wardenCoreReward } from './pool';
 import { takeVault } from './rooms';
 import { afterRoom, resolveRoom, ROOM_BRASS, startAct } from './section';
 import { startCombat } from './startfight';
@@ -219,6 +222,8 @@ export function settleCombat(run: RunState): boolean {
     heal(run, Math.floor((run.maxHp - run.hp) * 0.4));
   } else if (kind === 'elite') {
     run.stats.elites += 1;
+    const byAct = (run.stats.elitesByAct ??= [0, 0, 0]);
+    byAct[run.act - 1] += 1;
     const room = run.section?.rooms.find((r) => r.id === run.roomId);
     if (room?.kind === 'vault') takeVault(run); // Masterwork (or Legendary) and 40 Scrap, rooms.ts
     else {
@@ -255,16 +260,22 @@ export function settleCombat(run: RunState): boolean {
   }
   if (kind === 'boss') {
     // B9a: the Clockmaker gives no part; each of his broken parts (the memory part too) pays Brass 4 instead.
-    // The Foreman and the Queen keep the Rare-first boss offer until B9b's pool rules.
+    // B9b: the Foreman and the Queen give their core through the one pool (pool.ts wardenCoreReward).
     const clock = c.enemies.filter((e) => e.defId === 'clockmaker');
-    const parts = clock.length > 0 ? [] : offerParts(run, kind);
     if (clock.length > 0) {
       const broken = clock.reduce((n, e) => n + e.parts.filter((p) => p.broken).length, 0);
       run.stats.bonusBrass = (run.stats.bonusBrass ?? 0) + broken * CLOCKMAKER_BRASS_PER_PART;
       run.stats.clockBrass = (run.stats.clockBrass ?? 0) + broken * CLOCKMAKER_BRASS_PER_PART;
     }
-    recordOffers(run, parts, 'reward');
-    run.pending = { kind: 'reward', cogs, parts, trinkets, blueprint, extraBlueprint, partTaken: parts.length === 0, trinketTaken: trinkets.length === 0 };
+    const core = wardenCoreReward(run, null, c.enemies[0]?.defId ?? 'foreman');
+    const rest = { cogs, trinkets, blueprint, extraBlueprint, trinketTaken: trinkets.length === 0 };
+    if (core.kind === 'legendary') {
+      // the Queen's pick comes first; the rest of her reward (Scrap, trinket choice, blueprint) follows it
+      run.pending = { ...core, after: { kind: 'reward', parts: [], partTaken: true, ...rest } };
+    } else if (core.kind === 'reward') {
+      recordOffers(run, core.parts, 'reward');
+      run.pending = { kind: 'reward', parts: core.parts, partTaken: core.parts.length === 0, ...rest };
+    }
   } else {
     // v2: the salvage tray replaces the part choice after fights and elites (rules 2.5); the bin grows by choice.
     run.pending = {
@@ -312,6 +323,20 @@ export function takeRewardTrinket(run: RunState, index: number | null): boolean 
   const id = p.trinkets[index];
   if (id === undefined || !gainTrinket(run, id)) return false;
   p.trinketTaken = true;
+  return true;
+}
+
+/** The Queen's pick (Pending 'legendary'): take one option. A part joins the bin, a trinket joins the run; `run.legendary` is set
+ * (one Legendary per run); the pending becomes what follows it (the rest of the Queen's reward) or clears. False for an id that
+ * is not an option or when the run already holds a Legendary. */
+export function takeLegendary(run: RunState, id: string): boolean {
+  const p = run.pending;
+  if (!p || p.kind !== 'legendary' || !p.options.includes(id) || run.legendary != null) return false;
+  if (PARTS[id]) newPart(run, id);
+  else if (TRINKETS[id]) gainTrinket(run, id);
+  else return false;
+  run.legendary = id;
+  run.pending = p.after ?? { kind: 'reward', cogs: 0, parts: [], trinkets: [], partTaken: true, trinketTaken: true };
   return true;
 }
 

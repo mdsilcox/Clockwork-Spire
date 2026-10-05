@@ -4,6 +4,7 @@ import { PARTS } from './content/parts';
 import { TRINKETS } from './content/trinkets';
 import type { TrinketRarity } from './content/trinkets';
 import type { PartDef } from './defs';
+import { partOpen, rollTier, trinketOpen } from './pool';
 import type { PartInstance, Rarity, RunState } from './types';
 
 export type OfferSource = 'reward' | 'shop' | 'trader' | 'fuse' | 'salvage';
@@ -32,10 +33,9 @@ export function foundBlueprints(run: RunState): string[] {
   return run.stats.blueprintsFound;
 }
 
-/** Parts that may be offered: not locked, or unlocked by profile blueprints, or found this run. Never the Mainspring. */
+/** Parts that may be offered: open to the run (pool.ts `partOpen`). Never the Mainspring. */
 export function partPool(run: RunState): PartDef[] {
-  const open = new Set([...run.config.unlockedParts, ...run.stats.blueprintsFound]);
-  return Object.values(PARTS).filter((p) => p.id !== 'mainspring' && (!p.locked || open.has(p.id)));
+  return Object.values(PARTS).filter((p) => p.id !== 'mainspring' && partOpen(run, p.id));
 }
 
 /** Locked parts not yet unlocked or found (the blueprint candidates). */
@@ -71,19 +71,18 @@ export function rollRarity(run: RunState, tier: Tier): Rarity {
   return r < w[0] ? 'common' : r < w[0] + w[1] ? 'uncommon' : 'rare';
 }
 
-/** A random pool part of a rarity (falls back to any rarity if none is left), skipping `exclude` ids. */
+/** A random pool part of a rarity (steps down a rarity if none is open), skipping `exclude` ids. Without a rarity: Common to
+ * Rare only. Masterwork parts come only when asked for; Legendary never (they have two sources: the Queen's core and the act 3
+ * vault, pool.ts). */
 export function randomPart(run: RunState, rarity: Rarity | null, stream: 'reward' | 'event' | 'shop', exclude: string[] = []): string {
-  const pool = partPool(run).filter((p) => !exclude.includes(p.id));
-  // No part of that rarity left (every rare is locked until its blueprint is found): step down a rarity.
-  const order: Rarity[] = ['rare', 'uncommon', 'common'];
+  const pool = partPool(run).filter((p) => !exclude.includes(p.id) && p.rarity !== 'legendary' && (p.rarity !== 'masterwork' || rarity === 'masterwork'));
+  const order: Rarity[] = ['masterwork', 'rare', 'uncommon', 'common'];
   let cand = pool;
   if (rarity) {
-    for (let i = order.indexOf(rarity); i < order.length && cand === pool; i++) {
-      const m = pool.filter((p) => p.rarity === order[i]);
-      if (m.length) cand = m;
-    }
+    cand = [];
+    for (let i = order.indexOf(rarity === 'legendary' ? 'masterwork' : rarity); i < order.length && cand.length === 0; i++) cand = pool.filter((p) => p.rarity === order[i]);
   }
-  if (cand.length === 0) cand = partPool(run);
+  if (cand.length === 0) cand = pool.length ? pool : partPool(run).filter((p) => p.rarity === 'common');
   return pick(run.rng, stream, cand).id;
 }
 
@@ -123,9 +122,9 @@ export function gainTrinket(run: RunState, id: string): boolean {
   return true;
 }
 
-/** A random trinket of the given rarities that the run does not own. */
+/** A random trinket of the given rarities that the run does not own and has unlocked. Legendary trinkets are never rolled. */
 export function randomTrinket(run: RunState, rarities: TrinketRarity[], stream: 'reward' | 'event' | 'shop', exclude: string[] = []): string | null {
-  const all = Object.values(TRINKETS).filter((t) => !run.trinkets.includes(t.id) && !exclude.includes(t.id));
+  const all = Object.values(TRINKETS).filter((t) => !run.trinkets.includes(t.id) && !exclude.includes(t.id) && t.rarity !== 'legendary' && trinketOpen(run, t.id));
   const cand = all.filter((t) => rarities.includes(t.rarity));
   return cand.length ? pick(run.rng, stream, cand).id : null;
 }
@@ -137,15 +136,26 @@ export function eliteTrinket(run: RunState): string | null {
   return randomTrinket(run, [first], 'reward') ?? randomTrinket(run, ['common', 'uncommon', 'rare'], 'reward');
 }
 
-/** Three boss trinkets to choose from (fills with other trinkets if the boss ones run out). */
+/** Three boss trinkets to choose from (fills with other trinkets if the boss ones run out). After the Foreman and the Queen
+ * (acts 1 and 2) one of them may be an unlocked Masterwork trinket; never in act 3, never a Legendary. */
 export function bossTrinkets(run: RunState): string[] {
   const out: string[] = [];
+  if (run.act < 3) {
+    const m = eligibleMasterTrinkets(run);
+    if (m.length && rollTier(run, 'reward', { common: 1, masterwork: 1 }) === 'masterwork') out.push(pick(run.rng, 'reward', m));
+  }
   while (out.length < 3) {
     const id = randomTrinket(run, ['boss'], 'reward', out) ?? randomTrinket(run, ['rare', 'uncommon', 'common'], 'reward', out);
     if (!id) break;
     out.push(id);
   }
   return out;
+}
+
+function eligibleMasterTrinkets(run: RunState): string[] {
+  return Object.values(TRINKETS)
+    .filter((t) => t.rarity === 'masterwork' && !run.trinkets.includes(t.id) && trinketOpen(run, t.id))
+    .map((t) => t.id);
 }
 
 /** Record that parts were offered (for the balance sim). */
