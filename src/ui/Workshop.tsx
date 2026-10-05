@@ -1,7 +1,7 @@
 // The Workshop: the home between runs. Sprocket, the upgrade bench, the chassis rack, notes, blueprints and the door.
-import { useEffect, useState } from 'preact/hooks';
-import { abandonClimb, checkSleepy, climb, climbing, buyChassisNow, buyUpgrade, continueRun, goTitle, news, newFight, openPractice, openSlots, petSprocket, poke, pose, profileView, slotNo, startTutorial } from '../app/controller';
-import { colorBlind, openGlossary, openHowTo, openSettings, setColorBlind } from '../app/prefs';
+import { signal } from '@preact/signals';
+import { useState } from 'preact/hooks';
+import { abandonClimb, climb, climbing, buyChassisNow, buyUpgrade, continueRun } from '../app/controller';
 import { CHASSIS } from '../core/content/chassis';
 import { enemyDef } from '../core/content/enemies';
 import { partName } from '../core/content/parts';
@@ -12,28 +12,15 @@ import type { Plan, Profile } from '../core/types';
 import { unlockAudio } from '../audio/synth';
 import { dayLabel, fmt } from './format';
 import { PartCard } from './PartCard';
-import { Sprocket } from './Sprocket';
-import { Trophies } from './Trophies';
-import { RoomArt } from './WorkshopArt';
 
-type Tab = 'bench' | 'chassis' | 'notes' | 'parts' | 'trophies' | 'history';
+type Tab = 'bench' | 'chassis' | 'notes' | 'parts' | 'history';
 const TABS: [Tab, string][] = [
   ['bench', 'Upgrade bench'],
   ['chassis', 'Chassis'],
   ['notes', 'Notes'],
   ['parts', 'Blueprints'],
-  ['trophies', 'Trophies'],
   ['history', 'History'],
 ];
-
-const LINE: Record<string, string> = {
-  celebrate: 'Sprocket spins in circles. He is very proud of you.',
-  happy: 'Sprocket wiggles all over.',
-  comfort: 'Sprocket trots over and leans on your leg.',
-  sleepy: 'Sprocket is asleep, one ear twitching.',
-  pet: 'Boof!',
-  idle: '',
-};
 
 /** What the archivist says about the Clockmaker's memory (B9a, rules 5.4): the plan he remembers and the part he has for it. */
 const MEMORY_NOTE: Record<Plan, { plan: string; part: string }> = {
@@ -58,7 +45,7 @@ function safe<T>(fn: () => T, fallback: T): T {
   }
 }
 
-function Bench({ p }: { p: Profile }) {
+export function Bench({ p }: { p: Profile }) {
   return (
     <div class="benchlist" data-testid="bench">
       {UPGRADE_ORDER.map((id) => {
@@ -227,163 +214,76 @@ function History({ p }: { p: Profile }) {
   );
 }
 
-export function WorkshopScreen() {
-  const p = profileView.value;
-  const [tab, setTab] = useState<Tab>('bench');
-  const [chosen, setChosen] = useState('tinker');
-  const [menu, setMenu] = useState(false);
-  const [sure, setSure] = useState(false);
-  const mood = pose.value;
-  const cb = colorBlind.value;
-  const newsNow = news.value;
-  const on = climbing();
+/** The chassis picked on the rack (the gate climbs with it). Shared by the Workshop place and the gate. */
+export const chosenChassis = signal('tinker');
 
-  useEffect(() => {
-    const t = window.setInterval(checkSleepy, 1000);
-    return () => window.clearInterval(t);
-  }, []);
-
-  if (!p) return null;
+export function pickedChassis(p: Profile): string {
   const avail = safe(() => meta.chassisAvailable(p), ['tinker']);
-  const pick = avail.includes(chosen) ? chosen : 'tinker';
-  const size = typeof window !== 'undefined' && window.innerWidth < 760 ? 84 : 150;
+  return avail.includes(chosenChassis.value) ? chosenChassis.value : 'tinker';
+}
 
+/** The Workshop place: the upgrade bench, the chassis rack, the inventor's notes, blueprints and history (v1's panels, moved). */
+export function WorkshopPanel({ p }: { p: Profile }) {
+  const [tab, setTab] = useState<Tab>('bench');
+  const pick = pickedChassis(p);
   return (
-    <main class="workshop" data-testid="workshop" data-slot={slotNo.value ?? ''} onPointerDown={poke} onKeyDown={poke}>
-      <header class="wshead">
-        <div class="wstitle">
-          <b data-testid="ws-name">{p.name}</b>
-          <span>The Workshop</span>
-        </div>
-        <div class="pill brass" data-testid="ws-brass">
-          <b>{fmt(p.brass)}</b>
-          <span class="lbl">Brass</span>
-        </div>
-        <div class="pill" data-testid="ws-blueprints">
-          <b>{p.blueprints.length}</b>
-          <span class="lbl">Blueprints</span>
-        </div>
-        <div class="menuwrap">
-          <button class="ghostbtn menu" data-testid="ws-menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
-            Menu
+    <section class="wspanel" data-testid="workshop">
+      <nav class="tabs" role="tablist">
+        {TABS.map(([id, label]) => (
+          <button key={id} role="tab" class={`tab ${tab === id ? 'on' : ''}`} aria-selected={tab === id} data-testid={`tab-${id}`} onClick={() => setTab(id)}>
+            {label}
           </button>
-          {menu && (
-            <div class="menupanel" role="menu" data-testid="ws-menu-panel">
-              <button role="menuitem" onClick={() => (setMenu(false), openGlossary())}>
-                Glossary
-              </button>
-              <button role="menuitem" data-testid="ws-howto" onClick={() => (setMenu(false), openHowTo())}>
-                How to play
-              </button>
-              <button role="menuitem" data-testid="ws-settings" onClick={() => (setMenu(false), openSettings())}>
-                Settings
-              </button>
-              <label class="check">
-                <input type="checkbox" checked={cb} onChange={(e) => setColorBlind((e.currentTarget as HTMLInputElement).checked)} />
-                Color-blind icons
-              </label>
-              <button role="menuitem" onClick={() => (setMenu(false), unlockAudio(), newFight())}>
-                Practice fight
-              </button>
-              <button role="menuitem" onClick={() => (setMenu(false), openPractice())}>
-                Practice sandbox
-              </button>
-              <button role="menuitem" onClick={() => (setMenu(false), unlockAudio(), startTutorial())}>
-                Tutorial
-              </button>
-              <button role="menuitem" data-testid="ws-slots" onClick={() => (setMenu(false), void openSlots())}>
-                Save slots
-              </button>
-              <button role="menuitem" data-testid="ws-title" onClick={goTitle}>
-                Title
-              </button>
-            </div>
-          )}
-        </div>
-      </header>
-      <div class={`wsbody ${tab === 'trophies' ? 'on-trophies' : ''}`}>
-        <section class="room" data-testid="room">
-          <div class="roominner">
-            <RoomArt />
-            <div class="sprocketspot">
-              <Sprocket mood={mood} size={size} onPet={petSprocket} />
-            </div>
-          </div>
-          {newsNow?.moment && (
-            <button class="pinnote" data-testid="moment-note" onClick={() => (news.value = { ...newsNow, moment: undefined })} aria-label={`${newsNow.moment.title}. ${newsNow.moment.text} Tap to put it away.`}>
-              <span class="pin" aria-hidden="true" />
-              <b>{newsNow.moment.title}</b>
-              <span>{newsNow.moment.text}</span>
-            </button>
-          )}
-          <p class="sprocketline" data-testid="sprocket-line" aria-live="polite">
-            {LINE[mood]}
-          </p>
-        </section>
-        <section class="wspanel">
-          {newsNow && (newsNow.unlocks.length > 0 || newsNow.notes.length > 0) && (
-            <div class="newsstrip" data-testid="ws-news">
-              {newsNow.unlocks.map((u) => (
-                <span key={u}>New: {CHASSIS[u]?.name ?? u} is unlocked.</span>
-              ))}
-              {newsNow.notes.length > 0 && <span>A new note is on the wall.</span>}
-              <button class="ghostbtn small" onClick={() => (news.value = null)}>
-                Dismiss
-              </button>
-            </div>
-          )}
-          <nav class="tabs" role="tablist">
-            {TABS.map(([id, label]) => (
-              <button key={id} role="tab" class={`tab ${tab === id ? 'on' : ''}`} aria-selected={tab === id} data-testid={`tab-${id}`} onClick={() => setTab(id)}>
-                {label}
-              </button>
-            ))}
-          </nav>
-          <div class="tabbody" data-testid="tabbody">
-            {tab === 'bench' && <Bench p={p} />}
-            {tab === 'chassis' && <Rack p={p} chosen={pick} setChosen={setChosen} />}
-            {tab === 'notes' && <Notes p={p} />}
-            {tab === 'parts' && <Blueprints p={p} />}
-            {tab === 'trophies' && <Trophies p={p} />}
-            {tab === 'history' && <History p={p} />}
-          </div>
-          <footer class="door">
-            {on ? (
-              <>
-                <button class="primary" data-testid="continue-climb" onClick={() => (unlockAudio(), continueRun())}>
-                  Continue climb
-                </button>
-                {!sure ? (
-                  <button class="secondary" data-testid="abandon-climb" onClick={() => setSure(true)}>
-                    Give up this climb
-                  </button>
-                ) : (
-                  <button class="secondary danger" data-testid="abandon-sure" onClick={() => (setSure(false), abandonClimb())}>
-                    Really give up? Tap again
-                  </button>
-                )}
-              </>
-            ) : (
-              <button
-                class="primary"
-                data-testid="climb"
-                onClick={() => {
-                  unlockAudio();
-                  climb(pick);
-                }}
-              >
-                Climb the Spire{pick !== 'tinker' ? ` as ${CHASSIS[pick].name}` : ''}
-              </button>
-            )}
-            {archivistLine(p) && (
-              <p class="archivist-line" data-testid="archivist-line">
-                {archivistLine(p)}
-              </p>
-            )}
-            <span class="doorhint">Chassis: {CHASSIS[pick].name}</span>
-          </footer>
-        </section>
+        ))}
+      </nav>
+      <div class="tabbody" data-testid="tabbody">
+        {tab === 'bench' && <Bench p={p} />}
+        {tab === 'chassis' && <Rack p={p} chosen={pick} setChosen={(id) => (chosenChassis.value = id)} />}
+        {tab === 'notes' && <Notes p={p} />}
+        {tab === 'parts' && <Blueprints p={p} />}
+        {tab === 'history' && <History p={p} />}
       </div>
-    </main>
+    </section>
+  );
+}
+
+/** The Spire gate: start a climb (as the chassis picked on the rack), or continue or give up the one in progress. */
+export function GatePanel({ p }: { p: Profile }) {
+  const [sure, setSure] = useState(false);
+  const on = climbing();
+  const pick = pickedChassis(p);
+  return (
+    <section class="gatepanel" data-testid="gate">
+      <p class="gateline">{on ? 'Your climb is waiting where you left it.' : 'The Spire stands over the street, quiet and very tall.'}</p>
+      <footer class="door">
+        {on ? (
+          <>
+            <button class="primary" data-testid="continue-climb" onClick={() => (unlockAudio(), continueRun())}>
+              Continue climb
+            </button>
+            {!sure ? (
+              <button class="secondary" data-testid="abandon-climb" onClick={() => setSure(true)}>
+                Give up this climb
+              </button>
+            ) : (
+              <button class="secondary danger" data-testid="abandon-sure" onClick={() => (setSure(false), abandonClimb())}>
+                Really give up? Tap again
+              </button>
+            )}
+          </>
+        ) : (
+          <button
+            class="primary"
+            data-testid="climb"
+            onClick={() => {
+              unlockAudio();
+              climb(pick);
+            }}
+          >
+            Climb the Spire{pick !== 'tinker' ? ` as ${CHASSIS[pick].name}` : ''}
+          </button>
+        )}
+        <span class="doorhint">Chassis: {CHASSIS[pick].name}. Change it on the Workshop's rack.</span>
+      </footer>
+    </section>
   );
 }

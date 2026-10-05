@@ -13,14 +13,14 @@ import { PortraitCard } from './PortraitCard';
 import { PracticePicker } from './Practice';
 import { SettingsScreen } from './Settings';
 import { SlotsScreen } from './Slots';
-import { WorkshopScreen } from './Workshop';
+import { BellfootScreen } from './Bellfoot';
 import { Title } from './Title';
 
 /** "A new version is ready": quiet, and only where nothing is at stake (title, slots, Workshop, the map). */
 function UpdateToast() {
   const scr = screen.value;
   const rv = runView.value;
-  const calm = scr === 'title' || scr === 'slots' || scr === 'workshop' || (scr === 'run' && (rv?.phase === 'map' || rv?.phase === 'section'));
+  const calm = scr === 'title' || scr === 'slots' || scr === 'bellfoot' || (scr === 'run' && (rv?.phase === 'map' || rv?.phase === 'section'));
   if (!showUpdate.value || !calm) return null;
   return (
     <div class="updatetoast" role="status" data-testid="update-toast">
@@ -39,7 +39,7 @@ function UpdateToast() {
 function MigrationToast() {
   const scr = screen.value;
   const note = migrationNotice.value;
-  if (!note || (scr !== 'title' && scr !== 'slots' && scr !== 'workshop')) return null;
+  if (!note || (scr !== 'title' && scr !== 'slots' && scr !== 'bellfoot')) return null;
   return (
     <div class="updatetoast" role="status" data-testid="migration-toast">
       <span>{note}</span>
@@ -110,7 +110,7 @@ export function App() {
   else if (s === 'combat' && combat.value) body = <CombatScreen />;
   else if (s === 'practice') body = <PracticePicker />;
   else if (s === 'slots') body = <SlotsScreen />;
-  else if (s === 'workshop') body = <WorkshopScreen />;
+  else if (s === 'bellfoot') body = <BellfootScreen />;
   else body = <Title />;
   const away = portrait.value;
   return (

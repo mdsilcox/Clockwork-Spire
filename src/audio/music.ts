@@ -6,8 +6,8 @@
 import type { Channel } from './synth';
 import { getVolume, isMuted, isUnlocked, musicGraph, setMuted, setVolume, unlockAudio } from './synth';
 
-export type TrackId = 'workshop' | 'act1' | 'act2' | 'act3' | 'clockmaker' | 'ending';
-export const TRACKS: TrackId[] = ['workshop', 'act1', 'act2', 'act3', 'clockmaker', 'ending'];
+export type TrackId = 'workshop' | 'bellfoot' | 'act1' | 'act2' | 'act3' | 'clockmaker' | 'ending';
+export const TRACKS: TrackId[] = ['workshop', 'bellfoot', 'act1', 'act2', 'act3', 'clockmaker', 'ending'];
 
 export const LOOKAHEAD = 0.1; // seconds scheduled ahead
 export const TIMER_MS = 25;
@@ -49,6 +49,7 @@ interface Def {
 
 const DEFS: Record<TrackId, Def> = {
   workshop: { bpm: 66, key: 57, scale: [0, 2, 3, 5, 7, 8, 10], prog: [0, 5, 3, 6, 0, 5, 6, 4], bars: 32, seed: 11, density: [0.75, 0.2, 0.5, 0.2, 0.65, 0.2, 0.5, 0.25], lo: 7, hi: 14, reverb: 0.3, reverbSecs: 2.2 },
+  bellfoot: { bpm: 54, key: 55, scale: [0, 2, 4, 5, 7, 9, 10], prog: [0, 3, 5, 3, 0, 4, 5, 3], bars: 32, seed: 67, density: [0.45, 0.1, 0.3, 0.1, 0.4, 0.1, 0.25, 0.1], lo: 7, hi: 13, reverb: 0.5, reverbSecs: 3.2 },
   act1: { bpm: 104, key: 50, scale: [0, 2, 3, 5, 7, 8, 10], prog: [0, 3, 5, 4, 0, 3, 6, 0], bars: 48, seed: 23, density: [0.8, 0.3, 0.55, 0.45, 0.7, 0.3, 0.55, 0.35], lo: 7, hi: 13, reverb: 0.18, reverbSecs: 1.4 },
   act2: { bpm: 112, key: 48, scale: [0, 1, 3, 5, 7, 8, 10], prog: [0, 0, 5, 4, 0, 0, 6, 5], bars: 56, seed: 37, density: [0.7, 0.1, 0.35, 0.15, 0.55, 0.1, 0.4, 0.2], lo: 7, hi: 12, reverb: 0.22, reverbSecs: 1.8 },
   act3: { bpm: 70, key: 52, scale: [0, 2, 3, 5, 7, 9, 10], prog: [0, 3, 0, 4, 5, 3, 0, 4], bars: 36, seed: 41, density: [0.7, 0.1, 0.3, 0.15, 0.55, 0.1, 0.35, 0.15], lo: 7, hi: 15, reverb: 0.55, reverbSecs: 3.6 },
@@ -380,6 +381,17 @@ function scheduleStep(e: Engine, n: number, t: number, dt: number): void {
       if (mel) bell(e, mel, t, ending ? 2.4 : 1.6, ending ? 0.075 : 0.07, 4, 1.1, 0.4);
       break;
     }
+    case 'bellfoot': {
+      // the town at dusk: a slow pad, a soft low note, far bells, a hush of steam and the odd tick of a clock
+      if (pos === 0) {
+        pad(e, 'sine', chord.map((c) => midi(degreeMidi(d, c) + 12)), t, barLen * 1.2, 0.028, 1100, 0.5);
+        tone(e, 'sine', midi(root - 12), t, barLen * 0.9, 0.09, { att: 0.15, send: 0.2 });
+      }
+      if (pos === 0 && bar % 4 === 2) hiss(e, t, barLen * 0.8, 0.035);
+      if (pos === 4 && bar % 2 === 0) wood(e, t, 0.03, 700);
+      if (mel) bell(e, mel, t, 2.6, 0.05, 3.5, 1.6, 0.55);
+      break;
+    }
     case 'act1': {
       if (pos % 2 === 0) tick(e, t, pos === 0 ? 0.07 : 0.045, 5000, 0.02);
       if (pos === 2 || pos === 6) wood(e, t, 0.06, 1100);
@@ -639,7 +651,7 @@ export function audioDebug(): { track: TrackId | null; volumes: Record<Channel, 
 }
 
 
-type Screen = 'title' | 'workshop' | 'map' | 'combat' | 'ending';
+type Screen = 'title' | 'workshop' | 'bellfoot' | 'map' | 'combat' | 'ending';
 
 /** Which track belongs to a screen. The title uses the Workshop's. */
 export function trackFor(screen: Screen, act?: 1 | 2 | 3, enemyIds?: string[], _phase?: number): TrackId {
@@ -649,6 +661,8 @@ export function trackFor(screen: Screen, act?: 1 | 2 | 3, enemyIds?: string[], _
     case 'title':
     case 'workshop':
       return 'workshop';
+    case 'bellfoot':
+      return 'bellfoot';
     case 'ending':
       return 'ending';
     case 'combat':
