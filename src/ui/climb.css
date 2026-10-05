@@ -1,0 +1,504 @@
+/* The climb (B8): the act screen and the room screens. */
+.actscreen {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: radial-gradient(ellipse at 50% 20%, #2c2016 0%, var(--bg) 75%);
+}
+
+.actbody {
+  display: grid;
+  grid-template-columns: clamp(140px, 22vw, 230px) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.actside {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  overflow-y: auto;
+  border-right: 2px solid var(--panel-edge);
+  background: var(--panel);
+  font-size: 13px;
+}
+
+.clockface {
+  display: grid;
+  gap: 3px;
+}
+
+.clocktext {
+  color: var(--brass);
+  font-size: 17px;
+}
+
+.hoursleft {
+  color: var(--ink);
+}
+
+.ticks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.ticks i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid var(--brass-dark);
+  background: var(--lamp);
+}
+
+.ticks i.spent {
+  background: transparent;
+}
+
+.late {
+  color: var(--hurt);
+  font-size: 12px;
+}
+
+.elitelist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.elitelist li {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  line-height: 1.2;
+}
+
+.elitelist .sub {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.bellbtn {
+  display: grid;
+  gap: 2px;
+  min-height: 48px;
+  text-align: left;
+}
+
+.bellbtn span {
+  font-size: 12px;
+}
+
+.acthint {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.actboard {
+  --rw: clamp(46px, 13cqw, 92px);
+  --rh: clamp(40px, calc(100cqh / var(--floors) - 8px), 62px);
+  position: relative;
+  container-type: size;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.floorband {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-bottom: 1px dashed rgba(138, 106, 42, 0.35);
+}
+
+.floorband:nth-child(even) {
+  background: rgba(255, 210, 122, 0.035);
+}
+
+.flabel {
+  position: absolute;
+  left: 4px;
+  top: 2px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  opacity: 0.7;
+}
+
+.passages {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.passage .pl {
+  stroke: var(--brass-dark);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.passage.k-stairs .pl {
+  stroke-width: 3;
+  stroke-dasharray: 7 4;
+}
+
+.passage.k-duct .pl {
+  stroke: #566660;
+  stroke-width: 7;
+}
+
+.passage .pl2 {
+  stroke: #1c2623;
+  stroke-width: 3;
+}
+
+.passage.k-lift .pl {
+  stroke: #9ab0b8;
+  stroke-width: 3;
+  stroke-dasharray: 1 6;
+}
+
+.passage.locked .pl {
+  stroke: #ff9a55;
+}
+
+.patrol {
+  fill: none;
+  stroke: #e8905a;
+  stroke-width: 2;
+  stroke-dasharray: 2 6;
+  stroke-linecap: round;
+  opacity: 0.8;
+}
+
+.lockmark {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.aroom {
+  position: absolute;
+  z-index: 2;
+  width: var(--rw);
+  height: var(--rh);
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 12px;
+  border: 2px solid var(--panel-edge);
+  background: #2a1f15;
+  color: var(--brass);
+}
+
+.aroom.k-unknown {
+  color: #6f6149;
+  background: #1f1710;
+  border-style: dashed;
+}
+
+.aroom.k-fight {
+  color: #e0b560;
+}
+.aroom.k-event {
+  color: #9ad2c8;
+}
+.aroom.k-workbench {
+  color: #ff9a55;
+}
+.aroom.k-oil {
+  color: #d8c25a;
+}
+.aroom.k-trader {
+  color: #ffd27a;
+}
+.aroom.k-vault {
+  color: #c9a8ff;
+}
+.aroom .nicon .nframe {
+  fill: #2e231a;
+  stroke: currentColor;
+  stroke-width: 2.4;
+}
+
+.aroom.visited {
+  background: #33261a;
+}
+
+.aroom.cleared {
+  opacity: 0.8;
+}
+
+.aroom.here {
+  border-color: var(--lamp);
+  box-shadow: 0 0 10px rgba(255, 210, 122, 0.7);
+  opacity: 1;
+}
+
+.aroom.reach {
+  border-color: var(--lamp);
+  animation: reachglow 1.3s ease-in-out infinite;
+}
+
+.aroom.lockedreach {
+  border-color: #ff9a55;
+  border-style: dotted;
+}
+
+.aroom:focus-visible {
+  outline: 3px solid var(--plating);
+  outline-offset: 2px;
+}
+
+.rcheck {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 10px;
+  height: 6px;
+  border-left: 2px solid var(--good);
+  border-bottom: 2px solid var(--good);
+  transform: rotate(-45deg);
+}
+
+.elitemark,
+.elitenext,
+.walker {
+  position: absolute;
+  pointer-events: none;
+}
+
+.elitemark {
+  z-index: 4;
+  transform: translate(calc(var(--rw) * 0.22), calc(var(--rh) * -0.52));
+}
+
+.elitenext {
+  z-index: 3;
+  width: calc(var(--rw) + 10px);
+  height: calc(var(--rh) + 10px);
+  transform: translate(-50%, -50%);
+  border: 2px dotted #e8905a;
+  border-radius: 16px;
+}
+
+.walker {
+  z-index: 5;
+  display: block;
+  line-height: 0;
+}
+
+.wtinker {
+  transform: translate(-90%, -30%);
+}
+
+.wsprocket {
+  transform: translate(5%, 5%);
+}
+
+.walker.walking {
+  transition:
+    left 0.85s linear,
+    top 0.85s linear;
+}
+
+/* room screens */
+.roomscreen .nodebody {
+  padding: 8px 10px 12px;
+}
+
+.benchgrid,
+.tradegrid {
+  display: grid;
+  gap: 8px 12px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.benchgrid {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+}
+
+.tradegrid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.tradebar {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  position: sticky;
+  bottom: 0;
+  padding: 6px 8px;
+  background: var(--panel);
+  border: 2px solid var(--panel-edge);
+  border-radius: 10px;
+}
+
+.costline {
+  flex: 1;
+}
+
+.chips,
+.stocklist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.partchip,
+.stockitem {
+  position: relative;
+  display: grid;
+  gap: 1px;
+  min-height: 44px;
+  padding: 4px 8px 4px 12px;
+  text-align: left;
+  border-radius: 8px;
+  border: 2px solid var(--panel-edge);
+  background: var(--tile);
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.partchip .band {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  border-radius: 6px 0 0 6px;
+}
+
+.partchip .pname,
+.stockitem .sname {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.partchip.sel,
+.stockitem.sel {
+  border-color: var(--lamp);
+  background: #46341f;
+}
+
+.stockitem {
+  width: calc(50% - 3px);
+  min-height: 64px;
+  padding-left: 8px;
+}
+
+.stockitem:disabled {
+  opacity: 0.45;
+}
+
+.stockitem .sval {
+  color: var(--brass);
+}
+
+.benchside {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.benchbtns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.benchbtns button {
+  min-height: 44px;
+}
+
+.benchdetail {
+  display: grid;
+  gap: 4px;
+  min-height: 48px;
+  font-size: 12px;
+}
+
+.benchsel {
+  display: grid;
+}
+
+.scrapline {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.scrapline b {
+  color: var(--brass);
+  font-size: 16px;
+}
+
+.fuseoffer {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 10px;
+  background: rgba(15, 10, 6, 0.94);
+  overflow-y: auto;
+}
+
+.fusecards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+@media (max-height: 460px) {
+  .actside {
+    gap: 6px;
+    padding: 6px;
+  }
+  .clocktext {
+    font-size: 15px;
+  }
+  .stockitem {
+    min-height: 56px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aroom.reach {
+    animation: none;
+  }
+  .walker.walking {
+    transition: none;
+  }
+}
+
+.dooroverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  display: grid;
+  place-items: center;
+  padding: 10px;
+  background: rgba(15, 10, 6, 0.88);
+}
+
+.doorbox {
+  max-width: 560px;
+  width: 100%;
+}
+
+.actscreen {
+  position: relative;
+}

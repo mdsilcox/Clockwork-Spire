@@ -131,7 +131,7 @@ const SECTIONS: { id: string; title: string; text: string }[] = [
   {
     id: 'run',
     title: 'The run',
-    text: 'Climb the Spire floor by floor through fights, events, shops, forges and oil stations. Take a part after each fight, spend Cogs in shops, and beat the boss at the top of each act to climb on.',
+    text: 'Each act is a cut-away of the Spire: rooms joined by stairs, ducts and lifts. Every step takes an hour, and at midnight the warden comes for you. Salvage parts from fights, spend Scrap at workbenches and traders, and ring the bell at the door of the warden when your machine is ready.',
   },
   {
     id: 'workshop',

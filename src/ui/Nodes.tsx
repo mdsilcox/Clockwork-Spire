@@ -226,6 +226,7 @@ export function SalvageScreen() {
   const run = runView.value;
   const [keep, setKeep] = useState<number[]>([]);
   if (!run || run.pending?.kind !== 'salvage') return null;
+  const unit = run?.section ? 'Scrap' : 'Cogs';
   const p = run.pending;
   const needTrinket = p.trinkets.length > 0 && !p.trinketTaken;
   const toggle = (n: number): void => setKeep(keep.includes(n) ? keep.filter((k) => k !== n) : [...keep, n]);
@@ -239,7 +240,7 @@ export function SalvageScreen() {
     <Shell run={run} title="Salvage" art={<SpoilsArt />}>
       <section class="rewardbox salvagebox" data-testid="salvage-tray" aria-label="Salvage tray">
         <p class="bigline" data-testid="salvage-cogs">
-          +{p.cogs} Cogs
+          +{p.cogs} {unit}
         </p>
         {p.blueprint && (
           <p class="banner-line" data-testid="blueprint-banner">
@@ -248,7 +249,7 @@ export function SalvageScreen() {
         )}
         {p.items.length > 0 ? (
           <>
-            <p class="salvage-note">Keep any of these parts for your bin. What you leave is scrapped for Cogs.</p>
+            <p class="salvage-note">Keep any of these parts for your bin. What you leave is scrapped for {unit}.</p>
             <div class="salvage-list">
               {p.items.map((it, n) => {
                 const key = it.salvage === 'spire-key';
@@ -267,7 +268,7 @@ export function SalvageScreen() {
                       </span>
                     ) : it.locked ? (
                       <span class="snote" data-testid={`salvage-locked-${n}`}>
-                        Locked: you could almost see how it worked. It is scrapped for 6 Cogs.
+                        Locked: you could almost see how it worked. It is scrapped for 6 {unit}.
                       </span>
                     ) : (
                       <button class={kept ? 'primary skeep' : 'secondary skeep'} data-testid={`salvage-keep-${n}`} aria-pressed={kept} onClick={() => toggle(n)}>
@@ -307,7 +308,7 @@ export function SalvageScreen() {
         )}
         <div class="nodeactions salvage-foot">
           <span class="salvage-pay" data-testid="salvage-pay">
-            Done adds +{pay} Cogs
+            Done adds +{pay} {unit}
           </span>
           <button class="primary" data-testid="salvage-done" disabled={needTrinket} onClick={finish}>
             Done
