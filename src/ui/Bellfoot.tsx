@@ -29,6 +29,7 @@ import { BELLFOOT } from '../art/scenes/bellfoot';
 import type { SceneDef } from '../art/scenes/bellfoot';
 import { COLLARS } from '../core/content/collars';
 import { CHASSIS } from '../core/content/chassis';
+import { EVENTS } from '../core/content/events';
 import { RESIDENT_BY_ID } from '../core/content/residents';
 import type { Profile } from '../core/types';
 import { playMood, playPet } from '../audio/sprocket';
@@ -37,6 +38,7 @@ import type { RigHandle } from '../render/rig';
 import { sharedRigHub } from '../render/rig';
 import { Archivist } from './Archivist';
 import { drawAmbience, drawStreet, VIEW_H, VIEW_TOP } from './bellfootScene';
+import { drawStalls } from './bellfootStalls';
 import { fmt } from './format';
 import { Trophies } from './Trophies';
 import { GatePanel, WorkshopPanel } from './Workshop';
@@ -361,6 +363,7 @@ function Street({ places, p }: { places: TownPlace[]; p: Profile }) {
       c2.translate(0, -VIEW_TOP);
       if (SCENE) drawAmbience(c2, now, SCENE.ambience?.lamps ?? [], SCENE.ambience?.chimneys ?? []);
       else drawAmbience(c2, now);
+      drawStalls(c2, now, new Set(placesRef.current.map((q) => q.id)));
       c2.restore();
       st.collarKey = collarRef.current ?? '';
     };
@@ -483,12 +486,28 @@ function SprocketCorner({ p }: { p: Profile }) {
   );
 }
 
+/** What each resident does for every later climb (content/residents.ts effects, in words). */
+const STALL_DOES: Record<string, string> = {
+  'oil-merchant': 'Oil Flasks: 2 per climb. Drink one in any room: heal 15 HP, no hour passes.',
+  apprentice: 'One of your starting parts is already upgraded.',
+  lamplighter: "Every act's rooms are lit: you see what each one is before you walk in.",
+  'hour-ghost': 'The archivist writes fuller journal pages and bestiary entries.',
+  'traders-cousin': 'One extra trader in every act, and a fight room fewer.',
+};
+
 function Stall({ id }: { id: string }) {
   const r = RESIDENT_BY_ID[id.replace(/^stall-/, '')];
   if (!r) return <p class="empty">Nobody is here.</p>;
+  const ev = EVENTS[r.eventId];
   return (
     <section class="stallpanel" data-testid="stall">
-      <p>{r.stall}</p>
+      <p class="stallsay">{r.stall}</p>
+      <dl class="stalldl">
+        <dt>Every climb</dt>
+        <dd>{STALL_DOES[r.id] ?? 'A little help, kept for you.'}</dd>
+        <dt>How they came</dt>
+        <dd>You met them in the Spire: {ev ? `"${ev.title}"` : 'a chance meeting'}. They moved to Bellfoot when the climb ended.</dd>
+      </dl>
     </section>
   );
 }
@@ -513,15 +532,18 @@ function PlacePanel({ id, p, places }: { id: string; p: Profile; places: TownPla
   else if (id === 'archivist') body = <Archivist p={p} />;
   else if (id.startsWith('stall-')) body = <Stall id={id} />;
   else body = <ClockTower p={p} />;
+  const wide = id === 'workshop' || id === 'archivist' || id === 'trophies' || id === 'gate';
   return (
-    <div class="placepanel" data-testid="place-panel" data-place={id} role="dialog" aria-label={q?.label ?? id}>
-      <header class="placehead">
-        <h2>{q?.label ?? id}</h2>
-        <button class="ghostbtn" data-testid="place-close" onClick={() => (openPlaceId.value = null)}>
-          Close
-        </button>
-      </header>
-      <div class="placebody">{body}</div>
+    <div class="placepanel" data-testid="place-panel" data-place={id} role="dialog" aria-label={q?.label ?? id} onClick={(e) => e.target === e.currentTarget && (openPlaceId.value = null)}>
+      <div class={`placecard ${wide ? 'wide' : ''}`}>
+        <header class="placehead">
+          <h2>{q?.label ?? id}</h2>
+          <button class="ghostbtn" data-testid="place-close" onClick={() => (openPlaceId.value = null)}>
+            Close
+          </button>
+        </header>
+        <div class="placebody">{body}</div>
+      </div>
     </div>
   );
 }
