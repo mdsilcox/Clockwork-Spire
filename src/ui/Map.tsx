@@ -43,9 +43,7 @@ export function TrinketBar({ run }: { run: RunState }) {
 /** The run bar's second line: the floor of the room you stand in (a climb), or the v1 floor count. */
 function floorLine(run: RunState): string {
   if (run.section) {
-    const here = run.section.rooms.find((r) => r.id === run.roomId);
-    const top = Math.max(...run.section.rooms.map((r) => r.floor)) + 1;
-    return here ? `Floor ${here.floor + 1} of ${top}` : '';
+    return `Hour ${run.hour ?? 0} of ${run.hours ?? 12}`;
   }
   return run.floor > 0 ? `Floor ${run.floor} of 13` : 'Before the first floor';
 }

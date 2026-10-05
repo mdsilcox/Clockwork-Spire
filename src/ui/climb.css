@@ -536,3 +536,46 @@
   background: #2a1810;
   font-size: 12px;
 }
+
+.aroom.k-fight {
+  border-radius: 18px 18px 26px 26px;
+}
+.aroom.k-workbench {
+  border-radius: 4px;
+  border-width: 3px;
+}
+.aroom.k-oil {
+  border-radius: 999px;
+}
+.aroom.k-trader {
+  border-radius: 12px;
+  border-style: double;
+  border-width: 4px;
+}
+.aroom.k-vault {
+  border-radius: 2px 14px 2px 14px;
+}
+
+button.lockmark {
+  pointer-events: auto;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.fusecards .card {
+  flex: 1 1 200px;
+  min-width: 190px;
+  max-width: 300px;
+}
+
+.doorbox .primary,
+.doorbox .secondary {
+  min-height: 44px;
+  margin-top: 6px;
+}

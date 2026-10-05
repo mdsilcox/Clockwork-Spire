@@ -110,11 +110,26 @@ const S = { fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-lin
 function RoomGlyph({ kind }: { kind: RoomKind | 'unknown' }) {
   switch (kind) {
     case 'workbench':
-      return <NodeIcon type="forge" size={30} />;
+      return (
+        <svg class="nicon" width="32" height="32" viewBox="0 0 40 40" aria-hidden="true" focusable="false">
+          <path class="nframe" d="M10 4 H30 L37 20 L30 36 H10 L3 20 Z" />
+          <g {...S}>
+            <path d="M10 17 H28 C28 21 25 23 22 23 V26 H26 V29 H13 V26 H17 V23 C13 23 11 21 10 17 Z" />
+            <path d="M24 9 L30 13" />
+          </g>
+        </svg>
+      );
     case 'trader':
       return <NodeIcon type="shop" size={30} />;
     case 'fight':
-      return <NodeIcon type="fight" size={30} />;
+      return (
+        <svg class="nicon" width="32" height="32" viewBox="0 0 40 40" aria-hidden="true" focusable="false">
+          <path class="nframe" d="M5 5 H35 V22 C35 30 27 35 20 38 C13 35 5 30 5 22 Z" />
+          <g {...S}>
+            <path d="M12 12 L28 28 M28 12 L12 28 M10 14 L14 10 M26 30 L30 26 M30 14 L26 10 M14 30 L10 26" />
+          </g>
+        </svg>
+      );
     case 'oil':
       return <NodeIcon type="oil" size={30} />;
     case 'event':
@@ -321,8 +336,9 @@ export function ActScreen() {
               </button>
               {prepared > 0 && <span class="acthint">Prepared +{prepared}: {prepared} extra {prepared === 1 ? 'placement' : 'placements'} on your first turn against the warden.</span>}
               {bellSure && (
-                <div class="bellsure" data-testid="bell-sure">
-                  <span class="acthint">This starts the warden fight now. Your {left} spare {left === 1 ? 'hour' : 'hours'} pay out.</span>
+                <div class="dooroverlay" data-testid="bell-sure" role="dialog" aria-label="Ring the bell?">
+                 <section class="forgebox doorbox">
+                  <p class="evline">This starts the warden fight now. Your {left} spare {left === 1 ? 'hour' : 'hours'} pay out.</p>
                   <button
                     class="primary"
                     data-testid="bell-confirm"
@@ -334,6 +350,10 @@ export function ActScreen() {
                   >
                     Yes, ring it
                   </button>
+                  <button class="secondary" data-testid="bell-cancel" onClick={() => setBellSure(false)}>
+                    Not yet
+                  </button>
+                 </section>
                 </div>
               )}
             </div>
@@ -378,12 +398,12 @@ export function ActScreen() {
             const b = lay.pos.get(p.b);
             if (!a || !b || !p.locked) return null;
             return (
-              <span key={`lk${i}`} class="lockmark" style={{ left: `${(a.x + b.x) / 2}%`, top: `${(a.y + b.y) / 2}%` }} data-testid={`lock-${i}`} aria-hidden="true">
+              <button key={`lk${i}`} class="lockmark" style={{ left: `${(a.x + b.x) / 2}%`, top: `${(a.y + b.y) / 2}%` }} data-testid={`lock-${i}`} aria-label="A locked door" onClick={() => (p.a === hereId || p.b === hereId) && (doorPrompt.value = i)}>
                 <svg viewBox="0 0 16 16" width="16" height="16">
                   <rect x="3" y="7" width="10" height="7" rx="1.5" fill="#3a1c12" stroke="#ff9a55" stroke-width="1.5" />
                   <path d="M5.5 7 V5 C5.5 1.8 10.5 1.8 10.5 5 V7" fill="none" stroke="#ff9a55" stroke-width="1.5" />
                 </svg>
-              </span>
+              </button>
             );
           })}
           {s.rooms.map((r) => {
@@ -578,9 +598,11 @@ export function WorkbenchScreen() {
               <PartCard key={id} defId={id} testid={`fuse-candidate-${n}`} onClick={() => done(benchFusePick(offer.a, offer.b, n))} />
             ))}
           </div>
-          <button class="ghostbtn" data-testid="fuse-back" onClick={() => (fuseOffer.value = null)}>
-            Back
-          </button>
+          {offer.candidates.length === 0 && (
+            <button class="ghostbtn" data-testid="fuse-back" onClick={() => (fuseOffer.value = null)}>
+              Back
+            </button>
+          )}
         </div>
       )}
     </RoomShell>
@@ -720,6 +742,7 @@ export function OilRoomScreen() {
   if (!run || !run.section) return null;
   const room = run.section.rooms.find((r) => r.id === run.roomId);
   const used = run.pending?.kind === 'oil' ? run.pending.done : !!room?.used;
+  const [justUsed, setJustUsed] = useState(false);
   const heal = Math.max(0, Math.min(run.maxHp - run.hp, Math.floor(run.maxHp * 0.3)));
   const left = Math.max(0, (run.hours ?? 12) - (run.hour ?? 0));
   return (
@@ -729,13 +752,13 @@ export function OilRoomScreen() {
           <>
             <p class="evline">A quiet bench, a drip of oil. Choose one.</p>
             <div class="choices two">
-              <button class="choice" data-testid="oil-rest" disabled={heal <= 0 || left < 1} onClick={() => oilRest()}>
+              <button class="choice" data-testid="oil-rest" disabled={heal <= 0 || left < 1} onClick={() => (setJustUsed(true), oilRest())}>
                 <b>Rest: +1 hour</b>
                 <span data-testid="oil-rest-text">
                   {heal <= 0 ? 'Already at full HP.' : `Heal ${Math.floor(run.maxHp * 0.3)} HP (30% of your max). You are at ${run.hp} of ${run.maxHp}. The hour passes, and the elites move.`}
                 </span>
               </button>
-              <button class="choice" data-testid="oil-polish" onClick={() => oilPolish()}>
+              <button class="choice" data-testid="oil-polish" onClick={() => (setJustUsed(true), oilPolish())}>
                 <b>Polish</b>
                 <span>
                   +4 max HP, from {run.maxHp} to {run.maxHp + 4}. No time passes.
@@ -745,7 +768,7 @@ export function OilRoomScreen() {
           </>
         ) : (
           <p class="evresult" data-testid="oil-done">
-            Smooth and quiet. You feel ready.{lastRestHeal.value > 0 && room?.used ? ` Healed ${lastRestHeal.value} HP, now ${run.hp} of ${run.maxHp}.` : ''}
+            {justUsed ? `Smooth and quiet. You feel ready.${lastRestHeal.value > 0 ? ` Healed ${lastRestHeal.value} HP, now ${run.hp} of ${run.maxHp}.` : ''}` : `Already used. The oil here is spent. You are at ${run.hp} of ${run.maxHp} HP.`}
           </p>
         )}
         <div class="nodeactions">
