@@ -2,6 +2,7 @@
 import { signal } from '@preact/signals';
 import { openDB } from 'idb';
 import type { DBSchema, IDBPDatabase } from 'idb';
+import { migrateSlot, SAVE_VERSION } from '../core/migrate';
 import { CELLS } from '../core/types';
 import type { CombatState, Profile, RunState, SaveSlot, Settings } from '../core/types';
 
@@ -22,6 +23,8 @@ const VERSION = 1;
 let dbp: Promise<IDBPDatabase<Schema>> | null = null;
 /** True when saving does not reach the disk in this window (private mode, quota): the game keeps an in-memory save. */
 export const saveNotice = signal(false);
+/** Set when a version 1 save was migrated on load and a run in progress was closed (rules 6); the app shows it once, then clears it. */
+export const migrationNotice = signal<string | null>(null);
 const mem = new Map<string, Row>();
 let noDb = false;
 
@@ -168,7 +171,14 @@ export async function readSlot(n: SlotNo): Promise<SlotRead> {
   try {
     const row = await getRow(slotKey(n));
     if (!row) return { state: 'empty' };
-    if (row.version === VERSION && looksLikeSlot(row.data)) return { state: 'ok', slot: row.data };
+    if ((row.version === VERSION || row.version === SAVE_VERSION) && looksLikeSlot(row.data)) {
+      if ((row.data.version ?? 1) >= SAVE_VERSION) return { state: 'ok', slot: row.data };
+      // a version 1 save: migrate, write the result back (the run closed and its Brass credited in the same write)
+      const m = migrateSlot(row.data);
+      await writeSlot(m.slot);
+      if (m.notice) migrationNotice.value = m.notice;
+      return { state: 'ok', slot: m.slot };
+    }
     // keep what was there: the first copy is slot-N-corrupt, later ones get a number
     let key = `${slotKey(n)}-corrupt`;
     for (let i = 2; await getRow(key); i++) key = `${slotKey(n)}-corrupt-${i}`;
@@ -182,7 +192,7 @@ export async function readSlot(n: SlotNo): Promise<SlotRead> {
 /** One write: the profile, the run in progress (or null) and the time. */
 export async function writeSlot(slot: SaveSlot): Promise<void> {
   try {
-    await putRow({ slot: slotKey(slot.slot), version: VERSION, data: JSON.parse(JSON.stringify(slot)), savedAt: 0 });
+    await putRow({ slot: slotKey(slot.slot), version: SAVE_VERSION, data: JSON.parse(JSON.stringify(slot)), savedAt: 0 });
   } catch {
     /* saving is best effort */
   }

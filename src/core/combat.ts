@@ -80,6 +80,13 @@ export function createCombat(o: CreateCombatOpts): CombatState {
     flags: {},
   };
   for (const id of o.enemies) c.enemies.push(newEnemy(id));
+  if (o.overwound) {
+    for (const e of c.enemies) {
+      e.statuses.strength = 3;
+      e.shell = 10;
+      e.overwound = true;
+    }
+  }
   const initial = c.enemies.length;
   for (let i = 0; i < initial; i++) enemyDef(c.enemies[i].defId).onStart?.(c, i);
   for (let i = 0; i < initial; i++) {
@@ -89,6 +96,7 @@ export function createCombat(o: CreateCombatOpts): CombatState {
   c.order = defaultOrder(c);
   syncTargetIdx(c);
   beginTurn(c, []);
+  c.placementsLeft += Math.max(0, Math.min(2, o.prepared ?? 0));
   for (const id of c.trinkets) trinketDef(id).onCombatStart?.(c);
   return c;
 }

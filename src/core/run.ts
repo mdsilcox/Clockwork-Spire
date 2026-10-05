@@ -2,8 +2,7 @@
 // B3 CONTRACT: the signatures below are fixed; the `run-core` lane implements them. Pure: no DOM, no clock.
 // Every function mutates the RunState in place and returns nothing unless stated. Illegal actions return false
 // (or throw nothing) and leave the state unchanged.
-import { BASE_PLACEMENTS, BASE_TICKS, createCombat } from './combat';
-import type { CreateCombatOpts } from './combat';
+import { BASE_PLACEMENTS, BASE_TICKS } from './combat';
 import { CHASSIS } from './content/chassis';
 import { bandForFloor, ENCOUNTERS, encounterPool } from './content/encounters';
 import type { Encounter } from './content/encounters';
@@ -11,9 +10,12 @@ import { EVENTS } from './content/events';
 import { candidates, EFFECTS, randomPartOf } from './eventfx';
 import { generateActMap } from './map';
 import { initStreams, int, pick, shuffle } from './rng';
-import { addBlueprint, bossTrinkets, eliteTrinket, gainTrinket, heal, markOfferTaken, newPart, offerParts, recordOffers, rollBlueprint } from './rewards';
+import { addBlueprint, addScrap, bossTrinkets, eliteTrinket, gainTrinket, heal, markOfferTaken, newPart, offerParts, recordOffers, rollBlueprint } from './rewards';
 import { makeShop as buildShop, OIL_HEAL, removalPrice } from './shop';
 import { isPartUnlocked, salvageItems } from './salvage';
+import { takeVault } from './rooms';
+import { afterRoom, resolveRoom, ROOM_BRASS, startAct } from './section';
+import { startCombat } from './startfight';
 import type { CombatState, RunConfig, RunRecord, RunState, ShopItem } from './types';
 
 const BRASS_PER_FLOOR = [4, 6, 8];
@@ -32,6 +34,7 @@ export function defaultRunConfig(seed: number, chassis = 'tinker'): RunConfig {
     rewardChoices: 3,
     extraEliteBlueprint: false,
     secondWind: false,
+    legacyMap: true, // v1 flow for the v1 tests and bots; the app's runConfigFor leaves it unset (the climb)
   };
 }
 
@@ -81,6 +84,7 @@ export function newRun(cfg: RunConfig): RunState {
     flags: {},
   };
   for (const t of cfg.trinkets) gainTrinket(run, t);
+  if (!cfg.legacyMap) startAct(run, 1); // v2: the climb starts at dusk in act 1's section (the v1 map stays on the run until the gate removes it)
   return run;
 }
 
@@ -127,20 +131,7 @@ export function enterNode(run: RunState, nodeId: string): boolean {
   run.pending = null;
   if (node.type === 'fight' || node.type === 'elite' || node.type === 'boss') {
     const enc = pickEncounter(run, node.type === 'fight' ? 'normal' : node.type);
-    const handSize = Math.max(1, run.config.handSize - (run.trinkets.includes('mainspring-key') ? 1 : 0));
-    const opts: CreateCombatOpts & { chassis: string } = {
-      seed: int(run.rng, 'enemy', 0x7fffffff),
-      bin: run.bin,
-      enemies: enc.enemies,
-      hp: run.hp,
-      maxHp: run.maxHp,
-      kind: node.type,
-      trinkets: run.trinkets,
-      handSize,
-      chassis: run.config.chassis, // consumed by the combat-hooks lane's createCombat
-    };
-    run.combat = createCombat(opts);
-    run.phase = 'combat';
+    startCombat(run, enc.enemies, node.type);
   } else if (node.type === 'event') {
     run.pending = { kind: 'event', eventId: pickEvent(run) };
     run.phase = 'event';
@@ -216,11 +207,19 @@ export function settleCombat(run: RunState): boolean {
   run.hp = Math.max(1, Math.min(run.maxHp, c.playerHp));
   let cogs = kind === 'fight' ? 12 + int(run.rng, 'reward', 9) : kind === 'elite' ? 25 + int(run.rng, 'reward', 11) : 40 + int(run.rng, 'reward', 11);
   if (run.trinkets.includes('lucky-bolt')) cogs = Math.round(cogs * 1.2);
-  run.cogs += cogs;
+  addScrap(run, cogs);
   if (kind === 'boss') {
     run.stats.bossesBeaten += 1;
     heal(run, Math.floor((run.maxHp - run.hp) * 0.4));
-  } else if (kind === 'elite') run.stats.elites += 1;
+  } else if (kind === 'elite') {
+    run.stats.elites += 1;
+    const room = run.section?.rooms.find((r) => r.id === run.roomId);
+    if (room?.kind === 'vault') takeVault(run); // Masterwork (or Legendary) and 40 Scrap, rooms.ts
+    else {
+      const el = run.elites?.find((e) => !e.defeated && e.defId === c.enemies[0]?.defId && e.patrol[e.at] === run.roomId);
+      if (el) el.defeated = true;
+    }
+  }
   else run.stats.fights += 1;
   if (run.trinkets.includes('tin-cup')) heal(run, 3);
 
@@ -278,7 +277,7 @@ export function takeRewardPart(run: RunState, index: number | null): boolean {
   if (run.phase !== 'reward' || !p || p.kind !== 'reward' || p.partTaken) return false;
   if (index === null) {
     p.partTaken = true;
-    if (run.trinkets.includes('sprocket-tag')) run.cogs += 12;
+    if (run.trinkets.includes('sprocket-tag')) addScrap(run, 12);
     return true;
   }
   const id = p.parts[index];
@@ -428,11 +427,43 @@ export function oilPolish(run: RunState): boolean {
   return true;
 }
 
-/** Leave the current non-combat node (or the reward screen) back to the map; after the boss: next act or 'victory'. */
+/** The climb's version of leaving: the room is done (cleared when it was a fight, vault or event), then the next thing. */
+function leaveRoom(run: RunState): boolean {
+  const room = run.section?.rooms.find((r) => r.id === run.roomId);
+  run.pending = null;
+  run.combat = null;
+  if (run.flags.wardenFight) {
+    run.flags.wardenFight = false;
+    run.overwound = false;
+    run.prepared = undefined;
+    if (run.act === 3) run.phase = 'victory';
+    else startAct(run, (run.act + 1) as 2 | 3);
+    syncBrass(run);
+    return true;
+  }
+  if (run.flags.eliteMet) {
+    // a roaming elite was beaten here: the room's own business comes next
+    run.flags.eliteMet = false;
+    syncBrass(run);
+    resolveRoom(run);
+    return true;
+  }
+  if (room && (room.kind === 'fight' || room.kind === 'vault' || room.kind === 'event') && !room.cleared) {
+    room.cleared = true;
+    run.stats.floorBrass = (run.stats.floorBrass ?? 0) + ROOM_BRASS[run.act - 1] + (run.trinkets.includes('blueprint-scrap') ? 1 : 0);
+  }
+  syncBrass(run);
+  afterRoom(run);
+  return true;
+}
+
+/** Leave the current room's screen (or the reward screen) back to the climb; v1: back to the map. After the warden: the
+ * next act at dusk, or 'victory'. */
 export function leaveNode(run: RunState): boolean {
-  if (!['reward', 'event', 'shop', 'forge', 'oil'].includes(run.phase)) return false;
+  if (!['reward', 'event', 'shop', 'forge', 'oil', 'workbench', 'trader'].includes(run.phase)) return false;
   const p = run.pending;
   if (p && p.kind === 'event' && p.needsPart) return false;
+  if (run.section) return leaveRoom(run);
   const node = run.map.nodes.find((n) => n.id === run.nodeId);
   run.pending = null;
   run.combat = null;
