@@ -38,6 +38,12 @@ export function newProfile(name: string, createdAt: string): Profile {
     lastSprocketMood: null,
     finishedSeeds: [],
     planHistory: [],
+    residents: [],
+    landmarks: [],
+    journal: [],
+    bestiary: [],
+    collars: [],
+    collar: null,
     achievements: {},
     achievementProgress: {},
     rewards: { journal: [], collars: [], landmarks: [], overwind: 0, chassis: [] },
@@ -72,7 +78,7 @@ function commonTrinketFor(seed: number): string {
 /** The RunConfig a new run starts from, given the profile's upgrades and blueprints. */
 export function runConfigFor(profile: Profile, seed: number, chassis: string): RunConfig {
   const lv = (id: string): number => profile.upgrades[id] ?? 0;
-  return {
+  const cfg: RunConfig = {
     seed,
     chassis,
     maxHp: 50 + 5 * lv('frame'),
@@ -87,6 +93,13 @@ export function runConfigFor(profile: Profile, seed: number, chassis: string): R
     secondWind: lv('secondwind') >= 1,
     memory: memoryPlan(profile.planHistory),
   };
+  return applyMemory(cfg, profile);
+}
+
+/** B10a hook (memory-core): the residents' effects (RunConfigPatch) and the landmarks' (MapGenPatch) go onto the config here
+ * (`residentPatch`, `mapPatch`, `upgradedStarters`...). Pass-through until B10a.1. */
+function applyMemory(cfg: RunConfig, _profile: Profile): RunConfig {
+  return cfg;
 }
 
 /** Sprocket's greeting mood for a finished run (rules 5.5). */

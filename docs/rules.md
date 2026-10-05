@@ -155,10 +155,10 @@ On you: **Plating X**, **Corroded X**, **Grit X** (v1). On your parts: **Rusted*
 ### 4.4 Rooms
 | Room | Per act *(tune)* | Does |
 |---|---|---|
-| Fight | 7 to 9 | An encounter from the act's pool; deeper floors draw harder encounters. |
+| Fight | 7 to 9 (one fewer with the Trader's cousin living in Bellfoot) | An encounter from the act's pool; deeper floors draw harder encounters. |
 | Workbench | 1 (2 in act 3) | Upgrade a part (C 15, U 25, R 40, M 60, L 80 Scrap); remove any part (25 Scrap, +15 per use in a run); **fuse** two parts of the same family and rarity into a part of the next rarity in that family (you see two candidate results and pick one; shown greyed with the reason when no unlocked part of the next rarity exists in that family; Masterworks never fuse into Legendaries). Each action once per visit; revisits allowed. |
 | Oil station | 1 to 2 | Rest (1 extra hour): heal 30% of max HP; or polish: +4 max HP. Once per station. |
-| Trader | 1 to 2 | Barter (4.5). |
+| Trader | 1 to 2 (up to 3 with the Trader's cousin) | Barter (4.5). The cousin converts one regular fight room per act into a trader, never the guaranteed opening fight, so an act has up to 3 traders and one fewer regular fight than the usual minimum; the CL1 sweep uses these bounds when he lives in Bellfoot. |
 | Event | 3 to 4 | A person or a place (content.md); some send a resident to Bellfoot (5.4). |
 | Vault | 0 to 1 | Behind a locked door, guarded by a fixed elite; a Masterwork part and 40 Scrap. In act 3, if you hold no Legendary and one is unlocked, a Legendary instead. |
 | Entry | 1 | Safe. The first act's entry has Sprocket's ball (pet him: nothing, but he wiggles). |
@@ -204,7 +204,7 @@ v1's upgrade bench (Reinforced Frame, Oiled Bearings, Tool Belt, Spare Cogs rena
 
 ### 5.4 The Spire remembers
 - **Residents**: some events end with a person moving to Bellfoot after the run (whether the run is won or lost). Each opens a stall for every later run: the Oil Merchant (start each run with 2 oil), the Apprentice (start with one part upgraded), the Lamplighter (each act's layout fully revealed), the Hour Ghost (the archivist's lore and bestiary), the Trader's cousin (one extra trader per act). Residents are listed with their event in content.md.
-- **Landmarks**: feats that change the Spire in later runs: the repaired lift (a shortcut in the Gearworks), an opened vault (stays a known room, its guardian replaced by a regular fight), the lit beacon (act 3 starts at hour 0 with a clearer layout). Each is shown on the archivist's map.
+- **Landmarks**: feats that change the Spire in later runs. The repaired lift: a passage from the entry to one room on the middle floor (floor 3) of the Gearworks, never adjacent to the warden's door; moving by lift costs 1 hour like any move. An opened vault is per act (`vault-1`, `vault-2`, `vault-3`; the vault-wheel event opens the vault of the act it happened in): in later runs that act's vault is a known room and its guardian is a regular fight from the act's pool, and it still pays its loot. The lit beacon: in act 3 every elite's whole patrol and the warden's door are shown from the start, and act 3 has 1 extra hour (every act already starts at hour 0). It differs from the Lamplighter, who shows every room's kind in every act. Each landmark is shown on the archivist's map.
 - **The Clockmaker's memory**: the profile keeps the main plan of the last three runs (by the share of damage and Plating from each source: Plating, burst Strikes, Pressure, statuses). The Clockmaker's extra part answers the most common one (Plating: a Pierce drill; burst: a Governor; Pressure: a Drain valve; statuses: a Purge chime). The archivist's note names it before each run.
 
 ### 5.5 Sprocket

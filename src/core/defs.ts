@@ -1,5 +1,5 @@
 // Static definition types (parts, enemies). Definitions are code keyed by id; state lives in types.ts.
-import type { ActionDef, Cadence, CombatState, EnemyState, Family, GameEvent, Intent, PlacedPart, Plan, Rarity } from './types';
+import type { ActionDef, Cadence, CombatState, EnemyState, Family, GameEvent, Intent, MapGenPatch, PlacedPart, Plan, Rarity, RunConfigPatch } from './types';
 import type { RngState } from './rng';
 
 /** What a part's hooks may do while the machine ticks (and at turn start / enemy attacks). Built by machine.ts. */
@@ -202,4 +202,38 @@ export interface AchievementDef {
   reward: AchievementReward;
   /** False when it opens with Bellfoot in B10: shown locked with "Opens with Bellfoot". */
   available: boolean;
+}
+
+// ---------- B10a: Bellfoot (docs/content.md section 6; rules 5.4) ----------
+
+export interface ResidentDef {
+  id: string;
+  name: string;
+  /** The event whose choice sends this person to Bellfoot. */
+  eventId: string;
+  /** 0-based index of that choice in the event. */
+  choice: number;
+  /** The stall's line in Bellfoot. */
+  stall: string;
+  /** The effect on every later run (applied by `runConfigFor`, B10a.1). */
+  effect: RunConfigPatch;
+}
+
+export interface LandmarkDef {
+  id: string;
+  name: string;
+  /** The event that makes it (the m-vaults reward also grants `vault-1`). */
+  eventId: string | null;
+  /** The archivist's map line. */
+  text: string;
+  /** Which act it lives in. */
+  act: 1 | 2 | 3;
+  effect: MapGenPatch;
+}
+
+export interface CollarDef {
+  id: string;
+  name: string;
+  /** The band color drawn at the Sprocket rig's `collar` anchor. */
+  color: string;
 }

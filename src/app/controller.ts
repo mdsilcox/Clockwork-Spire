@@ -1520,12 +1520,26 @@ export function installDebug(): void {
     /** Trophy shelf data: achievements (with earned times and progress), rewards and what each unlocks. */
     trophies: (): unknown => trophyShelf(),
     // ---- end B9b.0 block ----
+    // ---- B10a.0 CONTRACT (bellfoot-ui fills town(); memory-core the cheats; nobody else edits these blocks) ----
+    /** Bellfoot now: the current place id and the place list (src/ui/town.ts `townPlaces`). */
+    town: (): { place: string; places: { id: string; label: string; x: number }[] } => {
+      throw new Error('B10a');
+    },
+    // ---- end B10a.0 block ----
     cheat: {
       // ---- B9b.0 CONTRACT (progression lane): earn an achievement now, as finishRun would (unlocks, rewards, one save write) ----
       unlock: (id: string): void => {
         if (active && earnAchievement(active.profile, id, nowIso())) saveActive();
       },
       // ---- end B9b.0 block ----
+      // ---- B10a.0 CONTRACT (memory-core): add a resident or landmark to the active profile as finishRun would, then save ----
+      addResident: (_id: string): void => {
+        throw new Error('B10a');
+      },
+      addLandmark: (_id: string): void => {
+        throw new Error('B10a');
+      },
+      // ---- end B10a.0 block ----
       /** B9a: set the active profile's planHistory (the Clockmaker's memory), save, and re-render the Workshop. */
       setPlanHistory: (plans: Plan[]): void => {
         if (!active) return;

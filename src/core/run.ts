@@ -86,6 +86,10 @@ export function newRun(cfg: RunConfig): RunState {
       bonusBrass: 0,
     },
     legendary: null,
+    oilFlasks: 0,
+    resident: null,
+    met: [],
+    lore: [],
     flags: {},
   };
   for (const t of cfg.trinkets) gainTrinket(run, t);

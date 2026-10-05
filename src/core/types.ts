@@ -426,6 +426,10 @@ export interface RunConfig {
   secondWind: boolean;
   /** B8 transition: true keeps v1's map flow (newRun does not start the climb); `defaultRunConfig` sets it so the v1 tests and bots run unchanged. Real runs (meta `runConfigFor`) leave it unset. Removed at the gate. */
   legacyMap?: boolean;
+  /** B10a: the resident stalls' combined effect on this run (docs/content.md 6); `runConfigFor` fills it. Undefined: none. */
+  residentPatch?: RunConfigPatch;
+  /** B10a: the landmarks' combined effect on map generation; `startAct` passes it to `generateSection`. Undefined: none. */
+  mapPatch?: MapGenPatch;
   /** B9a: the plan the Clockmaker remembers (memoryPlan of the profile's planHistory); null or missing: no memory part. */
   memory?: Plan | null;
   /** B9b: Masterwork and Legendary trinkets the profile's achievements have unlocked (parts go in `unlockedParts`). */
@@ -453,6 +457,11 @@ export interface RunState {
   stats: RunStats;
   /** B9b: the run's one Legendary (part or trinket id), or null; replaces data-model's `legendaryTaken`. */
   legendary: string | null;
+  // B10a: Bellfoot's memory in a run (flags stays boolean). All migrate to these defaults.
+  oilFlasks: number; // Oil Flasks held: used outside combat in any room, heal 15, no hour
+  resident: string | null; // the resident this run's event sent to Bellfoot (added to the profile at the run's end)
+  met: string[]; // enemy ids met this run (merged into profile.bestiary at the run's end)
+  lore: string[]; // lore moments heard: 'hour-ghost', 'stopped-clock', 'empty-chair', 'unsent-letter'
   flags: Record<string, boolean>; // secondWindUsed, firstEliteThisAct..., event once-flags
   killedBy?: string;
   // B8 the climb (optional while v1's flow still exists; new runs set them all):
@@ -465,6 +474,26 @@ export interface RunState {
   keys?: number; // Spire Keys held
   prepared?: number; // extra placements on the warden's first turn (the bell)
   overwound?: boolean; // the warden caught you at midnight
+}
+
+// ---------- B10a patches (docs/data-model.md "Version 2") ----------
+
+/** What a resident stall (or, in B10b, an Overwind twist) changes at the start of a run. All fields optional; none applied before B10a.1. */
+export interface RunConfigPatch {
+  oilFlasks?: number; // Oil Merchant: start with this many Oil Flasks
+  upgradedStarters?: number; // Apprentice: this many more starting parts upgraded (the `meta` stream)
+  revealRooms?: boolean; // Lamplighter: every room's kind is shown in every act
+  extraTraders?: number; // Trader's cousin: this many extra traders per act (converts a regular fight room)
+  loreAndBestiary?: boolean; // Hour Ghost: the archivist gains lore pages and full bestiary entries
+}
+
+/** What landmarks change in section generation. `generateSection` ignores it before B10a.1. */
+export interface MapGenPatch {
+  lift?: boolean; // Gearworks (act 1): a lift passage from the entry to one middle-floor room (floor 3), never next to the door
+  knownVaults?: (1 | 2 | 3)[]; // acts whose vault is a known room with a regular-fight guardian
+  beacon?: boolean; // act 3: every elite patrol and the door shown from the start, +1 hour
+  revealRooms?: boolean; // every room's kind shown (Lamplighter)
+  extraTraders?: number; // the Trader's cousin: converts regular fight rooms into traders (never the opening fight)
 }
 
 export interface RunRecord {
@@ -507,6 +536,13 @@ export interface Profile {
   finishedSeeds: number[]; // seeds already settled by finishRun (guards double payout), last 20
   /** B9a: main plans of the last three finished runs, oldest first (rules 5.4); migrates to []. */
   planHistory?: Plan[];
+  // B10a (docs/briefs/B10a-bellfoot.md): Bellfoot's memory. All migrate to empty / null.
+  residents: string[]; // resident ids living in Bellfoot (content/residents.ts)
+  landmarks: string[]; // landmark ids: 'lift', 'vault-1', 'vault-2', 'vault-3', 'beacon' (content/landmarks.ts)
+  journal: string[]; // journal page ids, in the order found
+  bestiary: string[]; // enemy ids met
+  collars: string[]; // collar ids earned (content/collars.ts)
+  collar: string | null; // the collar Sprocket wears
   /** B9b: achievement id -> ISO time it was earned (docs/content.md section 7). Migrates to {}. */
   achievements: Record<string, string>;
   /** B9b: counters across runs (pets, bells with 3+ hours, parts broken, wrecking wins, per-chassis win flags). Migrates to {}. */

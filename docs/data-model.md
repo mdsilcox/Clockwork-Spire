@@ -184,11 +184,14 @@ interface OverwindDef { level: number; name: string; text: string; patch: RunCon
 interface Profile { /* v1 fields */ version: 2;
   achievements: Record<string, string>;       // id -> unlocked at (ISO)
   achievementProgress: Record<string, number>; // counters (Sprocket pets, bells rung)
-  residents: string[]; landmarks: string[];
+  residents: string[]; landmarks: string[]; // B10a: ids from content/residents.ts and landmarks.ts ('lift', 'vault-1', 'vault-2', 'vault-3', 'beacon')
   planHistory: ('plating'|'burst'|'pressure'|'statuses')[]; // last 3 runs, oldest first (B9a)
   rewards: { journal: string[]; collars: string[]; landmarks: string[]; overwind: number; chassis: string[] }; // B9b: rewards with no system yet, applied in B10
   modesUnlocked: string[]; overwindMax: number; lastMode: string; lastOverwind: number;
-  journal: string[]; bestiary: string[]; collars: string[]; collar: string | null; }
+  journal: string[]; bestiary: string[]; // B10a: bestiary = enemy ids met, merged at the run's end from run.met
+  collars: string[]; collar: string | null; } // collar: the one Sprocket wears (red, bell, dusk)
+// B10a patches: RunConfigPatch { oilFlasks?, upgradedStarters?, revealRooms?, extraTraders?, loreAndBestiary? } (types.ts);
+// MapGenPatch { lift?, knownVaults?: (1|2|3)[], beacon?, revealRooms?, extraTraders? }; RunConfig.residentPatch and mapPatch carry them.
 
 interface RunState { /* v1 fields, minus floor/map/nodeId/cogs */
   mode: string; overwind: number; scrap: number;
@@ -196,6 +199,7 @@ interface RunState { /* v1 fields, minus floor/map/nodeId/cogs */
   phase: 'section'|'combat'|'salvage'|'event'|'trader'|'workbench'|'oil'|'door'|'victory'|'defeat';
   elites: { defId: string; patrol: string[]; at: number; defeated: boolean }[];
   keys: number; legendary: string | null; // B9b: the run's one Legendary (part or trinket id)
+  oilFlasks: number; resident: string | null; met: string[]; lore: string[]; // B10a: Oil Flasks held; the resident this run's event sent to Bellfoot; enemy ids met; lore moments heard. `flags` stays Record<string, boolean>.
   stats: { /* v1 */ roomsCleared: number; bellsRung: number; partsBroken: number; plan: Record<string, number> }; }
 interface ActSection { act: number; rooms: Room[]; passages: Passage[]; entry: string; door: string; }
 interface Room { id: string; floor: number; slot: number; kind: 'fight'|'workbench'|'oil'|'trader'|'event'|'vault'|'entry'|'door';

@@ -29,6 +29,23 @@ export function migrateSlot(stored: unknown): MigrationResult {
     r.chassis ??= [];
   }
   if (input.run && input.run.legendary === undefined) input.run.legendary = null; // B9b: an old run holds no Legendary
+  if (input.profile) {
+    // B10a: any version
+    const p = input.profile;
+    p.residents ??= [];
+    p.landmarks ??= [];
+    p.journal ??= [];
+    p.bestiary ??= [];
+    p.collars ??= [];
+    p.collar ??= null;
+  }
+  if (input.run) {
+    const r = input.run;
+    r.oilFlasks ??= 0;
+    r.resident ??= null;
+    r.met ??= [];
+    r.lore ??= [];
+  }
   if ((input.version ?? 1) >= SAVE_VERSION) return { slot: fillB9b(input), notice: null };
   const slot = structuredClone(input);
   const profile = slot.profile;

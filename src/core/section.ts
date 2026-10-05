@@ -8,7 +8,7 @@ import type { RngState } from './rng';
 import { addScrap } from './rewards';
 import { traderStock } from './rooms';
 import { startCombat } from './startfight';
-import type { ActSection, Passage, Room, RoamingElite, RoomKind, RunState } from './types';
+import type { ActSection, MapGenPatch, Passage, Room, RoamingElite, RoomKind, RunState } from './types';
 
 export const DEFAULT_HOURS = 12; // Journeyman (rules 5.7)
 export const MAX_SHORTEST_PATH = 5; // entry to door, in moves (rules 4.1)
@@ -18,10 +18,8 @@ export const LOCK_PICK_SCRAP = 25;
 /** Brass per room cleared, by act (rules 5.2). */
 export const ROOM_BRASS = [2, 3, 4];
 
-export interface SectionOpts {
-  /** Landmarks that change generation (B10): e.g. 'lift' adds the Gearworks shortcut. */
-  landmarks?: string[];
-}
+/** B10a: what landmarks and residents change in generation (types.ts `MapGenPatch`). */
+export type SectionOpts = MapGenPatch;
 
 const BASE: Record<string, number> = { fight: 7, workbench: 1, oil: 1, trader: 1, event: 3, vault: 0 };
 const CAP: Record<string, number> = { fight: 9, workbench: 1, oil: 2, trader: 2, event: 4, vault: 1 };
@@ -199,7 +197,7 @@ function attempt(rng: RngState, act: 1 | 2 | 3): { section: ActSection; elites: 
  * the warden's door at the top, shortest entry-to-door path at most MAX_SHORTEST_PATH moves, room counts per rules 4.4,
  * fight encounters rolled from the act's pools by floor depth. */
 export function generateSection(rng: RngState, act: 1 | 2 | 3, opts: SectionOpts = {}): { section: ActSection; elites: RoamingElite[] } {
-  void opts;
+  void opts; // B10a hook (memory-core): lift, known vaults, beacon, reveal, extra traders
   for (let i = 0; i < 200; i++) {
     const r = attempt(rng, act);
     if (r) return r;
@@ -224,7 +222,7 @@ function enter(run: RunState, id: string): void {
 /** Start the act's climb on a run: section, elites, hour 0, hours from the run's mode, the player at the entry
  * (revealed with its neighbors). Called by newRun for act 1 and after each warden for the next act. */
 export function startAct(run: RunState, act: 1 | 2 | 3): void {
-  const { section, elites } = generateSection(run.rng, act);
+  const { section, elites } = generateSection(run.rng, act, run.config.mapPatch);
   run.act = act;
   run.section = section;
   run.elites = elites;
