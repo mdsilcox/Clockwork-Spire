@@ -197,7 +197,8 @@ function strictUnits(slot: Rect, targets: P[]): Unit[] | null {
         const d = Math.hypot(x - t.x, y - t.y);
         if (d >= bestD || centerBlocked(slot, x, y)) continue;
         const pb = pipBox({ x, y });
-        if (placed.some((u) => u && (boxesTouch(pb, pipBox(u)) || boxesTouch(pb, chipBox(u, u.side))))) continue;
+        const roomy = { l: pb.l - 3, r: pb.r + 3, t: pb.t - 3, b: pb.b + 3 }; // pips keep a gap of a few pixels
+        if (placed.some((u) => u && (boxesTouch(roomy, pipBox(u)) || boxesTouch(pb, chipBox(u, u.side))))) continue;
         for (const side of sides) {
           const cb = chipBox({ x, y }, side);
           if (!inSlot(cb) || placed.some((u) => u && (boxesTouch(cb, pipBox(u)) || boxesTouch(cb, chipBox(u, u.side))))) continue;

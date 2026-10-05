@@ -432,8 +432,16 @@ export class Stage {
     const phone = slot.h < RING_MIN_H && (e?.parts?.length ?? 0) > 0;
     const fit = phone ? 1.12 : 1;
     const paintW = Math.min(b.w * 1.05, ((b.h * fit) / def.size[1]) * def.size[0]);
-    const w = (paintW / def.size[0]) * WW;
-    const h = (w / WW) * WH;
+    let w = (paintW / def.size[0]) * WW;
+    let h = (w / WW) * WH;
+    // never above the slot: the painting's own top (its pad is empty margin) stays inside it
+    const topRoom = b.y + b.h + (phone ? b.h * 0.06 : 0) - (slot.y + 1);
+    const artH = (h / WH) * def.size[1];
+    if (artH > topRoom) {
+      const k = topRoom / artH;
+      w *= k;
+      h *= k;
+    }
     // bottom-aligned: the painting stands on the HP bar, whatever its shape (a cut-out has a small margin under its feet)
     const artBottom = ((def.pad[1] + def.size[1]) / WH) * h;
     const lower = phone ? b.h * 0.06 : (h / WH) * def.size[1] * 0.03;
@@ -473,6 +481,7 @@ export class Stage {
         (this.moodLog[i] = this.moodLog[i] ?? []).push('idle');
       }
       r.h.setRect(rect);
+      r.h.setClip(slots[i]); // effects (rings, steam) never draw outside the enemy's card
       const look = this.looks[i];
       const hp = this.view ? this.view.enemyHp[i] : e.hp;
       let want = r.mood;
@@ -895,8 +904,9 @@ export class Stage {
         this.flashCol = '255, 236, 190';
         this.bump(6);
         if (ti >= 0) {
-          this.ring(ex, ey, es * 1.3, '255, 226, 154', 0.9);
-          this.ring(ex, ey, es * 0.9, '255, 255, 255', 0.6);
+          const half = (this.slotList()[ti]?.w ?? es) * 0.46; // the rings stay inside the enemy's card
+          this.ring(ex, ey, Math.min(es * 1.3, half), '255, 226, 154', 0.9);
+          this.ring(ex, ey, Math.min(es * 0.9, half * 0.7), '255, 255, 255', 0.6);
           this.cogs(ex, ey, 10, es);
         }
         if (snd) audio.phaseGong(ti >= 0 && this.state?.enemies[ti]?.defId === 'clockmaker');

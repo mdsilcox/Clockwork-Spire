@@ -470,15 +470,29 @@
   left: 2px;
   right: 2px;
   bottom: 0;
-  height: 16px;
+  min-height: 16px;
   flex-direction: row;
+  flex-wrap: wrap;
   justify-content: center;
   align-items: baseline;
-  gap: 5px;
+  gap: 0 5px;
   font-size: 12px;
-  line-height: 16px;
-  white-space: nowrap;
+  line-height: 14px;
+  white-space: normal;
+  text-align: center;
   pointer-events: none;
+}
+
+/* a long name (the Boilermaker Queen's) wraps to a second line instead of being cut; a dark backing keeps it readable over the HP bar */
+.enemy.machine.phone .nameline {
+  background: rgba(20, 14, 9, 0.72);
+  border-radius: 6px;
+}
+
+.enemy.machine.phone .ename {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .enemy.machine.phone .shell {
