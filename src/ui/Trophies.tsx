@@ -89,6 +89,7 @@ export function Trophies({ p }: { p: Profile }) {
         })}
       </ul>
       <h3>Kept for Bellfoot</h3>
+      <p class="hint">Journal pages, collars and landmarks have no place to live yet: you'll see them there.</p>
       <ul class="trophy-rewards" data-testid="trophy-rewards">
         {listed.length === 0 && <li class="empty">Nothing yet. Collars, journal pages and landmarks you earn are kept here.</li>}
         {listed.map(([kind, name, note]) => (

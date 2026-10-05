@@ -3482,8 +3482,33 @@ button:disabled {
   .wsbody.on-trophies {
     grid-template-columns: minmax(0, 1fr);
   }
-  .wsbody.on-trophies .room {
+  .wsbody.on-trophies .room,
+  .wsbody.on-trophies .door {
+    display: none; /* the Climb button returns with the other tabs */
+  }
+  .trophies .trophylist {
+    gap: 4px;
+    margin: 4px 0 8px;
+  }
+  .trophies .trophylist {
+    align-items: start;
+  }
+  .trophies .trophy {
+    padding: 3px 8px;
+    gap: 0;
+    font-size: 12px;
+    line-height: 1.25;
+  }
+  .trophies .trophy-prog {
     display: none;
+  }
+  .trophies .trophy-text,
+  .trophies .trophy-reward,
+  .trophies .trophy-later {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
   }
 }
 .tier-common {
@@ -3599,4 +3624,8 @@ button:disabled {
   padding: 0;
   font-size: 20px;
   line-height: 1;
+}
+
+.trophy-item {
+  margin-right: 10px;
 }
