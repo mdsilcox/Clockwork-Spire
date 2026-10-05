@@ -2,10 +2,13 @@
 // using the simulator's bot decisions. No cheats: it only calls actions a player can take.
 import { chassisAvailable, upgradeCost } from '../core/meta';
 import { UPGRADES } from '../core/content/upgrades';
-import type { CombatState, Profile, RunState, TurnResult } from '../core/types';
-import { chooseTurn } from '../sim/bot';
+import type { CombatState, Profile, RunState, TargetRef, TurnResult } from '../core/types';
 import { SENSIBLE_PATH } from '../sim/career';
-import { chooseNode, eventChoice, eventPartUid, forgeStep, newMemory, oilStep, rewardPick, shopStep } from '../sim/runbot';
+import { newMemory } from '../sim/runbot';
+import { decide } from '../sim/strat/decide';
+import type { Action } from '../sim/strat/decide';
+import { makeExpert2 } from '../sim/strat/v2combat';
+import { benchFuse, benchFusePick, benchRemove, benchUpgrade, currentOrder, leaveRoom, moveRoom, oilPolish, oilRest, pickLock, ringBell, toggleTarget, traderBuy, useKey } from './controller';
 import type { BotMemory } from '../sim/runbot';
 
 /** The controller actions autoplay may use (the same ones the screens call). */
@@ -51,6 +54,8 @@ export interface AutoResult {
 
 const STEP_CAP = 4000;
 const COMBAT_TURN_CAP = 60;
+/** The v2 expert's search, with the narrower beam the route bots use (a career is hundreds of turns). */
+const COMBAT_BOT = makeExpert2({ width: 6, swapStates: 2, finalists: 3 });
 
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
@@ -63,14 +68,21 @@ function pathFor(profile: Profile): string[] {
   });
 }
 
+/** Aim the live combat at `order` with player taps: clear the entries it holds, then tap the wanted ones in order. */
+function aim(order: TargetRef[]): void {
+  for (const ref of currentOrder()) toggleTarget(ref);
+  for (const ref of order) toggleTarget(ref);
+}
+
 async function playCombat(ctl: AutoCtl, m: BotMemory): Promise<boolean> {
   for (let t = 0; t < COMBAT_TURN_CAP; t++) {
     const c = ctl.combat();
     if (!c || c.outcome !== 'ongoing') return true;
-    const turn = chooseTurn(c);
+    const turn = COMBAT_BOT(c);
     for (const p of turn.placements) if (!ctl.place(p.hand, p.cell)) return false;
     if (turn.swap && !ctl.swap(turn.swap[0], turn.swap[1])) return false;
-    ctl.target(turn.target);
+    if (turn.order) aim(turn.order);
+    else ctl.target(turn.target);
     const res = await ctl.run();
     if (!res) return false;
     for (const e of res.events) {
@@ -85,72 +97,59 @@ async function playCombat(ctl: AutoCtl, m: BotMemory): Promise<boolean> {
   return false;
 }
 
-/** Play one run to its end. Returns false if the bot got stuck (the run is abandoned). */
+/** Carry out one decision with the same actions the screens call. */
+function perform(ctl: AutoCtl, a: Action): boolean {
+  switch (a.t) {
+    case 'move':
+      return moveRoom(a.to);
+    case 'ring':
+      return ringBell();
+    case 'key':
+      return useKey(a.passage);
+    case 'lock':
+      return pickLock(a.passage);
+    case 'leave':
+      return leaveRoom();
+    case 'salvage':
+      return ctl.salvage(a.keep);
+    case 'trinket':
+      return ctl.rewardTrinket(a.index);
+    case 'rewardPart':
+      return ctl.reward(a.index);
+    case 'choose':
+      return ctl.choose(a.index) !== null;
+    case 'pickPart':
+      return ctl.pickPart(a.uid);
+    case 'upgrade':
+      return benchUpgrade(a.uid);
+    case 'remove':
+      return benchRemove(a.uid);
+    case 'fuse':
+      return benchFuse(a.a, a.b) && benchFusePick(a.a, a.b, a.pick);
+    case 'barter':
+      return traderBuy(a.index, a.offer);
+    case 'rest':
+      return oilRest();
+    case 'polish':
+      return oilPolish();
+    case 'abandon':
+      ctl.abandon();
+      return true;
+  }
+}
+
+/** Play one climb to its end with the expert route and the v2 expert combat. Returns false if the bot got stuck (the run is abandoned). */
 async function playOneRun(ctl: AutoCtl, m: BotMemory): Promise<boolean> {
+  let fails = 0;
   for (let step = 0; step < STEP_CAP; step++) {
     const run = ctl.runState();
     if (!run) return false;
     if (run.phase === 'victory' || run.phase === 'defeat') return true;
     let ok = true;
-    switch (run.phase) {
-      case 'map':
-        ok = ctl.go(chooseNode(run));
-        break;
-      case 'combat':
-        ok = await playCombat(ctl, m);
-        break;
-      case 'reward': {
-        const sp = run.pending;
-        if (sp && sp.kind === 'salvage') {
-          // v2: keep every unlocked salvage that fits the plan's families (the bot keeps the first two), scrap the rest
-          const keep = sp.items.flatMap((it, i) => (it.locked ? [] : [i])).slice(0, 2);
-          ok = ctl.salvage(keep);
-          if (ok && sp.trinkets.length > 0 && !sp.trinketTaken) ok = ctl.rewardTrinket(0);
-          if (ok) ok = ctl.leave();
-          break;
-        }
-        const pick = rewardPick(run, m);
-        if (pick.part !== undefined) ok = ctl.reward(pick.part);
-        if (ok && pick.trinket !== undefined) ok = ctl.rewardTrinket(pick.trinket);
-        if (ok) ok = ctl.leave();
-        break;
-      }
-      case 'event': {
-        const p = run.pending;
-        if (!p || p.kind !== 'event') {
-          ok = false;
-        } else if (p.needsPart) {
-          const uid = eventPartUid(run, m);
-          ok = uid !== null && ctl.pickPart(uid);
-        } else if (p.result === undefined) {
-          ok = ctl.choose(eventChoice(run, p.eventId)) !== null;
-          if (!ok) ok = ctl.leave(); // a choice that could not be made: walk on
-        } else ok = ctl.leave();
-        break;
-      }
-      case 'shop': {
-        for (let g = 0; g < 20 && ok; g++) {
-          const cur = ctl.runState();
-          if (!cur) break;
-          const s = shopStep(cur, m);
-          if (!s) break;
-          ok = s.kind === 'buy' ? ctl.shopBuy(s.index) : ctl.remove(s.uid);
-        }
-        ok = ctl.leave();
-        break;
-      }
-      case 'forge': {
-        const s = forgeStep(run, m);
-        if (s) ctl.forge(s.kind, s.uid);
-        ok = ctl.leave();
-        break;
-      }
-      case 'oil':
-        ctl.oil(oilStep(run));
-        ok = ctl.leave();
-        break;
-    }
-    if (!ok) {
+    if (run.phase === 'combat') ok = await playCombat(ctl, m);
+    else ok = perform(ctl, decide(run, 'expert', m));
+    fails = ok ? 0 : fails + 1;
+    if (fails >= 3) {
       ctl.abandon();
       return false;
     }

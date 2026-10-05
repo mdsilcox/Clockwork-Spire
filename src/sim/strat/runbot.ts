@@ -177,7 +177,7 @@ function doMap(run: RunState, m: BotMemory): void {
 // ---------- Reward ----------
 
 /** Salvage to keep: unlocked parts above the take bar (each kept part joins the bin), the Spire key always. */
-function salvageKeep(run: RunState): number[] {
+export function salvageKeep(run: RunState): number[] {
   const p = run.pending;
   if (!p || p.kind !== 'salvage') return [];
   const keep: number[] = [];
@@ -250,7 +250,7 @@ function doReward(run: RunState, m: BotMemory): void {
 
 // ---------- Events ----------
 
-function eventPartUid(run: RunState, m: BotMemory): number | null {
+export function eventPartUid(run: RunState, m: BotMemory): number | null {
   const p = run.pending;
   if (!p || p.kind !== 'event' || !p.needsPart) return null;
   const filter: Family | undefined = p.partFilter;
