@@ -6,7 +6,7 @@ import { cell as cellIndex } from '../core/board';
 import { ENEMIES } from '../core/content/enemies';
 import { PARTS } from '../core/content/parts';
 import { GLOSSARY } from '../core/content/glossary';
-import type { CombatState, GameEvent, PartInstance, RunState, SalvageItem, TargetRef, TurnPreview, TurnResult } from '../core/types';
+import type { CombatState, GameEvent, PartInstance, PartIntent, RunState, SalvageItem, TargetRef, TurnPreview, TurnResult } from '../core/types';
 import { frontOf, setOrder, toggleTarget as toggleOrder } from '../core/frames';
 import { breakPartState } from '../core/enemy';
 import { takeSalvage } from '../core/salvage';
@@ -18,6 +18,7 @@ import { sectionFixture } from '../core/testkit';
 import { generateActMap } from '../core/map';
 import { partName } from '../core/content/parts';
 import { enemyDef } from '../core/content/enemies';
+import { actionLabel, listIntentKind } from '../core/framelib';
 import type { Speed, Stage } from '../render/stage';
 import { sharedRigHub } from '../render/rig';
 import type { StageView } from '../render/replay';
@@ -197,12 +198,20 @@ function safely(fn: () => void): void {
   }
 }
 
+/** B9a: the warden's phase action, shown on its core chip from the phase beat until the replay ends (the replayed state is still the one before the phase). */
+export const phaseIntent = signal<{ enemy: number; intent: PartIntent } | null>(null);
+
 function onEvent(e: GameEvent, sp: Speed): void {
   if (e.kind === 'combatEnd') {
     safely(() => (e.note === 'won' ? audio.victory() : audio.defeat()));
     return;
   }
-  if (e.kind === 'phase') showBanner(e.note ?? 'He changes.', 'phase');
+  if (e.kind === 'phase') {
+    showBanner(e.note ?? 'He changes.', 'phase');
+    const defId = e.target !== undefined ? live?.enemies[e.target]?.defId : undefined;
+    const act = defId && e.amount !== undefined ? enemyDef(defId).frame?.phases?.[e.amount]?.action : null;
+    phaseIntent.value = act && e.target !== undefined ? { enemy: e.target, intent: { partId: 'core', actions: [act], kind: listIntentKind([act]), label: actionLabel(act) } } : null;
+  }
   else if (e.kind === 'rewind') {
     const inst = e.uid !== undefined ? replaying.value?.parts[e.uid] : undefined;
     showBanner(inst ? `The Clockmaker rewinds your ${partName(inst.defId, inst.plus)}.` : 'The Clockmaker rewinds a part.', 'rewind');
@@ -1201,6 +1210,7 @@ export async function run(): Promise<TurnResult | null> {
   if (stage) await stage.play(result.events, before, after);
   replaying.value = null;
   view.value = null;
+  phaseIntent.value = null;
   publish();
   persist();
   advanceTutorial(true);

@@ -4,6 +4,7 @@
 // intent and HP sit outside the 44 px marker; on a short one (the phone) the marker is a 28 px pip showing the HP
 // number (a 40 px tap area extends past it, see machines.css) with its intent as a small chip beside it.
 import type { CombatState, PartIntent, TargetRef, TurnPreview } from '../core/types';
+import { phaseIntent } from '../app/controller';
 import { partAnchors } from '../render/anchors';
 import type { Rect } from '../render/layout';
 import type { StageView } from '../render/replay';
@@ -72,7 +73,9 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
   const phone = geo.mode === 'phone';
   const inline = phone; // the phone's intent chip is the compact one
   const cancelled = new Set((preview?.cancelled ?? []).filter((x) => x.enemy === i).map((x) => x.partId));
-  const intentOf = (id: string): PartIntent | undefined => e.intents?.find((it) => it.partId === id);
+  const phaseNow = phaseIntent.value;
+  const intentOf = (id: string): PartIntent | undefined =>
+    e.intents?.find((it) => it.partId === id) ?? (id === 'core' && phaseNow?.enemy === i ? phaseNow.intent : undefined);
   const bonus = pendingRatchet(c, i, preview);
 
   const marker = (id: string): preact.JSX.Element | null => {
@@ -144,6 +147,7 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
           {inline && cb ? <span class="ilabel">{CB_SHORT[it.kind]}</span> : <IntentIcon kind={it.kind} size={inline ? 14 : 16} />}
           {val && <b>{inline ? val.replace(' x', 'x') : val}</b>}
         </span>
+        {it.kind === 'summon' && <span class="pm-sr">{` ${it.label}`}</span>}
         {grows && <span class="pm-sr">{` (base ${intentValue(it, 0)}, plus ${bonus} Strength)`}</span>}
         {!inline && wait && <span class="iwait">{wait}</span>}
         {!inline && cb && <span class="ilabel">{INTENT_NAME[it.kind]}</span>}
@@ -163,7 +167,7 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
       >
         <button
           type="button"
-          class={`pmark ${pos >= 0 ? 'ordered' : ''} ${will?.breaks ? 'breaks' : ''} ${it ? 'acts' : ''}`}
+          class={`pmark ${broken ? 'broken' : ''} ${pos >= 0 ? 'ordered' : ''} ${will?.breaks ? 'breaks' : ''} ${it ? 'acts' : ''}`}
           data-testid={testid}
           data-target-marker=""
           aria-label={aria}
