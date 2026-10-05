@@ -4,10 +4,11 @@
 Plan: V0 setup, D3 design and D4 art direction side by side, D5 roadmap, then build phases. Board phases `cs~V0`, `cs~D3`, `cs~D4`, `cs~D5`.
 - Done: V0 (6d04086), D3 design (critic R2 PASS 7.67), D4 art direction (owner sign-off, D-034; follow-ups to the owner's clip notes, art-reviewer R4 PASS), D5 roadmap (docs/roadmap-v2.md; art after each wave).
 - Done (autonomous): **B7 Enemy machines** closed 00:50Z (critic PASS 7.57; main 9896cb9 pushed). **A1 act 1 cast** closed 00:42Z (art-reviewer waves 1 to 3b; commit 4f60250).
-- Now (autonomous, D-035; owner: "proceed as far as you can"; 01:06Z):
-  - **B8 The climb**: contract + 110 failing tests at 847f61d (branch claude/clockwork-spire-v2-plan-0389b9). Four lanes in their own worktrees from 847f61d: climb-core (ab4a7d6d0d8264110), economy-rooms (adfd440dddadc7219), rig-hub (a4796cd8bc4a0f888), climb-ui (ad85a1bc762f1e8a2). Merge order: core, economy, UI, rigs (`git merge --no-ff worktree-agent-<id>`), then full npm test; then strategy-bots (agent a8bff490fb0733805) implements routeStatsV2 (BV11) and the B8.5 tune (hours, Scrap prices, room counts only; also widen act 1 normals' margin); browser-checker; fresh critic gate; merge to main and push.
-  - **A2 acts 2 and 3 cast** (shared tree, art/ only): lanes act2-cast (af21f9e0175e1cc7e: crab, golem, snake, gremlin, then wraith), elites-a (a0b5b8ab68aff546a: pressure-warden, twin-pistons), act3-cast (ad8fc2f8c7ed300ed: ringer, moth, knight, sprite, blade), elites-b (a27629c8aef332b68: minute-warden, orrery). All sources and cuts ready, including clockmaker (seed 5; launch a clockmaker-art lane once the others hand back; its cut has a frame-corner fragment bottom right to clean). Then art-reviewer waves; gate; commit art. ComfyUI is stopped.
-  - Keep-awake PID 31080 (until ~03:40Z; restart one if the run goes past it).
+- Done (autonomous): **A2** closed 01:40Z (15 assets; art-reviewer waves 1 to 4; commit 00aba16). Clockmaker death is a marginal pass: should-fix in B9 (lift the head dial, soft glow).
+- Now (autonomous, D-035; 01:42Z):
+  - **B8 The climb**: merged on the v2 branch: climb-core + economy-rooms (591007a), climb-ui (3ab23d6), rig-hub (4660813). Unit: only BV8 x3 (v2-fights) failing; e2e 180 passed. Running in the shared tree: strategy-bots (a8bff490fb0733805: routeStatsV2/BV11, the BV3/BV8 regression, B8.5 tune with balance/2026-10-05-v2-climb.md); rig-hub round 2 (a4796cd8bc4a0f888: phone combat layout so paintings are big, moods in real fights). Then: full npm test (unit, e2e, offline, career), browser-checker on B8 (climb, rooms, painted combat at 667x375 and 1280x800), fixes, fresh critic gate, DECISIONS for the tune, merge to main and push, board close (metrics via phase_tokens.py since 2026-10-05T00:52:00Z).
+  - After B8: draft B9 (wardens and rarity: the Foreman, Queen and Clockmaker as frames with phases and their A1/A2 rigs, Masterwork/Legendary parts and trinkets, achievements) on the board, critic draft review, launch.
+  - Keep-awake PID 31080 runs until ~03:40Z: start a new one before then if still working.
 
 ## Version 1
 
