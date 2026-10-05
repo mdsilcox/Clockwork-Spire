@@ -55,6 +55,15 @@ function spreadStatus(rt: Rt, idx: number, status: string, amount: number, base:
   }
 }
 
+/** B9b: tag the hit events emitted since `from` with the item behind them (a replay cue; the stage only reads it). */
+export function tagItem(events: GameEvent[], from: number, item: string, kinds: GameEvent['kind'][] = ['partHit', 'strike'], firstOnly = false): void {
+  for (let i = from; i < events.length; i++) {
+    if (!kinds.includes(events[i].kind)) continue;
+    events[i].item = item;
+    if (firstOnly) return;
+  }
+}
+
 export function anyAlive(c: CombatState): boolean {
   return c.enemies.some((e) => e.hp > 0);
 }
@@ -221,7 +230,8 @@ function runTick(rt: Rt, tick: number): void {
     const q = queue[head];
     const p = c.board[q.cell] as PlacedPart;
     const def = partDef(p.defId);
-    events.push({ kind: 'pulse', tick, step: q.step, from: q.from, cell: q.cell });
+    const diag = q.from !== MAINSPRING && partDef(c.board[q.from]?.defId ?? 'spur').diagonal && !neighbors(q.from).includes(q.cell);
+    events.push({ kind: 'pulse', tick, step: q.step, from: q.from, cell: q.cell, ...(diag && c.board[q.from]?.defId === 'skewframe' ? { item: 'skewframe' } : {}) });
 
     if (p.rusted > 0) {
       events.push({ kind: 'hold', tick, step: q.step, cell: q.cell, uid: p.uid, note: 'rust' });
@@ -246,7 +256,10 @@ function runTick(rt: Rt, tick: number): void {
       }
       resolveReleases(rt, ctx.pending, q.cell, tick, q.step, 0);
     };
+    const evFrom = events.length;
     resolve();
+    if (p.defId === 'mirror-gear') events.push({ kind: 'echo', tick, step: q.step, cell: q.cell, uid: p.uid, item: 'mirror-gear' });
+    if (p.defId === 'bottled-dusk') { tagItem(events, evFrom, 'bottled-dusk-more', ['tickAdded']); tagItem(events, evFrom, 'bottled-dusk', ['tickAdded'], true); }
     if (p.defId === 'resonance-rod') {
       for (let r = 0; r < 3; r++) {
         const n = (q.cell % COLS) + r * COLS;
@@ -254,7 +267,7 @@ function runTick(rt: Rt, tick: number): void {
       }
     }
     if ((q.echo || rt.echoCells.has(q.cell) || (firstOfTurn && hasTrinket(c, 'echo-chamber'))) && anyAlive(c)) {
-      events.push({ kind: 'echo', tick, step: q.step, cell: q.cell, uid: p.uid });
+      events.push({ kind: 'echo', tick, step: q.step, cell: q.cell, uid: p.uid, ...(!q.echo && rt.echoCells.has(q.cell) ? { item: 'resonance-rod' } : {}) });
       ctx.isEcho = true;
       resolve();
     }
@@ -287,7 +300,7 @@ function perpetualRefire(rt: Rt, tick: number, step: number, engineCell: number)
     if (at === engineCell || !part || part.rusted > 0 || part.defId === 'perpetual-engine') continue;
     const ctx = makeCtx(rt, tick, step, at, part, 0, null);
     ctx.isEcho = true;
-    events.push({ kind: 'echo', tick, step, cell: at, uid: part.uid, note: 'perpetual' });
+    events.push({ kind: 'echo', tick, step, cell: at, uid: part.uid, note: 'perpetual', item: 'perpetual-engine' });
     const chargeBefore = part.charge;
     partDef(part.defId).onFire(ctx, part);
     if (part.charge > chargeBefore) events.push({ kind: 'charge', tick, step, cell: at, uid: part.uid, amount: part.charge });
@@ -369,14 +382,20 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
     const r = hitRef(ref, raw, opts);
     if (hands && second) {
       const share = hands.plus ? Math.floor((raw * 3) / 4) : Math.floor(raw / 2);
-      if (share > 0) hitRef(second, share, opts);
+      if (share > 0) {
+        const from = events.length;
+        hitRef(second, share, opts);
+        tagItem(events, from, 'shared');
+      }
       return r;
     }
     const excess = r.overkill ?? 0;
     if (excess > 0) {
       const next = nextStanding();
       if (next && (o.piston || (hasTrinket(c, 'overrun-coupler') && ctx.oncePerTurn('overrun-coupler')))) {
+        const from = events.length;
         hitRef(next, excess, { drill: opts.drill, word: opts.word });
+        tagItem(events, from, 'carry');
       }
     }
     return r;

@@ -265,6 +265,9 @@ export interface GameEvent {
   protectedBy?: string[];
   /** B9b: on 'partBroken': who broke it; omitted for the player's machine. Sprocket's Whistle sets 'sprocket'. */
   by?: 'sprocket';
+  /** B9b: the item behind this event, for a replay cue ('night-watchman', 'skewframe', 'mirror-gear', 'resonance-rod', 'perpetual-engine',
+   * 'bottled-dusk', 'carry', 'shared'). The stage only reads it. */
+  item?: string;
 }
 
 export interface TurnPreview {
