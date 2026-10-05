@@ -45,6 +45,8 @@ const SCENES = [
       { name: 'foreground', scale: 1, quality: 86 },
     ],
   },
+  // The title (B10d.1): one painting (art/title/source@2x.png, 2432x1664) shipped at 0.75 (1824x1248); the steam and lamps are code (src/ui/titleAmbience.ts).
+  { id: 'title', act: 0, layers: [{ name: 'painting', src: 'source@2x', scale: 0.75, quality: 80 }] },
 ];
 const SCENE_MAX = 600 * 1024;
 const REGULAR_MAX = 120 * 1024;
@@ -68,7 +70,7 @@ for (const a of ASSETS) {
 
 const sceneEntries = [];
 for (const sc of SCENES) {
-  const files = sc.layers.map((l) => ({ ...l, srcPath: `art/${sc.id}/layers/${l.name}.png`, dst: `art/${sc.id}/${l.name}.webp` }));
+  const files = sc.layers.map((l) => ({ ...l, srcPath: l.src ? `art/${sc.id}/${l.src}.png` : `art/${sc.id}/layers/${l.name}.png`, dst: `art/${sc.id}/${l.name}.webp` }));
   if (files.some((l) => !existsSync(join(root, l.srcPath)))) {
     console.log(`art: scene ${sc.id} skipped (layers not built: node/python art/${sc.id}/build.py)`);
     continue;

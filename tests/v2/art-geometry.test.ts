@@ -18,7 +18,7 @@ describe('art geometry table', () => {
   }
 
   it('every manifest character has a loader and a geometry entry (scenes are not characters)', () => {
-    for (const e of MANIFEST.filter((x) => x.id !== 'bellfoot')) {
+    for (const e of MANIFEST.filter((x) => x.id !== 'bellfoot' && x.id !== 'title')) {
       expect(hasCharacter(e.id), e.id).toBe(true);
       expect(GEOMETRY[e.id], e.id).toBeTruthy();
     }

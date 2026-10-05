@@ -113,4 +113,12 @@ export const MANIFEST: ManifestEntry[] = [
     ],
     source: 'art/bellfoot',
   },
+  {
+    id: 'title',
+    act: 0,
+    files: [
+      { path: 'art/title/painting.webp', bytes: 202032 },
+    ],
+    source: 'art/title',
+  },
 ];
