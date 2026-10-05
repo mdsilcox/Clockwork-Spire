@@ -4,10 +4,10 @@
 Plan: V0 setup, D3 design and D4 art direction side by side, D5 roadmap, then build phases. Board phases `cs~V0`, `cs~D3`, `cs~D4`, `cs~D5`.
 - Done: V0 (6d04086), D3 design (critic R2 PASS 7.67), D4 art direction (owner sign-off, D-034; follow-ups to the owner's clip notes, art-reviewer R4 PASS), D5 roadmap (docs/roadmap-v2.md; art after each wave).
 - Done (autonomous): **B7 Enemy machines** closed 00:50Z (critic PASS 7.57; main 9896cb9 pushed). **A1 act 1 cast** closed 00:42Z (art-reviewer waves 1 to 3b; commit 4f60250).
-- Now (autonomous, D-035; owner: "proceed as far as you can"):
-  - **A2** (acts 2 and 3 cast): brief docs/briefs/A2-acts-2-3-cast.md. ComfyUI running (job b9bjixcxy generating; Steam Wraith retry queued after it). Picks so far: valve-crab 1, furnace-golem 1, pipe-snake 1 (cut). Still to pick: gauge-gremlin, the act 3 regulars, the four elites, the Clockmaker, the wraith retry. Then lanes act2-cast, act3-cast, elites-a, elites-b, clockmaker-art (last), art-reviewer waves, gate. Stop ComfyUI by PID when candidates are done.
-  - **B8 The climb**: brief draft docs/briefs/B8-the-climb.md (semantics decided). Next: B8.0 contract (additive types for sections, rooms, clock, elites, Scrap, save v2; section.ts and rooms.ts stubs; createCombat options overwound and prepared; testkit sectionFixture; real failing tests for CL1 to CL11, SV3 to SV6, AD4 hours, BV11, AR1, AR2 act 1, AR4), then lanes climb-core, economy-rooms, climb-ui, rig-hub (rig-hub starts on signed-off rigs), bots after core. B8 tune should also widen act 1 normals' margin (critic B7).
-  - Keep-awake PID 31080 (until ~03:40Z).
+- Now (autonomous, D-035; owner: "proceed as far as you can"; 01:06Z):
+  - **B8 The climb**: contract + 110 failing tests at 847f61d (branch claude/clockwork-spire-v2-plan-0389b9). Four lanes in their own worktrees from 847f61d: climb-core (ab4a7d6d0d8264110), economy-rooms (adfd440dddadc7219), rig-hub (a4796cd8bc4a0f888), climb-ui (ad85a1bc762f1e8a2). Merge order: core, economy, UI, rigs (`git merge --no-ff worktree-agent-<id>`), then full npm test; then strategy-bots (agent a8bff490fb0733805) implements routeStatsV2 (BV11) and the B8.5 tune (hours, Scrap prices, room counts only; also widen act 1 normals' margin); browser-checker; fresh critic gate; merge to main and push.
+  - **A2 acts 2 and 3 cast** (shared tree, art/ only): lanes act2-cast (af21f9e0175e1cc7e: crab, golem, snake, gremlin, then wraith), elites-a (a0b5b8ab68aff546a: pressure-warden, twin-pistons), act3-cast (ad8fc2f8c7ed300ed: ringer, moth, knight, sprite, blade), elites-b (a27629c8aef332b68: minute-warden, orrery). All sources and cuts ready, including clockmaker (seed 5; launch a clockmaker-art lane once the others hand back; its cut has a frame-corner fragment bottom right to clean). Then art-reviewer waves; gate; commit art. ComfyUI is stopped.
+  - Keep-awake PID 31080 (until ~03:40Z; restart one if the run goes past it).
 
 ## Version 1
 
