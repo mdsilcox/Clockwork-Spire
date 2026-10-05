@@ -89,6 +89,7 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
     const ref = `e${i}.${id}` as TargetRef;
     const pd = core ? undefined : enemyPartDef(e.defId, id);
     const label = core ? `${name} core` : (pd?.name ?? id);
+    const ow9 = !core && id.startsWith('mem-') && e.defId !== 'clockmaker'; // Overwind 9's extra warden part
     const broken = !core && !!vw.partBroken[ref];
     const hp = core ? vw.enemyHp[i] : (vw.partHp[ref] ?? st?.hp ?? 0);
     const maxHp = core ? e.maxHp : (st?.maxHp ?? 1);
@@ -112,6 +113,7 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
       }
       if (broken) return { title: `${label}.`, text: 'Broken: it never acts again this fight.', detail: pd?.salvage ? 'It will drop salvage if you win.' : undefined };
       const bits: string[] = [`${hp} of ${maxHp} HP.`];
+      if (ow9) bits.unshift('Overwind 9: a part the Spire took from your plan.');
       if (st?.jammed) bits.push('Jammed: it skips its next action.');
       if (pd?.keystone) bits.push('Keystone: break it to open the core.');
       if (it) bits.push(`Next: ${nextLabel}${grows ? `, +${bonus} Strength from the Ratchet first` : ''}${isCancelled ? ' (your Run breaks this part first, so it is cancelled)' : ''}.`);
@@ -193,6 +195,11 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
         >
           {broken ? <Crack /> : phone && !core ? hpText : <Glyph core={core} />}
           {sealed && <Lock />}
+          {ow9 && !broken && (
+            <span class="ow-badge" data-testid={`ow-badge-e${i}-${id}`} aria-hidden="true">
+              OW
+            </span>
+          )}
           {pos >= 0 && (
             <span class="order-badge" data-testid="order-badge">
               {pos + 1}
