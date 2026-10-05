@@ -4,13 +4,11 @@
 // `escalateResetAt` is the last amount the part performs before it resets to its base (Imp 6, Blade 24).
 // Action shapes the engine reads: Dome's shell uses `pct` (percent of your Pressure); Echo Mouth's `amount` is the
 // nominal 10 (the engine clamps your last biggest hit to 6..18); the Minute Needle rusts your strongest part.
-import type { EnemyDef, EnemyPartDef, FrameDef, IntentStep, Passive } from '../defs';
+import type { EnemyDef, EnemyPartDef, FrameDef, IntentStep, Passive, WardenPhaseDef } from '../defs';
 import { attackLabel } from '../enemy';
-import type { ActionDef, Cadence, Intent, Rarity } from '../types';
+import type { ActionDef, Cadence, Plan, Rarity } from '../types';
 
 const attack = (amount: number, hits = 1): IntentStep => ({ kind: 'attack', amount, hits: hits > 1 ? hits : undefined, label: attackLabel(amount, hits) });
-const jam = (extra: Partial<IntentStep> = {}): IntentStep => ({ kind: 'sabotage', sabotage: 'jam', label: 'Jams the Mainspring', ...extra });
-const drain = (amount: number): IntentStep => ({ kind: 'sabotage', sabotage: 'drain', amount, label: `Drains ${amount} Pressure` });
 
 // ---------- frame data helpers ----------
 const hit = (amount: number, hits?: number): ActionDef => (hits && hits > 1 ? { kind: 'attack', amount, hits } : { kind: 'attack', amount });
@@ -34,6 +32,8 @@ interface PartSpec {
   key?: boolean;
   escalate?: number;
   escalateResetAt?: number;
+  byTurn?: Record<number, ActionDef[]>;
+  last?: number; // lastPhase (1-based phase number)
 }
 
 const part = (s: PartSpec): EnemyPartDef => ({
@@ -46,6 +46,8 @@ const part = (s: PartSpec): EnemyPartDef => ({
   cadence: s.cadence,
   escalate: s.escalate,
   escalateResetAt: s.escalateResetAt,
+  actionsByTurn: s.byTurn,
+  lastPhase: s.last,
   salvage: s.salvage,
   keystone: s.key ? true : undefined,
   anchor: s.anchor,
@@ -80,6 +82,46 @@ const machine = (id: string, name: string, act: 1 | 2 | 3, tier: 'normal' | 'eli
     startSummons: f.startSummons,
   },
   ...extra,
+});
+
+interface WardenSpec {
+  core: number;
+  bump: number;
+  scrap: number;
+  punishes: FrameDef['punishes'];
+  bestiary: string;
+  phases: WardenPhaseDef[];
+  memoryParts?: Record<Plan, EnemyPartDef>;
+}
+
+/** A warden (B9a): a braced frame machine with phases (docs/content.md 3.2, 3.4, 3.6). Phase 1 parts are phases[0].parts. */
+const warden = (id: string, name: string, act: 1 | 2 | 3, w: WardenSpec): EnemyDef => ({
+  id,
+  name,
+  act,
+  tier: 'boss',
+  hp: w.core,
+  pattern: [attack(w.bump)],
+  frame: {
+    core: w.core,
+    coreAction: hit(w.bump),
+    parts: [],
+    phases: w.phases,
+    braced: true,
+    scrap: w.scrap,
+    punishes: w.punishes,
+    bestiary: w.bestiary,
+    memoryParts: w.memoryParts,
+  },
+});
+
+const phaseDef = (beat: WardenPhaseDef['beat'], action: ActionDef | null, keystones: string[], parts: EnemyPartDef[], coreExposed = false): WardenPhaseDef => ({
+  keystones,
+  parts,
+  beat,
+  action,
+  mood: 'phase',
+  coreExposed: coreExposed ? true : undefined,
 });
 
 const odd: Cadence = 'odd';
@@ -206,15 +248,24 @@ const list: EnemyDef[] = [
       part({ id: 'tinpot-hat', name: 'Tin Hat', hp: 12, r: 'R', cadence: passive, passive: { kind: 'governor', cap: 10 }, salvage: 'governor', anchor: 'the dented hat' }),
     ],
   }),
-  {
-    id: 'foreman',
-    name: 'The Foreman',
-    act: 1,
-    tier: 'boss',
-    hp: 170,
-    pattern: [attack(16), jam({ alsoShell: 14, label: 'Jams the Mainspring, Shell 14' }), attack(10, 3)],
-    summonAtHalf: 'cog-rat',
-  },
+  warden('foreman', 'The Foreman', 1, {
+    core: 60,
+    bump: 6,
+    scrap: 30,
+    punishes: ['plating', 'burst', 'slow'],
+    bestiary: 'Break the Wrench Arm and the Furnace Grate to open his second shift; the Apron Plate goes with the first. Then the Boiler Plate before the core.',
+    phases: [
+      phaseDef('Late again. The shift starts at dusk, apprentice.', null, ['foreman-wrench', 'foreman-grate'], [
+        part({ id: 'foreman-wrench', name: 'Wrench Arm', hp: 26, r: 'R', cadence: odd, actions: [corrode(50), hit(16)], salvage: 'sapper', key: true, anchor: 'the great wrench in his right hand' }),
+        part({ id: 'foreman-grate', name: 'Furnace Grate', hp: 22, r: 'M', cadence: even, actions: [{ kind: 'jam' }], salvage: 'free-pawl', key: true, anchor: 'the grate in his chest' }),
+        part({ id: 'foreman-apron', name: 'Apron Plate', hp: 16, r: 'R', cadence: even, actions: [shell(14)], salvage: null, last: 1, anchor: 'the leather apron' }),
+      ]),
+      phaseDef('Fine. FINE. Overtime.', { kind: 'summon', summon: 'cog-rat' }, [], [
+        part({ id: 'foreman-bulwark', name: 'Boiler Plate', hp: 24, r: 'R', cadence: passive, passive: { kind: 'bulwark' }, salvage: null, anchor: 'the plate bolted over his chest' }),
+        part({ id: 'foreman-rivet', name: 'Rivet Gun', hp: 18, r: 'R', cadence: odd, actions: [hit(10, 3)], salvage: 'core-drill', anchor: 'the rivet gun on his left arm' }),
+      ], true),
+    ],
+  }),
 
   // ---------- Act 2: the Steamworks ----------
   machine('steam-wraith', 'Steam Wraith', 2, 'normal', {
@@ -326,30 +377,34 @@ const list: EnemyDef[] = [
     },
     { summonOnly: true },
   ),
-  {
-    id: 'boilermaker',
-    name: 'The Boilermaker Queen',
-    act: 2,
-    tier: 'boss',
-    hp: 260,
-    pattern: [attack(22), drain(8), attack(20)],
-    summonAtHalf: 'steam-wraith',
-    onStart: (c, idx) => {
-      c.enemies[idx].mem.heat = 0;
-    },
-    // Heat builds each turn and Drain feeds it; at 20 the next intent is the big hit and the heat is spent.
-    intentFor: (e): Intent => {
-      if ((e.mem.heat ?? 0) >= 20) return { ...attack(40), label: 'Unleashes Attack 40' };
-      const pat = [attack(22), drain(8), attack(20)];
-      return { ...pat[e.step % pat.length] };
-    },
-    onTurn: (c, idx, events) => {
-      const e = c.enemies[idx];
-      if (e.intent.label.startsWith('Unleashes')) e.mem.heat = 0;
-      else e.mem.heat = (e.mem.heat ?? 0) + 6;
-      events.push({ kind: 'buff', tick: 0, step: 0, target: idx, note: 'heat', amount: e.mem.heat });
-    },
-  },
+  warden('boilermaker', 'The Boilermaker Queen', 2, {
+    core: 78,
+    bump: 6,
+    scrap: 30,
+    punishes: ['plating', 'pressure', 'burst'],
+    bestiary: 'The Chest Gauge fills with heat and Pierces at 20: break it early if you play Steam. Her Waist Furnace can rebuild it.',
+    phases: [
+      phaseDef('Mind the pressure, little one.', null, ['queen-crown', 'queen-scepter'], [
+        part({ id: 'queen-crown', name: 'Crown', hp: 22, r: 'M', cadence: odd, actions: [corrode(50), hit(22)], salvage: 'skewframe', key: true, anchor: 'the spired crown' }),
+        part({ id: 'queen-scepter', name: 'Sun-Orb Scepter', hp: 22, r: 'R', cadence: even, actions: [{ kind: 'drain', amount: 8 }], salvage: 'sunder', key: true, anchor: 'the sun-orb in her scepter' }),
+        part({ id: 'queen-gauge', name: 'Chest Gauge', hp: 20, r: 'R', cadence: { buildUp: 6, to: 20, bonus: 'drained' }, actions: [pierce(28)], salvage: null, anchor: 'the gauge on her chest' }),
+      ]),
+      phaseDef("Stay a while. It's so warm in here.", { kind: 'summon', summon: 'steam-wraith' }, ['queen-furnace', 'queen-staff'], [
+        part({ id: 'queen-furnace', name: 'Waist Furnace', hp: 28, r: 'M', cadence: even, actions: [{ kind: 'rebuild', part: 'queen-gauge' }], salvage: 'cascade-piston', key: true, anchor: 'the furnace at her waist' }),
+        part({ id: 'queen-staff', name: 'Clock Staff', hp: 22, r: 'M', cadence: odd, actions: [{ kind: 'siphon', amount: 20 }], salvage: 'twin-mainspring', key: true, anchor: 'the clock staff in her other hand' }),
+      ]),
+      phaseDef(
+        { ifBroken: 'queen-gauge', text: "You've cracked my gauge. Now I'll never know how hot I am.", otherwise: "Oh, don't look so sad. It's only a little fire." },
+        { kind: 'rebuild', part: 'queen-gauge' },
+        [],
+        [
+          part({ id: 'queen-ember', name: 'Ember Shell', hp: 24, r: 'R', cadence: passive, passive: { kind: 'bulwark' }, salvage: null, anchor: 'the glowing skirt plates' }),
+          part({ id: 'queen-cinder', name: 'Cinder Hand', hp: 18, r: 'R', cadence: every, actions: [corrode(75), hit(22)], salvage: null, anchor: 'the hand she keeps in the fire' }),
+        ],
+        true,
+      ),
+    ],
+  }),
 
   // ---------- Act 3: the Belfry ----------
   machine('bell-ringer', 'Bell Ringer', 3, 'normal', {
@@ -440,24 +495,44 @@ const list: EnemyDef[] = [
       part({ id: 'orrery-ring', name: 'Brass Ring', hp: 40, r: 'U', cadence: passive, passive: { kind: 'bulwark' }, salvage: null, anchor: 'the great ring around the core' }),
     ],
   }),
-  {
-    id: 'clockmaker',
-    name: 'The Clockmaker',
-    act: 3,
-    tier: 'boss',
-    hp: 110,
-    pattern: [attack(20), attack(24)],
-    rewinds: true, // Rewind: enemy.ts rewind(); phase 3 also Jams on alternate turns there
+  warden('clockmaker', 'The Clockmaker', 3, {
+    core: 78,
+    bump: 8,
+    scrap: 0,
+    punishes: ['plating', 'burst', 'pressure', 'slow'],
+    bestiary: 'Each phase has a part that Rewinds your strongest combination: break it. He remembers how you played, and each broken part pays Brass.',
+    memoryParts: {
+      plating: part({ id: 'mem-drill', name: 'Pierce Drill', hp: 24, r: 'R', cadence: every, actions: [pierce(14)], salvage: null, anchor: 'the drill on his shoulder' }),
+      burst: part({ id: 'mem-governor', name: 'Governor Cap', hp: 24, r: 'R', cadence: passive, passive: { kind: 'governor', cap: 12 }, salvage: null, anchor: 'the cap on his head' }),
+      pressure: part({ id: 'mem-valve', name: 'Drain Valve', hp: 22, r: 'R', cadence: every, actions: [{ kind: 'drain', amount: 8 }], salvage: null, anchor: 'the valve at his collar' }),
+      statuses: part({ id: 'mem-chime', name: 'Purge Chime', hp: 22, r: 'R', cadence: every, actions: [{ kind: 'purge' }], salvage: null, anchor: 'the small chime at his belt' }),
+    },
     phases: [
-      { hp: 110, line: 'Tick. Every hour has its place.', pattern: [attack(20), attack(24)] },
-      { hp: 130, line: 'Tock. Do not stop the hour.', pattern: [attack(26), attack(30)] },
-      {
-        hp: 150,
-        line: 'Midnight. Again, and again.',
-        pattern: [attack(32), attack(36)],
-      },
+      phaseDef("Welcome back. It's still evening.", null, ['clock-hour', 'clock-tick'], [
+        part({ id: 'clock-hour', name: 'Hour Hand', hp: 26, r: 'R', cadence: every, actions: [corrode(50), hit(20)], salvage: null, key: true, anchor: 'the hour hand across his chest' }),
+        part({ id: 'clock-tick', name: 'Tick Spring', hp: 24, r: 'R', cadence: every, actions: [{ kind: 'rewind', amount: 1 }], salvage: null, key: true, anchor: 'the mainspring in his side' }),
+      ]),
+      phaseDef('I have all the time there is. I kept it.', { kind: 'rewind', amount: 1 }, ['clock-minute', 'clock-tock'], [
+        part({ id: 'clock-minute', name: 'Minute Hand', hp: 32, r: 'R', cadence: every, actions: [corrode(75), hit(28)], salvage: null, key: true, anchor: 'the minute hand he carries like a spear' }),
+        part({ id: 'clock-tock', name: 'Tock Weight', hp: 30, r: 'R', cadence: every, actions: [{ kind: 'rewind', amount: 1 }, { kind: 'reset-pressure' }], salvage: null, key: true, anchor: 'the pendulum weight under his ribs' }),
+      ]),
+      phaseDef('If the hour ends, the inventor ends with it.', { kind: 'jam' }, [], [
+        part({ id: 'clock-gov', name: 'Governor Frame', hp: 24, r: 'R', cadence: passive, passive: { kind: 'governor', cap: 14 }, salvage: null, anchor: 'the brass frame around his core' }),
+        part({ id: 'clock-wheel', name: 'Hour Wheel', hp: 26, r: 'R', cadence: every, actions: [{ kind: 'rewind', amount: 2 }], salvage: null, anchor: 'the great wheel behind his head' }),
+        part({
+          id: 'clock-bell',
+          name: 'Midnight Bell',
+          hp: 24,
+          r: 'R',
+          cadence: { of: 2, at: [1, 2] },
+          actions: [corrode(75), hit(32)],
+          byTurn: { 1: [corrode(75), hit(32)], 2: [{ kind: 'jam' }, hit(36)] },
+          salvage: null,
+          anchor: 'the bell in his chest',
+        }),
+      ], true),
     ],
-  },
+  }),
 ];
 
 export const ENEMIES: Record<string, EnemyDef> = Object.fromEntries(list.map((d) => [d.id, d]));

@@ -6,7 +6,7 @@ describe('v2 14. Bellfoot and the Spire\'s memory (rules 5.1 to 5.5)', () => {
   it.todo('BF1 [E] Given a run ends; when return; then Bellfoot shows; Sprocket reacts per v1 W4; every place reachable by walking and by the town menu, at both sizes');
   it.todo('BF2 [U, E] Given the Lamplighter\'s lift fixed in a run that is then lost; when next run; then his stall is in Bellfoot; act layouts are fully revealed; the Gearworks has the lift shortcut');
   it.todo('BF3 [U] Given each resident; when read content; then each has an event that sends it and a stall effect applied the next run');
-  it.todo('BF4 [U] Given runs whose main plan was Plating, Plating, burst; when compute memory; then Plating; the Clockmaker\'s extra part is the drill');
+  // BF4: real tests in tests/v2/b9-wardens.test.ts (B9a).
   it.todo('BF5 [U] Given a v1 profile with Spare Cogs II; when migrate; then Spare Scrap II, same Brass spent');
   it.todo('BF6 [C, E] Given Sprocket in Bellfoot and in the Spire; when look; then painted rig with idle, happy, sleepy and walk; he walks with the tinker between rooms');
 });

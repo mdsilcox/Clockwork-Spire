@@ -175,6 +175,8 @@ export interface CombatState {
   lastTurnContrib: Record<number, TurnContribution>;
   rng: Record<RngStream, number>; // stream states (only 'draw' and 'enemy' are used in combat)
   outcome: 'ongoing' | 'won' | 'lost';
+  /** B9a: this fight's play style so far, accumulated per turn from the event timeline; recordFight moves it into the run. */
+  planAcc?: PlanStats;
   trinkets: string[];
   log: TurnSummary[];
 }
@@ -388,6 +390,8 @@ export interface RunConfig {
   secondWind: boolean;
   /** B8 transition: true keeps v1's map flow (newRun does not start the climb); `defaultRunConfig` sets it so the v1 tests and bots run unchanged. Real runs (meta `runConfigFor`) leave it unset. Removed at the gate. */
   legacyMap?: boolean;
+  /** B9a: the plan the Clockmaker remembers (memoryPlan of the profile's planHistory); null or missing: no memory part. */
+  memory?: Plan | null;
 }
 
 export interface RunState {

@@ -5,6 +5,7 @@ import { STORY_NOTES } from './content/story';
 import { TRINKETS } from './content/trinkets';
 import { UPGRADES } from './content/upgrades';
 import { split } from './rng';
+import { mainPlan, memoryPlan } from './record';
 import { absoluteFloor, brassFor, runRecord } from './run';
 import type { Profile, RunConfig, RunRecord, RunState, SprocketMood } from './types';
 
@@ -33,6 +34,7 @@ export function newProfile(name: string, createdAt: string): Profile {
     storyFlags: [],
     lastSprocketMood: null,
     finishedSeeds: [],
+    planHistory: [],
   };
 }
 
@@ -76,6 +78,7 @@ export function runConfigFor(profile: Profile, seed: number, chassis: string): R
     rewardChoices: lv('notes') >= 1 ? 4 : 3,
     extraEliteBlueprint: lv('notes') >= 2,
     secondWind: lv('secondwind') >= 1,
+    memory: memoryPlan(profile.planHistory),
   };
 }
 
@@ -167,6 +170,8 @@ export function finishRun(
 
   const mood = sprocketMood(record, bestBefore);
   profile.lastSprocketMood = mood;
+  const main = mainPlan(run.stats.plan);
+  if (main) profile.planHistory = [...(profile.planHistory ?? []), main].slice(-3);
   profile.finishedSeeds.push(seed);
   if (profile.finishedSeeds.length > SEEDS_KEPT) profile.finishedSeeds.splice(0, profile.finishedSeeds.length - SEEDS_KEPT);
 

@@ -3401,3 +3401,11 @@ button:disabled {
     text-overflow: ellipsis;
   }
 }
+
+.archivist-line {
+  flex: 1 1 200px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-style: italic;
+}

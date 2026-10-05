@@ -10,7 +10,8 @@ export function frameOf(e: EnemyState): FrameDef | undefined {
 
 /** Every part def of a frame (all phases for wardens). */
 export function allPartDefs(f: FrameDef): EnemyPartDef[] {
-  return f.phases ? f.phases.flatMap((p) => p.parts) : f.parts;
+  const base = f.phases ? f.phases.flatMap((p) => p.parts) : f.parts;
+  return f.memoryParts ? [...base, ...Object.values(f.memoryParts)] : base;
 }
 
 export function partDefOf(e: EnemyState, id: string): EnemyPartDef | undefined {

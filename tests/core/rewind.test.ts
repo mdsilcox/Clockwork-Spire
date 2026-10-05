@@ -1,4 +1,4 @@
-// The Clockmaker's Rewind (rules 4.4) and phases.
+// The Clockmaker's Rewind (rules 4.4, 4.9): the part action. See the retirement note at the bottom for what moved to tests/v2/b9-wardens.test.ts.
 import { describe, expect, it } from 'vitest';
 import { cell } from '../../src/core/board';
 import { runTurn } from '../../src/core/combat';
@@ -30,48 +30,16 @@ describe('Rewind', () => {
     expect(c.board[cell('B2')]).not.toBeNull();
   });
 
-  it('heals half the damage the combination dealt, rounded down, never above max HP', () => {
-    const c = combatWith({ board: { B2: 'spur' }, enemies: ['clockmaker'], hp: 999 });
-    runTurn(c);
-    expect(c.enemies[0].hp).toBe(110 - 9 + 4);
+  it('never heals him above his max HP', () => {
     const d = combatWith({ board: { B2: 'spur' }, enemies: ['clockmaker'], hp: 999 });
-    d.enemies[0].maxHp = 110;
-    d.enemies[0].hp = 100;
+    d.enemies[0].hp = d.enemies[0].maxHp - 1;
     runTurn(d);
-    expect(d.enemies[0].hp).toBeLessThanOrEqual(110);
+    expect(d.enemies[0].hp).toBeLessThanOrEqual(d.enemies[0].maxHp);
   });
 
-  it('phase 1 keeps Pressure; phase 2 resets it to 0', () => {
-    const a = combatWith({ board: { B2: 'boiler', A1: 'spur' }, enemies: ['clockmaker'], hp: 999, pressure: 4 });
-    runTurn(a);
-    expect(a.pressure).toBe(10);
-    const b = combatWith({ board: { B2: 'boiler', A1: 'spur' }, enemies: ['clockmaker'], hp: 999, pressure: 4 });
-    b.enemies[0].phase = 1;
-    runTurn(b);
-    expect(b.pressure).toBe(0);
-  });
-
-  it('phase 3 jams on his 1st, 3rd, 5th turn of the phase', () => {
-    const c = combatWith({ board: { B2: 'spur' }, enemies: ['clockmaker'], hp: 9999 });
-    c.enemies[0].phase = 2;
-    const ticks: number[] = [];
-    for (let t = 0; t < 4; t++) {
-      c.board[cell('B2')] = { uid: 50 + t, defId: 'spur', plus: false, charge: 0, counter: 0, rusted: 0, magnetized: false, firedThisTurn: 0 };
-      c.parts[50 + t] = { uid: 50 + t, defId: 'spur', plus: false };
-      c.enemies[0].hp = c.enemies[0].maxHp = 150;
-      runTurn(c);
-      ticks.push(c.ticksThisTurn);
-    }
-    expect(ticks).toEqual([2, 3, 2, 3]);
-  });
-
-  it('a turn that ends a phase keeps the board; the new phase starts at full HP', () => {
-    const c = combatWith({ board: { B2: 'spur', C2: 'spur' }, enemies: ['clockmaker'], hp: 999 });
-    c.enemies[0].hp = 1;
-    const r = runTurn(c);
-    expect(rewinds(r.events)).toHaveLength(0);
-    expect(c.board[cell('B2')]).not.toBeNull();
-    expect(c.enemies[0].hp).toBe(130);
-    expect(c.enemies[0].phase).toBe(1);
-  });
+  // RETIRED in B9a (legacy phase machine): 'heals half the damage ... rounded down' (exact numbers of v1's 110 HP Clockmaker),
+  // 'phase 1 keeps Pressure; phase 2 resets it', 'phase 3 jams on his 1st, 3rd, 5th turn' and 'a turn that ends a phase keeps the
+  // board'. The Rewind rules are kept and tested on the v2 Clockmaker in tests/v2/b9-wardens.test.ts: WP4 (heal exactly half the
+  // lifted combination's damage), WP5 (Tock resets Pressure; Midnight jams on even turns only, the old odd-turn Jam is gone) and
+  // WP2 (the 1 to 2 phase action is a Rewind, so a turn that ends phase 1 does lift a combination now).
 });

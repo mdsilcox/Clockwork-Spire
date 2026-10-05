@@ -30,7 +30,7 @@ import { crashNow } from './ErrorBoundary';
 import type { AutoOpts, AutoResult } from './autoplay';
 import { audioDebug, music, trackFor } from '../audio/music';
 import type { TrackId } from '../audio/music';
-import type { Profile, RunRecord, Settings, SprocketMood } from '../core/types';
+import type { Plan, Profile, RunRecord, Settings, SprocketMood } from '../core/types';
 import type { SprocketPose } from '../ui/Sprocket';
 import { colorBlind } from './prefs';
 import { markTutorialDone, tutorialDone, setColorBlind } from './prefs';
@@ -1425,6 +1425,12 @@ export function installDebug(): void {
     /** B8: the same as tapping the room on the act screen. */
     move: (id: string): boolean => moveRoom(id),
     cheat: {
+      /** B9a: set the active profile's planHistory (the Clockmaker's memory), save, and re-render the Workshop. */
+      setPlanHistory: (plans: Plan[]): void => {
+        if (!active) return;
+        active.profile.planHistory = plans.slice(-3);
+        saveActive();
+      },
       startClimb: (seed: number): void => cheatStartClimb(seed),
       fixtureSection: (o?: { at?: string; hour?: number; clear?: string[] }): void => cheatFixtureSection(o),
       gotoRoom: (id: string): void => cheatGotoRoom(id),
