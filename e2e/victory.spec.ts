@@ -37,10 +37,15 @@ test('cheat to the Clockmaker, win, and see the victory screen', async ({ page }
   await expect(page.getByTestId('boss-intro')).toHaveCount(0);
   await page.evaluate(() => (window as unknown as { __game: G }).__game.cheat.winFight());
   await expect(page.getByTestId('screen-reward')).toBeVisible({ timeout: 10_000 });
-  // a boss gives its salvage and a trinket choice
-  await expect(page.getByTestId('salvage-tray')).toBeVisible();
-  if (await page.getByTestId('reward-trinket').count()) await press(page, page.getByTestId('reward-trinket').first());
-  await press(page, page.getByTestId('salvage-done'));
+  // a boss gives its reward: a legacy warden still offers the part pick (until B9), a framed one the salvage tray
+  if (await page.getByTestId('salvage-tray').count()) {
+    if (await page.getByTestId('reward-trinket').count()) await press(page, page.getByTestId('reward-trinket').first());
+    await press(page, page.getByTestId('salvage-done'));
+  } else {
+    await press(page, page.getByTestId('reward-part').first());
+    if (await page.getByTestId('reward-trinket').count()) await press(page, page.getByTestId('reward-trinket').first());
+    await press(page, page.getByTestId('continue-node'));
+  }
   await expect(page.getByTestId('victory')).toBeVisible();
   await expect(page.getByTestId('ending')).toBeVisible();
   await noSidewaysScroll(page);

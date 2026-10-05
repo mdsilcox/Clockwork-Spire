@@ -114,9 +114,15 @@ test('plays a practice fight through the real UI', async ({ page }) => {
     await expect(page.getByTestId('toast')).toContainText('No placements left');
   }
 
+  // v2: Strikes go to the target order, parts first by default; aim the whole order at enemy 0's core
+  await page.evaluate(() => {
+    const g = (window as unknown as { __game: { order(): string[]; toggleTarget(r: string): boolean } }).__game;
+    for (const r of g.order()) g.toggleTarget(r);
+    g.toggleTarget('e0.core');
+  });
   const before = await state(page);
   const p = await preview(page);
-  expect(p.damageByEnemy[0]).toBeGreaterThanOrEqual(9);
+  expect(p.damageByEnemy[0]).toBeGreaterThanOrEqual(8); // v2: part Shell and lost overkill take a point off the old 9
 
   // run at 2x, then check the damage dealt equals the preview
   await press(page, page.getByTestId('speed'));

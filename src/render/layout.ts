@@ -60,7 +60,7 @@ export const isCompact = (slot: Rect): boolean => slot.h < COMPACT_SLOT_H;
 const COMPACT_TEXT_H = 16;
 
 /** Roomy slots: the text block (name, HP, Run damage) sits at the bottom, the HP bar just above it. */
-function textBlock(slot: Rect): number {
+export function textBlock(slot: Rect): number {
   return Math.max(44, slot.h * 0.28);
 }
 
@@ -75,7 +75,8 @@ function bodyBand(slot: Rect): { top: number; bottom: number } {
  * Where the automaton is drawn: inside the body row, below the intent pill and above the HP bar,
  * so the sprite, the bar and the DOM rows never overlap. In a compact slot it sits left of the intent chip.
  */
-export function enemyBody(slot: Rect): Rect {
+export function enemyBody(slot: Rect, parts = 0): Rect {
+  if (parts > 0) return machineGeometry(slot, parts).body;
   if (isCompact(slot)) {
     const barY = slot.y + slot.h - COMPACT_TEXT_H - 7;
     const room = barY - slot.y - 3;
@@ -88,8 +89,96 @@ export function enemyBody(slot: Rect): Rect {
 }
 
 /** The HP bar rectangle: just above the name text. */
-export function enemyBar(slot: Rect): Rect {
+export function enemyBar(slot: Rect, parts = 0): Rect {
+  if (parts > 0) return machineGeometry(slot, parts).bar;
   const w = Math.min(slot.w * 0.8, 120);
   if (isCompact(slot)) return { x: slot.x + (slot.w - w) / 2, y: slot.y + slot.h - COMPACT_TEXT_H - 7, w, h: 5 };
   return { x: slot.x + (slot.w - w) / 2, y: slot.y + slot.h - textBlock(slot) - 5, w, h: 5 };
+}
+
+// ---------- B7: enemy machines (a frame enemy has part markers and a core marker) ----------
+
+/** Slots at least this tall (the desktop) draw the markers on a ring around the sprite; shorter ones (the phone) use a strip. */
+export const RING_MIN_H = 250;
+/** Phone markers: the 40 px tap target, with a small gap. */
+export const STRIP_MARKER = 40;
+const STRIP_GAP = 4;
+const COMPACT_SPRITE = 34;
+
+export interface MachineGeometry {
+  mode: 'ring' | 'strip';
+  body: Rect;
+  bar: Rect;
+  /** Marker size in px. */
+  size: number;
+  /** Strip mode: marker rectangles for the parts in frame order, then the core last. Ring mode: empty (anchors.ts places them). */
+  strip: Rect[];
+  /** Compact strips: the text column on the right (x is slot-relative). */
+  column?: { x: number; w: number };
+}
+
+/**
+ * The room inside a slot for a frame enemy with `parts` parts: the sprite, its HP bar and the markers never overlap
+ * each other or the name text. Ring (tall slots): markers around the sprite. Strip: markers in rows above the name,
+ * the sprite above them; in a compact slot the markers take the left and the sprite, bar and name the right.
+ */
+export function machineGeometry(slot: Rect, parts: number): MachineGeometry {
+  const m = parts + 1;
+  if (slot.h >= RING_MIN_H) {
+    const { top, bottom } = bodyBand(slot);
+    const size = Math.min(slot.w * 0.96, bottom - top);
+    const w = Math.min(slot.w * 0.8, 120);
+    return {
+      mode: 'ring',
+      body: { x: slot.x + (slot.w - size) / 2, y: top + (bottom - top - size) / 2, w: size, h: size },
+      bar: { x: slot.x + (slot.w - w) / 2, y: slot.y + slot.h - textBlock(slot) - 5, w, h: 5 },
+      size: 44,
+      strip: [],
+    };
+  }
+  const S = STRIP_MARKER;
+  if (isCompact(slot)) {
+    const maxRows = Math.max(1, Math.floor((slot.h + STRIP_GAP) / (S + STRIP_GAP)));
+    const rows = Math.min(maxRows, m);
+    const perRow = Math.ceil(m / rows);
+    const gridW = perRow * S + (perRow - 1) * STRIP_GAP;
+    const gridH = rows * S + (rows - 1) * STRIP_GAP;
+    const gy = slot.y + (slot.h - gridH) / 2;
+    const strip: Rect[] = [];
+    for (let i = 0; i < m; i++) strip.push({ x: slot.x + 2 + (i % perRow) * (S + STRIP_GAP), y: gy + Math.floor(i / perRow) * (S + STRIP_GAP), w: S, h: S });
+    const cx = gridW + 8;
+    const cw = Math.max(0, slot.w - cx - 2);
+    const size = Math.min(cw, COMPACT_SPRITE);
+    return {
+      mode: 'strip',
+      body: { x: slot.x + cx + (cw - size) / 2, y: slot.y + 2, w: size, h: size },
+      bar: { x: slot.x + cx, y: slot.y + 2 + size + 3, w: cw, h: 5 },
+      size: S,
+      strip,
+      column: { x: cx, w: cw },
+    };
+  }
+  const text = textBlock(slot);
+  const barY = slot.y + slot.h - text - 5;
+  const perRow = Math.max(1, Math.floor((slot.w + STRIP_GAP) / (S + STRIP_GAP)));
+  const rows = Math.ceil(m / perRow);
+  const stripH = rows * S + (rows - 1) * STRIP_GAP;
+  const stripTop = barY - 4 - stripH;
+  const strip: Rect[] = [];
+  for (let r = 0; r < rows; r++) {
+    const count = Math.min(perRow, m - r * perRow);
+    const x0 = slot.x + (slot.w - (count * S + (count - 1) * STRIP_GAP)) / 2;
+    for (let k = 0; k < count; k++) strip.push({ x: x0 + k * (S + STRIP_GAP), y: stripTop + r * (S + STRIP_GAP), w: S, h: S });
+  }
+  const top = slot.y + 2;
+  const room = Math.max(16, stripTop - 4 - top);
+  const size = Math.min(slot.w * 0.8, room);
+  const w = Math.min(slot.w * 0.8, 120);
+  return {
+    mode: 'strip',
+    body: { x: slot.x + (slot.w - size) / 2, y: top + (room - size) / 2, w: size, h: size },
+    bar: { x: slot.x + (slot.w - w) / 2, y: barY, w, h: 5 },
+    size: S,
+    strip,
+  };
 }

@@ -272,15 +272,19 @@ export class Stage {
   private enemyX(i: number): number {
     const slot = this.slotList()[i];
     if (!slot) return this.layout.w - 40;
-    const b = enemyBody(slot);
+    const b = enemyBody(slot, this.nParts(i));
     return b.x + b.w / 2;
   }
 
   private enemyY(i: number): number {
     const slot = this.slotList()[i];
     if (!slot) return this.layout.h / 2;
-    const b = enemyBody(slot);
+    const b = enemyBody(slot, this.nParts(i));
     return b.y + b.h / 2;
+  }
+
+  private nParts(i: number): number {
+    return (this.after?.enemies[i] ?? this.state?.enemies[i])?.parts?.length ?? 0;
   }
 
   /** Where part `part` of enemy `i` sits (anchors.ts decides; the core and unknown parts sit at the body center). */
@@ -288,13 +292,13 @@ export class Stage {
     const slot = this.slotList()[i];
     if (!slot) return { x: this.enemyX(i), y: this.enemyY(i) };
     const ids = (this.after?.enemies[i] ?? this.state?.enemies[i])?.parts?.map((p) => p.id) ?? [];
-    const a = partAnchors(enemyBody(slot), ids);
+    const a = partAnchors(slot, ids).at;
     return a[part ?? 'core'] ?? a.core;
   }
 
   private enemySize(i: number): number {
     const slot = this.slotList()[i];
-    return slot ? enemyBody(slot).w : 60;
+    return slot ? enemyBody(slot, this.nParts(i)).w : 60;
   }
 
   private dir(i: number): number {
@@ -1044,7 +1048,7 @@ export class Stage {
       const look = this.looks[i];
       const slot = slots[i];
       if (!look || !slot) continue;
-      const body = enemyBody(slot);
+      const body = enemyBody(slot, e.parts?.length ?? 0);
       const x = body.x + body.w / 2;
       const y = body.y + body.h / 2;
       drawEnemy(ctx, e.defId, x, y, body.w, look);
@@ -1054,7 +1058,7 @@ export class Stage {
         drawStatuses(ctx, e.statuses, x, y, body.w, now);
         if (shell > 0) drawShell(ctx, x, y, body.w, shell, now);
       }
-      const bar = enemyBar(slot);
+      const bar = enemyBar(slot, e.parts?.length ?? 0);
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
       ctx.fillRect(bar.x, bar.y, bar.w, bar.h);
       ctx.fillStyle = hp / e.maxHp > 0.4 ? COLOR.good : COLOR.hurt;

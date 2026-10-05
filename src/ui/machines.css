@@ -44,26 +44,25 @@
 
 .pm .order-badge {
   position: absolute;
-  top: -8px;
-  right: -8px;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 4px;
-  border-radius: 10px;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 3px;
+  border-radius: 9px;
   background: var(--lamp);
   color: #2a1a08;
   font-size: 13px;
   font-weight: 800;
-  line-height: 20px;
+  line-height: 18px;
   text-align: center;
 }
 
 .pm .pm-dmg {
   position: absolute;
-  left: 50%;
-  top: -2px;
-  transform: translate(-50%, -100%);
-  padding: 0 5px;
+  left: -5px;
+  top: -6px;
+  padding: 0 4px;
   border-radius: 8px;
   background: rgba(23, 17, 12, 0.9);
   color: var(--hurt);
@@ -201,30 +200,28 @@
   color: var(--ink-soft);
 }
 
-/* a broken part: crossed out, dimmed, and it drops a little when it breaks */
+/* a broken part: dimmed but legible, with a bold crack across it; no intent, no HP */
 .pm.broken .pmark {
-  opacity: 0.4;
-  border-color: #5b4630;
-  color: var(--ink-soft);
-  background: rgba(23, 17, 12, 0.6);
+  opacity: 0.8;
+  border-style: dashed;
+  border-color: var(--hurt);
+  color: var(--hurt);
+  background: rgba(60, 24, 14, 0.85);
   cursor: default;
-  animation: pm-fall 0.5s ease-in both;
+  animation: pm-crack 0.4s ease-out;
 }
 
 .pm .pm-cross {
-  width: 24px;
-  height: 24px;
-  color: var(--hurt);
+  width: 26px;
+  height: 26px;
 }
 
-@keyframes pm-fall {
+@keyframes pm-crack {
   0% {
-    transform: translateY(0) rotate(0);
-    opacity: 1;
+    transform: scale(1.2);
   }
   100% {
-    transform: translateY(6px) rotate(14deg);
-    opacity: 0.4;
+    transform: scale(1);
   }
 }
 
@@ -232,6 +229,49 @@
   .pm.broken .pmark {
     animation: none;
   }
+}
+
+/* phone strip: the intent and HP live inside the marker */
+.pm .pm-intent.inline {
+  position: static;
+  transform: none;
+  margin: 0;
+  padding: 0;
+  background: none;
+  pointer-events: none;
+}
+
+.pm .pm-intent.inline .irow {
+  flex-direction: column;
+  gap: 0;
+  line-height: 1;
+  margin: -3px 4px 0 0;
+}
+
+.pm .pm-intent.inline b {
+  font-size: 13px;
+  line-height: 13px;
+}
+
+.pm.inline .pm-hp {
+  left: auto;
+  top: auto;
+  right: -4px;
+  bottom: -4px;
+  transform: none;
+  min-width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0 3px;
+  justify-content: center;
+  border: 1px solid var(--brass-dark);
+  border-radius: 9px;
+  background: rgba(23, 17, 12, 0.96);
+}
+
+.pm.inline .pm-jam {
+  left: -3px;
+  bottom: -3px;
 }
 
 /* the salvage tray */
@@ -280,4 +320,109 @@
 .salvage-item .skeep {
   min-height: 40px;
   margin-top: 2px;
+}
+
+/* a frame enemy's text (name, HP, statuses) sits in a fixed band the markers never enter */
+.enemy.machine {
+  display: block;
+}
+
+.enemy.machine .body {
+  display: none;
+}
+
+.enemy.machine:not(.compact) .info,
+.enemy.machine .info {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  overflow: hidden;
+}
+
+/* compact slots on a phone: markers on the left, sprite, bar and name in a column on the right */
+.enemy.machine.compact .info {
+  display: flex;
+  left: var(--col-x, 90px);
+  right: 2px;
+  top: 52px;
+  height: auto;
+  padding-bottom: 0;
+}
+
+.enemy.machine.compact .nameline {
+  position: static;
+  height: auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  font-size: 12px;
+  line-height: 13px;
+  white-space: normal;
+  text-align: center;
+}
+
+.enemy.machine.compact .ename {
+  white-space: normal;
+  max-height: 26px;
+  overflow: hidden;
+}
+
+.enemy.machine.compact .edmg {
+  display: none;
+}
+
+.enemy.machine.compact .pips {
+  position: static;
+  max-width: 100%;
+  justify-content: center;
+}
+
+/* the salvage footer stays on screen: what Done will add, and Done itself */
+.salvagebox {
+  padding-bottom: 64px;
+}
+
+.salvage-foot {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 8px 14px;
+  align-items: center;
+  justify-content: flex-end;
+  background: rgba(23, 17, 12, 0.96);
+  border-top: 2px solid var(--brass-dark);
+}
+
+.salvage-foot .salvage-pay {
+  font-weight: 800;
+  color: var(--lamp);
+}
+
+.salvage-foot .primary {
+  min-height: 44px;
+  min-width: 96px;
+}
+
+.pm-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.pm .pm-intent.inline .ilabel {
+  font-size: 12px;
+  line-height: 12px;
+  font-weight: 800;
 }

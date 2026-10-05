@@ -1,13 +1,14 @@
-// Part markers on an enemy machine (B7): a tap target per unbroken part and one for the core, each with HP pips,
-// the intent it will act on next turn, its place in the target order and the damage the preview deals to it.
-// Positions come from render/anchors.ts only (B8 moves them to the painted rigs' anchor points).
+// Part markers on an enemy machine (B7): a tap target per part and one for the core, each with its HP, the intent it
+// will act on next turn, its place in the target order and the damage the preview deals to it.
+// Positions come from render/anchors.ts only (B8 moves them to the painted rigs' anchor points). On a tall slot (the
+// desktop) the intent and HP sit outside the marker; on a short one (the phone) they sit inside it, so a marker is
+// one self-contained 40 px button and nothing can cover a neighbor, a name or an HP line.
 import type { CombatState, PartIntent, TargetRef, TurnPreview } from '../core/types';
-import { MARKER, partAnchors } from '../render/anchors';
-import { enemyBody, isCompact } from '../render/layout';
+import { partAnchors } from '../render/anchors';
 import type { Rect } from '../render/layout';
 import type { StageView } from '../render/replay';
 import { INTENT_NAME, IntentIcon, StatusIcon } from './icons';
-import { actionsText, cadenceText, enemyPartDef, intentValue, intentWait } from './partText';
+import { actionsText, cadenceText, enemyPartDef, intentValue, intentWait, pendingRatchet } from './partText';
 import type { TipInfo } from './Tooltip';
 import './machines.css';
 
@@ -27,19 +28,23 @@ interface Props {
   onTap: (ref: TargetRef) => void;
 }
 
+/** Color-blind mode inside a 40 px marker: a short word in place of the icon. */
+const CB_SHORT: Record<string, string> = { attack: 'Hit', defend: 'Def', buff: 'Buff', debuff: 'Weak', sabotage: 'Sabo', charge: 'Wait', summon: 'Call', special: 'Odd' };
+
 function Lock() {
   return (
-    <svg class="pm-lock" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <svg class="pm-lock" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" />
       <path d="M8 11 V8 a4 4 0 0 1 8 0 V11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
     </svg>
   );
 }
 
-function Cross() {
+/** A broken part: a bold crack across it. */
+function Crack() {
   return (
     <svg class="pm-cross" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M5 5 L19 19 M19 5 L5 19" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+      <path d="M4 4 L10 11 L7 13 L13 20 M20 4 L14 10 M18 20 L13 14" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />
     </svg>
   );
 }
@@ -61,22 +66,20 @@ function Glyph({ core }: { core: boolean }) {
 export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, tip, onTap }: Props) {
   const e = c.enemies[i];
   if (!e || vw.enemyHp[i] <= 0) return null;
-  const frame = e.parts.length > 0;
-  const body = enemyBody(slot);
-  const size = isCompact(slot) ? 40 : MARKER;
-  const at = partAnchors(body, e.parts.map((p) => p.id));
+  const frame = (e.parts?.length ?? 0) > 0;
+  const parts = e.parts ?? [];
+  const geo = partAnchors(slot, parts.map((p) => p.id));
+  const inline = geo.mode === 'strip';
   const cancelled = new Set((preview?.cancelled ?? []).filter((x) => x.enemy === i).map((x) => x.partId));
-  const intentOf = (id: string): PartIntent | undefined => e.intents.find((it) => it.partId === id);
-
-  const place = (id: string): { left: string; top: string; width: string; height: string } => {
-    const a = at[id] ?? at.core;
-    return { left: `${a.x - slot.x - size / 2}px`, top: `${a.y - slot.y - size / 2}px`, width: `${size}px`, height: `${size}px` };
-  };
+  const intentOf = (id: string): PartIntent | undefined => e.intents?.find((it) => it.partId === id);
+  const bonus = pendingRatchet(c, i, preview);
 
   const marker = (id: string): preact.JSX.Element | null => {
     const core = id === 'core';
-    const st = core ? null : e.parts.find((p) => p.id === id);
+    const st = core ? null : parts.find((p) => p.id === id);
     if (!core && !st) return null;
+    const a = geo.at[id] ?? geo.at.core;
+    const size = a.size;
     const ref = `e${i}.${id}` as TargetRef;
     const pd = core ? undefined : enemyPartDef(e.defId, id);
     const label = core ? `${name} core` : (pd?.name ?? id);
@@ -89,6 +92,8 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
     const will = preview?.byTarget?.[ref];
     const isCancelled = cancelled.has(id);
     const wait = it ? intentWait(it) : '';
+    const grows = it ? it.actions.some((x) => x.kind === 'attack' || x.kind === 'pierce') && bonus > 0 : false;
+    const val = it ? intentValue(it, bonus) : '';
     const info = (): Info => {
       if (core) {
         return {
@@ -98,10 +103,10 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
         };
       }
       if (broken) return { title: `${label}.`, text: 'Broken: it never acts again this fight.', detail: pd?.salvage ? 'It will drop salvage if you win.' : undefined };
-      const bits: string[] = [];
-      bits.push(`${hp} of ${maxHp} HP.`);
+      const bits: string[] = [`${hp} of ${maxHp} HP.`];
       if (st?.jammed) bits.push('Jammed: it skips its next action.');
       if (pd?.keystone) bits.push('Keystone: break it to open the core.');
+      if (it) bits.push(`Next: ${it.label}${grows ? `, +${bonus} Strength from the Ratchet first` : ''}${isCancelled ? ' (your Run breaks this part first, so it is cancelled)' : ''}.`);
       if (pos >= 0) bits.push(`Number ${pos + 1} in your target order. Tap to remove.`);
       else bits.push('Tap to add it to your target order.');
       const action = pd && pd.actions.length > 0 ? `${actionsText(pd.actions)}. ${cadenceText(pd.cadence)}` : '';
@@ -116,13 +121,48 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
         : '';
       return { title: `${label}.`, text: [action, passive].filter(Boolean).join(' ') || 'A part of the machine.', detail: bits.join(' ') };
     };
-    const aria = `${label}, ${broken ? 'broken' : `${hp} of ${maxHp} HP`}${it ? `. Next: ${it.label}` : ''}${sealed ? '. Sealed' : ''}${pos >= 0 ? `. Order ${pos + 1}` : ''}`;
+    const aria = `${label}, ${broken ? 'broken' : `${hp} of ${maxHp} HP`}${it ? `. Next: ${it.label}${grows ? `, plus ${bonus} Strength` : ''}` : ''}${sealed ? '. Sealed' : ''}${pos >= 0 ? `. Order ${pos + 1}` : ''}`;
     const testid = core ? `enemy-core-e${i}` : `enemy-part-e${i}-${id}`;
+    const intentChip = it ? (
+      <span
+        class={`pm-intent k-${it.kind} ${inline ? 'inline' : ''} ${isCancelled ? 'cancelled' : ''}`}
+        data-testid={`part-intent-e${i}-${id}`}
+        data-kind={it.kind}
+        data-cancelled={isCancelled ? 'true' : undefined}
+        aria-hidden={inline ? 'true' : undefined}
+        tabIndex={inline ? undefined : 0}
+        {...(inline
+          ? {}
+          : tip(() => ({
+              title: `${INTENT_NAME[it.kind]}.`,
+              text: `${it.label}${grows ? ` (+${bonus} Strength from the Ratchet first)` : ''}.${isCancelled ? ' Your Run will break its part first, so this is cancelled.' : ''}`,
+              detail: pd ? `From ${label}.` : `From the ${name} core.`,
+            })))}
+      >
+        <span class="irow">
+          {inline && cb ? <span class="ilabel">{CB_SHORT[it.kind]}</span> : <IntentIcon kind={it.kind} size={inline ? 14 : 16} />}
+          {val && <b>{inline ? val.replace(' x', 'x') : val}</b>}
+        </span>
+        {grows && <span class="pm-sr">{` (base ${intentValue(it, 0)}, plus ${bonus} Strength)`}</span>}
+        {!inline && wait && <span class="iwait">{wait}</span>}
+        {!inline && cb && <span class="ilabel">{INTENT_NAME[it.kind]}</span>}
+        {!inline && isCancelled && <span class="ilabel cx">cancelled</span>}
+      </span>
+    ) : null;
+    const hpText = (
+      <span class="pm-hp" data-testid={`part-hp-e${i}-${id}`} aria-hidden="true">
+        <b>{hp}</b>
+      </span>
+    );
     return (
-      <div key={id} class={`pm ${core ? 'core' : ''} ${broken ? 'broken' : ''} ${sealed ? 'sealed' : ''}`} style={place(id)}>
+      <div
+        key={id}
+        class={`pm ${core ? 'core' : ''} ${broken ? 'broken' : ''} ${sealed ? 'sealed' : ''} ${inline ? 'inline' : 'outer'}`}
+        style={{ left: `${a.x - slot.x - size / 2}px`, top: `${a.y - slot.y - size / 2}px`, width: `${size}px`, height: `${size}px` }}
+      >
         <button
           type="button"
-          class={`pmark ${pos >= 0 ? 'ordered' : ''} ${will?.breaks ? 'breaks' : ''}`}
+          class={`pmark ${pos >= 0 ? 'ordered' : ''} ${will?.breaks ? 'breaks' : ''} ${it ? 'acts' : ''}`}
           data-testid={testid}
           data-target-marker=""
           aria-label={aria}
@@ -131,17 +171,16 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
           {...tip(info)}
           onClick={() => onTap(ref)}
         >
-          {broken ? <Cross /> : <Glyph core={core} />}
+          {broken ? <Crack /> : inline && intentChip ? intentChip : <Glyph core={core} />}
           {sealed && <Lock />}
           {pos >= 0 && (
             <span class="order-badge" data-testid="order-badge">
               {pos + 1}
             </span>
           )}
-          {will && !broken && (
+          {will && will.damage > 0 && !broken && (
             <span class="pm-dmg" data-testid={`part-dmg-e${i}-${id}`}>
               -{will.damage}
-              {will.breaks ? (core ? ' scrap' : ' break') : ''}
             </span>
           )}
           {st?.jammed && !broken && (
@@ -149,49 +188,17 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
               <StatusIcon kind="jam" size={12} />
             </span>
           )}
+          {inline && !core && !broken && hpText}
         </button>
-        {!core && !broken && (
-          <span class="pm-hp" data-testid={`part-hp-e${i}-${id}`} aria-hidden="true">
-            {maxHp <= 8 && (
-              <span class="pips">
-                {Array.from({ length: maxHp }, (_, k) => (
-                  <i key={k} class={k < hp ? 'on' : ''} />
-                ))}
-              </span>
-            )}
-            <b>{hp}</b>
-          </span>
-        )}
-        {it && (frame || !core) && (
-          <span
-            class={`pm-intent k-${it.kind} ${isCancelled ? 'cancelled' : ''}`}
-            data-testid={`part-intent-e${i}-${id}`}
-            data-kind={it.kind}
-            data-cancelled={isCancelled ? 'true' : undefined}
-            tabIndex={0}
-            aria-label={`${INTENT_NAME[it.kind]}: ${it.label}${isCancelled ? ' (cancelled by your order)' : ''}`}
-            {...tip(() => ({
-              title: `${INTENT_NAME[it.kind]}.`,
-              text: `${it.label}.${isCancelled ? ' Your Run will break its part first, so this is cancelled.' : ''}`,
-              detail: pd ? `From ${label}.` : `From the ${name} core.`,
-            }))}
-          >
-            <span class="irow">
-              <IntentIcon kind={it.kind} size={16} />
-              {intentValue(it) && <b>{intentValue(it)}</b>}
-            </span>
-            {wait && <span class="iwait">{wait}</span>}
-            {cb && <span class="ilabel">{INTENT_NAME[it.kind]}</span>}
-            {isCancelled && <span class="ilabel cx">cancelled</span>}
-          </span>
-        )}
+        {!inline && !core && !broken && hpText}
+        {!inline && intentChip && (frame || !core) && intentChip}
       </div>
     );
   };
 
   return (
     <>
-      {frame && e.parts.map((p) => marker(p.id))}
+      {frame && parts.map((p) => marker(p.id))}
       {marker('core')}
     </>
   );

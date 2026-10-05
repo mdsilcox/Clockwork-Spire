@@ -5,6 +5,7 @@ import { shopBuy, chooseEvent, forge, leave, oil, pickEventPart, rewardPart, rew
 import { EVENTS } from '../core/content/events';
 import { partDef, partName, partText } from '../core/content/parts';
 import { trinketDef } from '../core/content/trinkets';
+import { salvagePayout } from '../core/salvage';
 import type { PartInstance, RunState } from '../core/types';
 import { FAMILY_COLOR, FAMILY_LABEL } from '../render/palette';
 import { PartCard } from './PartCard';
@@ -212,6 +213,15 @@ export function RewardScreen() {
 
 const RARITY_LABEL: Record<string, string> = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', masterwork: 'Masterwork', legendary: 'Legendary' };
 
+/** A part name and text that never throw: a saved tray may name a part this build no longer has. */
+function knownPart(id: string): { name: string; text: string } | null {
+  try {
+    return { name: partName(id, false), text: partText(id, false) };
+  } catch {
+    return null;
+  }
+}
+
 export function SalvageScreen() {
   const run = runView.value;
   const [keep, setKeep] = useState<number[]>([]);
@@ -220,6 +230,7 @@ export function SalvageScreen() {
   const needTrinket = p.trinkets.length > 0 && !p.trinketTaken;
   const toggle = (n: number): void => setKeep(keep.includes(n) ? keep.filter((k) => k !== n) : [...keep, n]);
   const scrapped = p.items.filter((it, n) => it.locked || !keep.includes(n));
+  const pay = salvagePayout(p.items, keep, p.wrecked ?? 0).scrap;
   const finish = (): void => {
     if (!salvageDone(keep)) return;
     if (runView.value?.phase === 'reward') leave();
@@ -241,14 +252,20 @@ export function SalvageScreen() {
             <div class="salvage-list">
               {p.items.map((it, n) => {
                 const key = it.salvage === 'spire-key';
-                const name = key ? 'Spire Key' : partName(it.salvage, false);
+                const known = key ? null : knownPart(it.salvage);
+                const unknown = !key && !known;
+                const name = key ? 'Spire Key' : (known?.name ?? 'Unknown part');
                 const kept = keep.includes(n);
                 return (
                   <div key={`${it.enemy}.${it.partId}`} class={`salvage-item ${kept ? 'kept' : ''} ${it.locked ? 'locked' : ''}`} data-testid={`salvage-item-${n}`}>
                     <span class="sname">{name}</span>
                     <span class="srarity">{RARITY_LABEL[it.rarity] ?? it.rarity}</span>
-                    {!key && <span class="ctext">{partText(it.salvage, false)}</span>}
-                    {it.locked ? (
+                    {known && <span class="ctext">{known.text}</span>}
+                    {unknown ? (
+                      <span class="snote" data-testid={`salvage-unknown-${n}`}>
+                        This part is not in this version of the game. It is scrapped.
+                      </span>
+                    ) : it.locked ? (
                       <span class="snote" data-testid={`salvage-locked-${n}`}>
                         Locked: you could almost see how it worked. It is scrapped for 6 Cogs.
                       </span>
@@ -267,9 +284,10 @@ export function SalvageScreen() {
             Nothing to salvage: no part of the machine broke. Take down the parts, not only the core, to bring some home.
           </p>
         )}
-        {scrapped.length > 0 && (
+        {(scrapped.length > 0 || (p.wrecked ?? 0) > 0) && (
           <p class="salvage-note" data-testid="salvage-scrap">
-            Scrapped: {scrapped.length}.
+            {scrapped.length > 0 && `${scrapped.length} ${scrapped.length === 1 ? 'part' : 'parts'} scrapped.`}
+            {(p.wrecked ?? 0) > 0 && ` ${p.wrecked} wrecked.`}
           </p>
         )}
         {p.trinkets.length > 0 && (
@@ -287,7 +305,10 @@ export function SalvageScreen() {
             )}
           </>
         )}
-        <div class="nodeactions">
+        <div class="nodeactions salvage-foot">
+          <span class="salvage-pay" data-testid="salvage-pay">
+            Done adds +{pay} Cogs
+          </span>
           <button class="primary" data-testid="salvage-done" disabled={needTrinket} onClick={finish}>
             Done
           </button>

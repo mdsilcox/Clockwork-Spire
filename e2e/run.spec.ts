@@ -176,8 +176,8 @@ test('defeat: the defeat screen shows the floor and leads back to the title', as
   await enterFirst(page);
   await expect(page.getByTestId('combat')).toBeVisible();
   await page.evaluate(() => {
-    const g = (window as unknown as { __game: G }).__game;
-    g.debugEnemy(0, { intent: { kind: 'attack', amount: 999, label: 'Attack 999' } });
+    // v2 enemies act from their parts, so the quickest defeat is a player at 1 HP
+    (window as unknown as { __game: { cheat: { setHp(n: number): void } } }).__game.cheat.setHp(1);
   });
   await press(page, page.getByTestId('run'));
   await expect(page.getByTestId('defeat')).toBeVisible({ timeout: 10_000 });

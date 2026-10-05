@@ -235,7 +235,7 @@ test('a turn summary line appears after Run', async ({ page }) => {
   await placeSpur(page);
   await setSpeed(page, 'skip');
   await press(page, page.getByTestId('run'));
-  await expect(page.getByTestId('turn-summary')).toContainText(/Chain x\d+, \d+ damage, \d+ Plating/);
+  await expect(page.getByTestId('turn-summary')).toContainText(/Chain x\d+, \d+ damage( \(\d+ to parts\))?, \d+ Plating/);
 });
 
 test('every enemy slot is at least 48 px tall with 1 to 4 enemies, and a boss fits', async ({ page }) => {

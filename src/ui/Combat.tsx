@@ -10,7 +10,7 @@ import { partDef, partName, partText } from '../core/content/parts';
 import { COLS, MAINSPRING } from '../core/types';
 import type { CombatState, TargetRef, TurnPreview } from '../core/types';
 import { click, unlockAudio } from '../audio/synth';
-import { cellRect, enemySlots, isCompact } from '../render/layout';
+import { cellRect, enemySlots, isCompact, machineGeometry, textBlock } from '../render/layout';
 import type { Layout } from '../render/layout';
 import { FAMILY_COLOR, FAMILY_LABEL } from '../render/palette';
 import { viewFromState } from '../render/replay';
@@ -20,6 +20,7 @@ import { Coach, tutorialTargets } from './Coach';
 import { familyHint } from './synergy';
 import { ACT_TITLE, TrinketBar } from './Map';
 import { EnemyMachine } from './EnemyParts';
+import { damageText, pendingRatchet } from './partText';
 import { Tooltip } from './Tooltip';
 import type { TipInfo } from './Tooltip';
 
@@ -60,6 +61,7 @@ export function CombatScreen() {
   const [cursor, setCursor] = useState<number>(cellIdx('B2'));
   const [mark, setMark] = useState<number>(-1);
   const [tipInfo, setTipInfo] = useState<TipInfo | null>(null);
+  const tipAnchor = useRef<{ el: Element; label: string | null } | null>(null);
   const longTimer = useRef<number>(0);
   const hideTimer = useRef<number>(0);
   const longFired = useRef(false);
@@ -117,6 +119,16 @@ export function CombatScreen() {
     stageRef.current?.setPreview(preview);
     stageRef.current?.setCursor(over ? -1 : cursor, mark);
   }, [preview, cursor, mark, over]);
+
+  // a tooltip closes when the thing it describes changes or goes away (a part breaks, the order changes)
+  useEffect(() => {
+    const a = tipAnchor.current;
+    if (!tipInfo || !a) return;
+    if (!a.el.isConnected || (a.el as HTMLButtonElement).disabled || a.el.getAttribute('aria-label') !== a.label) {
+      window.clearTimeout(hideTimer.current);
+      setTipInfo(null);
+    }
+  }, [live, busy, view.value]);
 
   const flash = (msg: string): void => {
     setToast(msg);
@@ -271,6 +283,7 @@ export function CombatScreen() {
   const showTip = (el: Element, info: Omit<TipInfo, 'rect'> | null): void => {
     if (!info) return setTipInfo(null);
     const r = el.getBoundingClientRect();
+    tipAnchor.current = { el, label: el.getAttribute('aria-label') };
     setTipInfo({ ...info, rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom } });
   };
   const hideTip = (): void => {
@@ -360,7 +373,9 @@ export function CombatScreen() {
       const gone = new Set((preview?.cancelled ?? []).filter((x) => x.enemy === i).map((x) => x.partId));
       return (
         sum +
-        e.intents.filter((it) => !gone.has(it.partId)).reduce((t, it) => t + it.actions.filter((a) => a.kind === 'attack' || a.kind === 'pierce').reduce((u, a) => u + (a.amount ?? 0) * (a.hits ?? 1), 0), 0)
+        e.intents
+          .filter((it) => !gone.has(it.partId))
+          .reduce((t, it) => t + it.actions.filter((a) => a.kind === 'attack' || a.kind === 'pierce').reduce((u, a) => u + ((a.amount ?? 0) + pendingRatchet(c, i, preview)) * (a.hits ?? 1), 0), 0)
       );
     }
     if (e.intent.kind !== 'attack') return sum;
@@ -386,7 +401,7 @@ export function CombatScreen() {
   const drainNow = targets.some((t) => t.pressure);
   const glow = tut && live ? tutorialTargets(tut.step, c) : new Set<string>();
   const last = lastResult.value;
-  const recap = last && !busy ? `Chain x${last.preview.momentum}, ${last.preview.damageByEnemy.reduce((a, b) => a + b, 0)} damage, ${last.preview.plating} Plating` : '';
+  const recap = last && !busy ? `Chain x${last.preview.momentum}, ${damageText(last.preview)}, ${last.preview.plating} Plating` : '';
   const pillTip = (title: string, text: string, detail?: string) => tipHandlers(() => ({ title, text, detail }));
   const statusInfo = (id: string, n: number, who: string) => () => {
     const e = glossaryFor(id);
@@ -581,6 +596,7 @@ export function CombatScreen() {
                 const shell = vw.enemyShell[i];
                 const dead = hp <= 0;
                 const dmg = preview?.damageByEnemy[i] ?? 0;
+                const mg = e.parts.length > 0 ? machineGeometry(slot, e.parts.length) : null;
                 const num = intentNumber(c, i);
                 const isTarget = c.targetIdx === i && !dead;
                 const pips = Object.entries(e.statuses).filter(([, n]) => n > 0);
@@ -595,8 +611,8 @@ export function CombatScreen() {
                 return (
                   <div
                     key={i}
-                    class={`enemy ${isTarget ? 'target' : ''} ${dead ? 'dead' : ''} ${isCompact(slot) ? 'compact' : ''} ${cb ? 'cb' : ''}`}
-                    style={{ left: `${slot.x}px`, top: `${slot.y}px`, width: `${slot.w}px`, height: `${slot.h}px` }}
+                    class={`enemy ${isTarget ? 'target' : ''} ${dead ? 'dead' : ''} ${isCompact(slot) ? 'compact' : ''} ${cb ? 'cb' : ''} ${mg ? `machine ${mg.mode}` : ''}`}
+                    style={{ left: `${slot.x}px`, top: `${slot.y}px`, width: `${slot.w}px`, height: `${slot.h}px`, ...(mg?.column ? { '--col-x': `${mg.column.x}px` } : {}) }}
                     onPointerEnter={(ev) => ev.pointerType === 'mouse' && setHoverEnemy(i)}
                     onPointerLeave={(ev) => ev.pointerType === 'mouse' && setHoverEnemy(null)}
                   >
@@ -640,7 +656,7 @@ export function CombatScreen() {
                     )}
                     <span class="body" />
                     <EnemyMachine c={c} i={i} slot={slot} vw={vw} preview={preview} name={names[i]} cb={cb} interactive={calm} tip={tipHandlers as never} onTap={tapTarget} />
-                    <span class="info">
+                    <span class="info" style={mg && !mg.column ? { height: `${textBlock(slot)}px` } : undefined}>
                       <span class="nameline">
                         <span class="ename">{names[i]}</span>
                         <span class="ehp" data-testid={`ehp-${i}`}>
@@ -767,7 +783,7 @@ export function CombatScreen() {
           <p class={`summary ${glow.has('preview') ? 'tut-glow' : ''}`} data-testid="preview" aria-live="polite">
             {preview ? (
               <>
-                {preview.damageByEnemy.reduce((a, b) => a + b, 0)} damage, {preview.plating} Plating, {preview.ticks} ticks
+                {damageText(preview)}, {preview.plating} Plating, {preview.ticks} ticks
               </>
             ) : (
               <>&nbsp;</>
