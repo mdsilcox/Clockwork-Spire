@@ -29,9 +29,13 @@ Vite 8 + TypeScript 7 (strict, `tsc --noEmit`) + Preact 11 (`@preact/signals`, `
 Boost goes to every part the booster passes motion to (not cumulative); overpressure damage is absorbed by Plating; enemy rust lasts through the player's next machine run; Shell falls when its owner starts its turn; the machine stops ticking once every enemy is dead; all rare parts start locked (blueprints unlock them). More in DECISIONS.md.
 
 ## Version 2 (in progress)
-v2 is owner-approved on the board (D-027): phases `cs~V0` (setup), `cs~D3` (design), `cs~D4` (art direction), `cs~D5` (roadmap), then build phases. The owner's choices are D-029. Until D3 closes, `docs/rules.md` and `docs/content.md` still describe v1.
-- Art (D-026): characters, enemies and illustrations are generated paintings (SDXL via `~/.claude/tools/art/`), rigged with `rig.js`; effects, UI and motion stay code. `art/trial/` holds the approved v1 trial (Sprocket, the Foreman), reference only. v2 assets go in `art/<asset>/` per `docs/art-direction.md` and `art/style.json` (written in D4).
-- One ComfyUI server on the GPU at a time; stop it by PID.
+v2 is owner-approved (D-027; choices D-029). Docs: `docs/vision-v2.md`, `docs/rules.md` and `docs/content.md` (v2; v1 frozen in `docs/v1/`), `docs/data-model.md` "Version 2", `docs/acceptance.md` sections 9 to 17, `docs/roadmap-v2.md`, lane briefs `docs/briefs/B7..B9a`. Phases done: B7 enemy machines, B8 the climb (main ef9c4e8), A1, A2 art; B9a wardens at its gate; next B9b rarity and achievements, B10 Bellfoot and difficulty.
+- **Combat (B7)**: enemies are frames (`frame` on `EnemyDef`, `src/core/frames.ts`, `framelib.ts`): a core plus parts with cadences and actions; the target order (`TargetRef` 'e0.part'); Braced wardens with keystones and phases (`enemy.ts` `advancePhase`, `phaseActionPending`, `lastPhase` retraction); Rewind is a part action (`liftCombos`). Salvage tray after fights (`salvage.ts`).
+- **Climb (B8)**: `src/core/section.ts` (generateSection, moveTo, hoursLeft, ringBell, useKey, pickLock, afterRoom), `rooms.ts` (workbench, trader barter, oil, vault), Scrap replaces Cogs, save version 2 (`migrate.ts`). `RunConfig.legacyMap` keeps v1 tests on the old map flow. UI `src/ui/Climb.tsx`.
+- **Memory (B9a)**: `src/core/record.ts` (`recordFight` at every fight end, `mainPlan`, `memoryPlan`); `profile.planHistory` (last three); the Clockmaker's `memoryParts`.
+- **Art (D-026, D-033)**: generated paintings rigged with `rig.js`; `art/<asset>/` sources, `npm run art` builds WebP into `public/art/` and `src/art/manifest.ts`; `src/art/<id>.ts` CharacterDefs; `src/render/rig.ts` RigHub (one WebGL layer between two stage canvases). One ComfyUI server at a time; stop it by PID.
+- **Sim (v2)**: `src/sim/strat/` (`v2.ts` fights and `wardenStatsV2`, `climb.ts` executor, `decide.ts` route actions shared with `src/app/autoplay.ts`, `v2routes.ts`). Balance reports in `balance/`.
+- Test hooks: `window.__game.cheat.*` (runFight, breakPart, breakPhase, winFight, startClimb, setPlanHistory, ...) and `__game.rig.*`; each e2e spec's header lists the ids and hooks it uses.
 
 ## Conventions
 - American English, no em dashes anywhere (UI text, docs, comments). Short text; warm, curious, a little melancholy.
