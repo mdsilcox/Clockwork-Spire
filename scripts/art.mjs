@@ -32,6 +32,21 @@ const ASSETS = [
   { id: 'tinker', act: 0, scale: 0.7 },
   { id: 'sprocket', act: 0, scale: 0.7, extra: { 'cut-happy': 'cut-happy' } },
 ];
+// Scenes (B10a.3): a layered painting assembled from pieces into art/<id>/layers/<name>.png (art/<id>/build.py), shipped as one
+// WebP per layer. `scale` is the layer's size against its source, `quality` the WebP quality. A scene gets 600 KB in all
+// (src/art/scenes/<id>.ts lists the layers and their parallax; keep the two in step). A scene whose layers are not built yet is skipped.
+const SCENES = [
+  {
+    id: 'bellfoot',
+    act: 0,
+    layers: [
+      { name: 'sky', scale: 1, quality: 82 },
+      { name: 'street', scale: 1, quality: 88 },
+      { name: 'foreground', scale: 1, quality: 86 },
+    ],
+  },
+];
+const SCENE_MAX = 600 * 1024;
 const REGULAR_MAX = 120 * 1024;
 const WARDEN_MAX = 250 * 1024;
 const TOTAL_MAX = 6 * 1024 * 1024;
@@ -49,6 +64,21 @@ for (const a of ASSETS) {
     const stale = force || !existsSync(out) || statSync(out).mtimeMs < statSync(join(root, f.srcPath)).mtimeMs;
     if (stale) jobs.push({ src: join(root, f.srcPath), dst: out, scale: f.scale, quality: 85 });
   }
+}
+
+const sceneEntries = [];
+for (const sc of SCENES) {
+  const files = sc.layers.map((l) => ({ ...l, srcPath: `art/${sc.id}/layers/${l.name}.png`, dst: `art/${sc.id}/${l.name}.webp` }));
+  if (files.some((l) => !existsSync(join(root, l.srcPath)))) {
+    console.log(`art: scene ${sc.id} skipped (layers not built: node/python art/${sc.id}/build.py)`);
+    continue;
+  }
+  for (const l of files) {
+    const out = join(root, 'public', l.dst);
+    const stale = force || !existsSync(out) || statSync(out).mtimeMs < statSync(join(root, l.srcPath)).mtimeMs;
+    if (stale) jobs.push({ src: join(root, l.srcPath), dst: out, scale: l.scale, quality: l.quality });
+  }
+  sceneEntries.push({ ...sc, files });
 }
 
 function findPython() {
@@ -89,6 +119,13 @@ for (const a of ASSETS) {
     return { path: f.dst, bytes };
   });
   entries.push({ id: a.id, act: a.act, files, source: `art/${a.id}` });
+}
+for (const sc of sceneEntries) {
+  const files = sc.files.map((l) => ({ path: l.dst, bytes: statSync(join(root, 'public', l.dst)).size }));
+  const sum = files.reduce((n, x) => n + x.bytes, 0);
+  if (sum > SCENE_MAX) throw new Error(`art: scene ${sc.id} is ${sum} bytes, over the ${SCENE_MAX} budget`);
+  total += sum;
+  entries.push({ id: sc.id, act: sc.act, files, source: `art/${sc.id}` });
 }
 if (total > TOTAL_MAX) throw new Error(`art: ${total} bytes shipped, over the ${TOTAL_MAX} budget`);
 
