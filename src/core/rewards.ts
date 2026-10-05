@@ -5,6 +5,18 @@ import { TRINKETS } from './content/trinkets';
 import type { PartDef } from './defs';
 import type { PartInstance, Rarity, RunState } from './types';
 
+export type OfferSource = 'reward' | 'shop' | 'trader' | 'fuse' | 'salvage';
+
+/** The run's money: Scrap in the climb (run.scrap set), Cogs in v1 runs. */
+export function scrapOf(run: RunState): number {
+  return run.scrap ?? run.cogs;
+}
+/** Add (or, negative, spend) money, never below 0. */
+export function addScrap(run: RunState, n: number): void {
+  if (run.scrap !== undefined) run.scrap = Math.max(0, run.scrap + n);
+  else run.cogs = Math.max(0, run.cogs + n);
+}
+
 export type Tier = 'fight' | 'elite' | 'boss';
 
 /** Rarity weights by act (docs/content.md "Reward rarity by act"), in percent: common, uncommon, rare. */
@@ -136,12 +148,12 @@ export function bossTrinkets(run: RunState): string[] {
 }
 
 /** Record that parts were offered (for the balance sim). */
-export function recordOffers(run: RunState, ids: string[], source: 'reward' | 'shop'): void {
+export function recordOffers(run: RunState, ids: string[], source: OfferSource): void {
   for (const partId of ids) run.stats.offers.push({ partId, taken: false, act: run.act, source });
 }
 
 /** Mark the most recent matching offer as taken. */
-export function markOfferTaken(run: RunState, partId: string, source: 'reward' | 'shop'): void {
+export function markOfferTaken(run: RunState, partId: string, source: OfferSource): void {
   for (let i = run.stats.offers.length - 1; i >= 0; i--) {
     const o = run.stats.offers[i];
     if (o.partId === partId && o.source === source && !o.taken) {

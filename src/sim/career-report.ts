@@ -101,7 +101,7 @@ export function buildCareerReport(o: CareersOpts, date: string): { markdown: str
   out.push('## How to read this');
   out.push('');
   out.push(
-    `Each career starts a fresh profile and plays up to ${maxRuns} runs with the bot, buying upgrades in the sensible order (Reinforced Frame, Spare Cogs, Oiled Bearings, Tool Belt, Inventor's Notes, Second Wind, Lucky Charm, then the remaining levels) and rotating chassis as they unlock. ${o.continueAfterWin ? 'Careers keep playing after the first win.' : 'A career stops at its first win.'} A career with no win counts as ${maxRuns + 1} runs. Brass spent is what the profile had spent on upgrades before the run. Part impact is offer-based over every career run (took vs passed within act; acts 1 and 2 count a win as beating that act's boss, act 3 the Clockmaker).`,
+    `Each career starts a fresh profile and plays up to ${maxRuns} runs with the bot, buying upgrades in the sensible order (Reinforced Frame, Spare Scrap, Oiled Bearings, Tool Belt, Inventor's Notes, Second Wind, Lucky Charm, then the remaining levels) and rotating chassis as they unlock. ${o.continueAfterWin ? 'Careers keep playing after the first win.' : 'A career stops at its first win.'} A career with no win counts as ${maxRuns + 1} runs. Brass spent is what the profile had spent on upgrades before the run. Part impact is offer-based over every career run (took vs passed within act; acts 1 and 2 count a win as beating that act's boss, act 3 the Clockmaker).`,
   );
   out.push('');
   out.push('## Runs to first win');
