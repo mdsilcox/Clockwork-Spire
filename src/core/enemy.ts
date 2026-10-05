@@ -357,7 +357,7 @@ function pctShell(c: CombatState, a: ActionDef): number {
 }
 
 /** A PartIntent for `actions` (effective numbers: Strength and escalation included), rolling Rust and Magnetize cells once. */
-function makeIntent(c: CombatState, e: EnemyState, partId: string, actions: ActionDef[], bonus: number | undefined, suffix: string | undefined, old?: PartIntent): PartIntent {
+function makeIntent(c: CombatState, e: EnemyState, partId: string, actions: ActionDef[], bonus: number | undefined, suffix: string | undefined, old?: PartIntent, pure = false): PartIntent {
   const strength = e.statuses.strength ?? 0;
   const eff = actions.map((a, k): ActionDef => {
     const amt = a.amount ?? 0;
@@ -371,7 +371,7 @@ function makeIntent(c: CombatState, e: EnemyState, partId: string, actions: Acti
   if (suffix) label += suffix;
   const it: PartIntent = { partId, actions: eff, kind: listIntentKind(eff), label };
   const sab = eff.find((a) => a.kind === 'rust' || a.kind === 'magnetize');
-  if (sab) {
+  if (sab && !pure) {
     if (old?.targets && old.targets.length > 0) {
       it.targets = old.targets.slice();
     } else {
@@ -943,13 +943,61 @@ function performAction(
 }
 
 /**
- * B9b.0 STUB (turn-tools lane, B9b.2): what enemy `enemyIndex`'s standing parts will do on its `turnsAhead`-th next turn
- * (1 = its next turn, the current intents; 2 = the one after, for the Foresight Dial). Computed from the part cadences
- * (a Jam shows, a broken part is gone, random targets are not named); pure; recomputed on every call, never cached.
+ * What enemy `enemyIndex`'s standing parts will do on its `turnsAhead`-th next turn (1 = its next turn, the current
+ * intents; 2 = the one after, for the Foresight Dial). Computed from the part cadences: a Jam skips the part's next
+ * action, a broken part is gone, a phase action turn comes first, random targets are not named. Pure: it touches no
+ * state and no random stream, and is recomputed on every call.
  */
 export function previewIntents(c: CombatState, enemyIndex: number, turnsAhead: number): PartIntent[] {
-  void c;
-  void enemyIndex;
-  void turnsAhead;
-  throw new Error('B9b: previewIntents not implemented');
+  const e = c.enemies[enemyIndex];
+  const f = e ? frameOf(e) : undefined;
+  if (!e || !f || e.hp <= 0) return [];
+  if (turnsAhead <= 1) return e.intents.map((i) => ({ ...i, actions: i.actions.map((a) => ({ ...a })), targets: i.targets?.slice() }));
+  if (e.mem.phaseLocked) return []; // the phase is about to change: what follows is not known yet
+  // after a pending phase action the next turn is turn 1 of the new phase
+  const base = e.phaseActionPending ? 0 : e.turnsActed;
+  const ahead = e.phaseActionPending ? turnsAhead - 1 : turnsAhead;
+  if (standingActing(e).length === 0) {
+    return [makeIntent(c, e, 'core', [f.coreAction], undefined, undefined, undefined, true)];
+  }
+  const out: PartIntent[] = [];
+  for (const p of e.parts) {
+    const d = partDefOf(e, p.id);
+    if (p.broken || !d || d.actions.length === 0 || d.cadence === 'passive') continue;
+    let jammed = p.jammed;
+    let left = p.countdown ?? (isCountdown(d.cadence) ? d.cadence.countdown : 0);
+    let gauge = p.gauge ?? 0;
+    let acted = p.acted;
+    let acts = false;
+    for (let k = 1; k <= ahead; k++) {
+      const turn = base + k;
+      acts = false;
+      const cad = d.cadence;
+      if (isCountdown(cad)) {
+        if (jammed) jammed = false;
+        else {
+          left -= 1;
+          if (left <= 0) {
+            acts = true;
+            left = cad.countdown;
+          }
+        }
+      } else if (isBuildUp(cad)) {
+        if (jammed) jammed = false;
+        else {
+          gauge += cad.buildUp;
+          if (gauge >= cad.to) {
+            acts = true;
+            gauge = 0;
+          }
+        }
+      } else if (actsOnTurn(cad, turn)) {
+        if (jammed) jammed = false;
+        else acts = true;
+      }
+      if (acts && k < ahead) acted += 1;
+    }
+    if (acts) out.push(makeIntent(c, e, p.id, actionsFor(d, base + ahead), escalationBonus(d, acted), undefined, undefined, true));
+  }
+  return out;
 }

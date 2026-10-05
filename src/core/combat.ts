@@ -1,6 +1,6 @@
 // Combat flow: create, place, swap, preview, run a whole turn. Functions mutate the CombatState in place.
 import { CELLS, MAINSPRING } from './types';
-import type { CombatState, EnemyState, GameEvent, PartInstance, Plan, PlanStats, TurnPreview, TurnResult } from './types';
+import type { CombatState, EnemyState, GameEvent, PartInstance, Plan, PlanStats, TurnPreview, TurnResult, WatchSnapshot } from './types';
 import { inBoard } from './board';
 import { enemyDef } from './content/enemies';
 import { afterPlayerTurn, chooseIntent, enemyTurn, newEnemy, summonEnemy } from './enemy';
@@ -161,10 +161,13 @@ export function cloneCombat(c: CombatState): CombatState {
     rng: { ...c.rng },
     outcome: c.outcome,
     planAcc: c.planAcc ? { ...c.planAcc } : undefined,
+    watchSnapshot: c.watchSnapshot,
+    watchUsed: c.watchUsed,
     trinkets: c.trinkets.slice(),
     log: c.log.slice(),
     chassis: c.chassis,
     flags: { ...(c.flags ?? {}) },
+    swapsUsed: c.swapsUsed,
   };
 }
 
@@ -197,13 +200,36 @@ export function placePart(c: CombatState, handIndex: number, cellIdx: number): b
   return true;
 }
 
-/** Free, once per turn: swap the positions of two parts already on the board. */
+/** Free swaps per turn: one, two with Two Left Hands (B9b). */
+const swapLimit = (c: CombatState): number => (hasTrinket(c, 'two-left-hands') ? 2 : 1);
+
+function useSwap(c: CombatState): void {
+  c.swapsUsed = (c.swapsUsed ?? 0) + 1;
+  c.swapUsed = c.swapsUsed >= swapLimit(c);
+}
+
+/** Two Left Hands (B9b): trade the board part at `cellIdx` with the part at `handIndex` of the hand; uses one of the two swaps. */
+export function swapWithHand(c: CombatState, cellIdx: number, handIndex: number): boolean {
+  if (c.outcome !== 'ongoing' || c.swapUsed || !hasTrinket(c, 'two-left-hands')) return false;
+  if (!inBoard(cellIdx) || cellIdx === MAINSPRING) return false;
+  const onBoard = c.board[cellIdx];
+  if (!onBoard || !Number.isInteger(handIndex) || handIndex < 0 || handIndex >= c.hand.length) return false;
+  const uid = c.hand[handIndex];
+  const inst = c.parts[uid];
+  if (!canPlaceAt(c, inst.defId, cellIdx)) return false;
+  c.hand[handIndex] = onBoard.uid;
+  c.board[cellIdx] = { uid, defId: inst.defId, plus: inst.plus, charge: 0, counter: 0, rusted: 0, magnetized: false, firedThisTurn: 0 };
+  useSwap(c);
+  return true;
+}
+
+/** Free, once per turn (twice with Two Left Hands): swap the positions of two parts already on the board. */
 export function swapParts(c: CombatState, a: number, b: number): boolean {
   if (c.outcome !== 'ongoing' || c.swapUsed || a === b) return false;
   if (!inBoard(a) || !inBoard(b) || a === MAINSPRING || b === MAINSPRING) return false;
   if (!c.board[a] || !c.board[b]) return false;
   [c.board[a], c.board[b]] = [c.board[b], c.board[a]];
-  c.swapUsed = true;
+  useSwap(c);
   return true;
 }
 
@@ -236,7 +262,28 @@ function accumulatePlan(c: CombatState, events: GameEvent[]): void {
   }
 }
 
+/** B9b: the Inventor's Watch snapshot: the whole combat as it stands, without the Watch's own fields. JSON-serializable. */
+function watchShot(c: CombatState): WatchSnapshot {
+  const s = cloneCombat(c);
+  delete s.watchSnapshot;
+  delete s.watchUsed;
+  return s;
+}
+
+/** The Inventor's Watch: once per combat, restore the snapshot taken just before the last Run (also after a lost Run). */
+export function windBack(c: CombatState): boolean {
+  const snap = c.watchSnapshot;
+  if (!snap || c.watchUsed || c.outcome === 'won') return false;
+  const back = structuredClone(snap) as CombatState;
+  for (const k of Object.keys(c)) if (!(k in back) && k !== 'watchSnapshot' && k !== 'watchUsed') delete (c as unknown as Record<string, unknown>)[k]; // keys a JSON save dropped as undefined
+  Object.assign(c, back);
+  delete c.watchSnapshot;
+  c.watchUsed = true;
+  return true;
+}
+
 export function runTurn(c: CombatState): TurnResult {
+  if (c.outcome === 'ongoing' && !c.watchUsed && hasTrinket(c, 'inventors-watch')) c.watchSnapshot = watchShot(c);
   const r = runTurnInner(c);
   accumulatePlan(c, r.events);
   return r;
@@ -309,6 +356,7 @@ function beginTurn(c: CombatState, events: GameEvent[]): void {
     }
   }
   c.swapUsed = false;
+  c.swapsUsed = 0;
   c.momentum = 0;
   for (const p of c.board) if (p) p.firedThisTurn = 0;
   syncTargetIdx(c);

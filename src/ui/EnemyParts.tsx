@@ -5,6 +5,7 @@
 // number (a 40 px tap area extends past it, see machines.css) with its intent as a small chip beside it.
 import type { CombatState, PartIntent, TargetRef, TurnPreview } from '../core/types';
 import { phaseIntent } from '../app/controller';
+import { previewIntents } from '../core/enemy';
 import { partAnchors } from '../render/anchors';
 import type { Rect } from '../render/layout';
 import type { StageView } from '../render/replay';
@@ -77,6 +78,7 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
   const intentOf = (id: string): PartIntent | undefined =>
     e.intents?.find((it) => it.partId === id) ?? (id === 'core' && phaseNow?.enemy === i ? phaseNow.intent : undefined);
   const bonus = pendingRatchet(c, i, preview);
+  const foresight = c.trinkets.includes('foresight-dial') ? previewIntents(c, i, 2) : [];
 
   const marker = (id: string): preact.JSX.Element | null => {
     const core = id === 'core';
@@ -156,6 +158,17 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
         {!inline && isCancelled && <span class="ilabel cx">cancelled</span>}
       </span>
     ) : null;
+    // B9b: the Foresight Dial shows the next-but-one turn dimmed beside the current intent
+    const it2 = !broken && c.trinkets.includes('foresight-dial') && !e.phaseActionPending ? foresight.find((x) => x.partId === id) : undefined;
+    const intent2 = it2 ? (
+      <span class={`pm-intent pm-intent2 k-${it2.kind} ${inline ? 'inline' : ''}`} data-testid={`part-intent2-e${i}-${id}`} data-kind={it2.kind} aria-label={`Turn after next: ${it2.label}`}>
+        <span class="irow">
+          {inline && cb ? <span class="ilabel">{CB_SHORT[it2.kind]}</span> : <IntentIcon kind={it2.kind} size={inline ? 14 : 16} />}
+          {intentValue(it2, 0) && <b>{intentValue(it2, 0).replace(' x', 'x')}</b>}
+        </span>
+        <span class="pm-sr">{` ${it2.label}`}</span>
+      </span>
+    ) : null;
     const hpText = (
       <span class="pm-hp" data-testid={`part-hp-e${i}-${id}`} aria-hidden="true">
         <b>{hp}</b>
@@ -198,6 +211,7 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
         </button>
         {!phone && !core && !broken && hpText}
         {intentChip && (phone || frame || !core) && intentChip}
+        {intent2 && (phone || frame || !core) && intent2}
       </div>
     );
   };
