@@ -1,11 +1,12 @@
 import { useEffect } from 'preact/hooks';
 import { combat, nodeKey, runView, screen } from '../app/controller';
 import { applyUpdate, closeTopOverlay, portrait, showUpdate } from '../app/prefs';
+import { migrationNotice } from '../app/save';
 import { CombatScreen } from './Combat';
 import { EndScreen } from './End';
 import { GlossaryScreen } from './Glossary';
 import { BinViewer, MapScreen } from './Map';
-import { ActScreen, DoorScreen, OilRoomScreen, TraderScreen, WorkbenchScreen } from './Climb';
+import { ActScreen, OilRoomScreen, TraderScreen, WorkbenchScreen } from './Climb';
 import { EventScreen, ForgeScreen, OilScreen, RewardScreen, SalvageScreen, ShopScreen } from './Nodes';
 import { HowToScreen } from './HowTo';
 import { PortraitCard } from './PortraitCard';
@@ -34,6 +35,21 @@ function UpdateToast() {
   );
 }
 
+/** Said once after an old save was brought up to date: calm, dismissible, on the title and slot screens only. */
+function MigrationToast() {
+  const scr = screen.value;
+  const note = migrationNotice.value;
+  if (!note || (scr !== 'title' && scr !== 'slots' && scr !== 'workshop')) return null;
+  return (
+    <div class="updatetoast" role="status" data-testid="migration-toast">
+      <span>{note}</span>
+      <button class="primary small" data-testid="migration-ok" onClick={() => (migrationNotice.value = null)}>
+        Got it
+      </button>
+    </div>
+  );
+}
+
 function RunScreens() {
   const run = runView.value;
   if (!run) return <Title />;
@@ -46,8 +62,6 @@ function RunScreens() {
       return <WorkbenchScreen key={nodeKey.value} />;
     case 'trader':
       return <TraderScreen key={nodeKey.value} />;
-    case 'door':
-      return <DoorScreen />;
     case 'combat':
       return combat.value ? <CombatScreen key={nodeKey.value} /> : run.section ? <ActScreen /> : <MapScreen />;
     case 'reward':
@@ -108,6 +122,7 @@ export function App() {
         <SettingsScreen />
         <GlossaryScreen />
         <UpdateToast />
+        <MigrationToast />
       </div>
       {away && <PortraitCard />}
     </>

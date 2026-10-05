@@ -1,4 +1,4 @@
-// The dev server's hot-reload socket (not game code; the game opens no sockets) may log a refused connection under load.
+﻿// The dev server's hot-reload socket (not game code; the game opens no sockets) may log a refused connection under load.
 const VITE_HMR_NOISE = /\[vite\]|WebSocket connection to 'ws:/;
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
@@ -65,16 +65,15 @@ test('every screen is clean', async ({ page }, info) => {
     await look(page, 'tabbody');
   }
 
-  // a run: the map and every node type
+  // a run: the act screen and every room screen
   await call(page, 'g.setSpeed("skip")');
   await call(page, 'g.cheat.brass(500)');
   await call(page, 'g.climb("tinker")');
-  await look(page, 'map');
-  const stage = async (type: string, floor: number): Promise<void> => {
-    await call(page, 'g.cheat.gotoFloor(1, a[0], a[1])', [floor, type]);
-    await look(page, 'map');
-    const id = (await call<string[]>(page, 'g.nodes()'))[0];
-    await call(page, 'g.go(a)', id);
+  await look(page, 'act-section');
+  const room = async (id: string): Promise<void> => {
+    await call(page, 'g.cheat.fixtureSection({ at: "r1", clear: ["r1"] })');
+    await call(page, 'g.cheat.setScrap(100)');
+    await call(page, 'g.cheat.gotoRoom(a)', id);
   };
   const leaveReward = async (): Promise<void> => {
     await look(page, 'screen-reward');
@@ -83,33 +82,35 @@ test('every screen is clean', async ({ page }, info) => {
     await call(page, 'g.leave()');
   };
 
-  await stage('fight', 2);
+  await call(page, 'g.cheat.fixtureSection({ at: "r0" })');
+  await look(page, 'act-section');
+  await call(page, 'g.cheat.gotoRoom("r1")');
   await look(page, 'combat');
   await call(page, 'g.cheat.winFight()');
   await leaveReward();
-  await stage('elite', 5);
-  await call(page, 'g.cheat.winFight()');
-  await leaveReward();
-  await stage('event', 3);
+  await look(page, 'act-section');
+  await room('r5');
   await look(page, 'screen-event');
   await call(page, 'g.choose(1)');
   if ((await call<any>(page, 'g.runState().pending.needsPart')) ?? false) await call(page, 'g.pickPart(g.runState().bin[0].uid)');
   await look(page, 'screen-event');
   await call(page, 'g.leave()');
-  await stage('shop', 4);
-  await look(page, 'screen-shop');
-  await call(page, 'g.shopBuy(0)');
-  await look(page, 'screen-shop');
+  await room('r3');
+  await look(page, 'workbench');
   await call(page, 'g.leave()');
-  await stage('forge', 6);
-  await look(page, 'screen-forge');
-  await call(page, 'g.forge("upgrade", g.runState().bin[0].uid)');
+  await room('r4');
+  await look(page, 'trader');
   await call(page, 'g.leave()');
-  await stage('oil', 7);
-  await look(page, 'screen-oil');
-  await call(page, 'g.oil("polish")');
+  await room('r2');
+  await look(page, 'oil');
   await call(page, 'g.leave()');
-  await stage('boss', 13);
+  await call(page, 'g.cheat.fixtureSection({ at: "r4", clear: ["r1"] })');
+  await press(page, page.getByTestId('room-r6'));
+  await look(page, 'door');
+  await press(page, page.getByTestId('door-cancel'));
+  await call(page, 'g.cheat.fixtureSection({ at: "r8", hour: 6 })');
+  await look(page, 'bell');
+  await press(page, page.getByTestId('bell'));
   await look(page, 'boss-intro');
   await press(page, page.getByTestId('boss-intro-go'));
   await call(page, 'g.cheat.winFight()');
@@ -175,7 +176,7 @@ test('with IndexedDB blocked the game still plays and says progress will not be 
   await call(page, 'g.newSlot(1, "Mem")');
   await look(page, 'workshop');
   await call(page, 'g.climb("tinker")');
-  await look(page, 'map');
+  await look(page, 'act-section');
   await expect(page.getByTestId('save-notice')).toContainText("Progress won't be saved in this window");
   await noSidewaysScroll(page);
   expect(bad).toEqual([]);
@@ -187,7 +188,7 @@ test('a render error shows "Something slipped a gear" with Reload instead of a b
   await call(page, 'g.setSpeed("skip")');
   await call(page, 'g.newSlot(1, "Oops")');
   await call(page, 'g.climb("tinker")');
-  await look(page, 'map');
+  await look(page, 'act-section');
   await call(page, 'g.cheat.crash()');
   await expect(page.getByTestId('error-boundary')).toContainText('Something slipped a gear');
   await expect(page.getByTestId('error-reload')).toBeVisible();

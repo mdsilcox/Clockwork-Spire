@@ -1,4 +1,4 @@
-// The controller: holds the combat, dispatches actions, replays turns on the stage, autosaves.
+﻿// The controller: holds the combat, dispatches actions, replays turns on the stage, autosaves.
 import { effect, signal } from '@preact/signals';
 import { cloneCombat, createCombat, placePart, previewTurn, runTurn, setTarget, swapParts } from '../core/combat';
 import type { CreateCombatOpts } from '../core/combat';
@@ -12,7 +12,7 @@ import { takeSalvage } from '../core/salvage';
 import * as core from '../core/run';
 import * as sect from '../core/section';
 import * as rooms from '../core/rooms';
-import { int } from '../core/rng';
+import { SAVE_VERSION } from '../core/migrate';
 import { sectionFixture } from '../core/testkit';
 import { generateActMap } from '../core/map';
 import { partName } from '../core/content/parts';
@@ -287,6 +287,7 @@ function maybeBossIntro(): void {
 function afterRun(newScreen = false): void {
   if (!liveRun) return;
   settleEnd();
+  if (liveRun.phase !== 'section') doorPrompt.value = null;
   const wasCombat = live !== null && live === liveRun.combat;
   live = liveRun.phase === 'combat' ? liveRun.combat : null;
   runView.value = clone(liveRun);
@@ -476,7 +477,7 @@ function saveActive(): void {
   profileView.value = clone(active.profile);
   const terminal = !!liveRun && (liveRun.phase === 'victory' || liveRun.phase === 'defeat');
   // one write: the profile (already settled when the run ended) and the run in progress, or none
-  void writeSlot({ slot: active.n, version: 1, profile: active.profile, run: terminal ? null : liveRun, updatedAt: nowIso() });
+  void writeSlot({ slot: active.n, version: SAVE_VERSION, profile: active.profile, run: terminal ? null : liveRun, updatedAt: nowIso() });
 }
 
 /** A run reached victory or defeat: settle it into the profile once, before any result screen or celebration. */
@@ -575,7 +576,7 @@ export async function useSlot(n: SlotNo): Promise<boolean> {
 
 export async function newSlot(n: SlotNo, name: string): Promise<boolean> {
   const profile = meta.newProfile((name.trim() || 'Tinkerer').slice(0, 20), nowIso());
-  await writeSlot({ slot: n, version: 1, profile, run: null, updatedAt: nowIso() });
+  await writeSlot({ slot: n, version: SAVE_VERSION, profile, run: null, updatedAt: nowIso() });
   await refreshSlots();
   return useSlot(n);
 }
@@ -668,11 +669,7 @@ export function moveRoom(id: string): boolean {
   }
   if (!near.includes(id)) {
     const p = lockedBetween(r, from, id);
-    if (p >= 0) {
-      r.phase = 'door';
-      r.pending = { kind: 'door', passage: p };
-      afterRun(true);
-    }
+    if (p >= 0) doorPrompt.value = p;
     return false;
   }
   let ok = false;
@@ -696,43 +693,26 @@ export function moveRoom(id: string): boolean {
 }
 
 export const ringBell = (): boolean => runAction((r) => sect.ringBell(r)) ?? false;
-export const useKey = (passage: number): boolean =>
-  runAction((r) => {
-    const ok = sect.useKey(r, passage);
-    if (ok && r.phase === 'door') {
-      r.phase = 'section';
-      r.pending = null;
-    }
-    return ok;
-  }) ?? false;
-export const pickLock = (passage: number): boolean =>
-  runAction((r) => {
-    const ok = sect.pickLock(r, passage);
-    if (ok && r.phase === 'door') {
-      r.phase = 'section';
-      r.pending = null;
-    }
-    return ok;
-  }) ?? false;
-/** Cancel at a locked door: back to the section, no hour. */
-export const cancelDoor = (): boolean =>
-  runAction((r) => {
-    if (r.phase !== 'door') return false;
-    r.phase = 'section';
-    r.pending = null;
-    return true;
-  }) ?? false;
-/** Done with a room's screen (workbench, trader, oil): back to the act screen, the midnight check follows. */
-export const leaveRoom = (): boolean =>
-  runAction((r) => {
-    if (!['workbench', 'trader', 'oil'].includes(r.phase)) return false;
-    r.phase = 'section';
-    r.pending = null;
-    r.combat = null;
-    fuseOffer.value = null;
-    sect.afterRoom(r);
-    return true;
-  }) ?? false;
+/** The locked passage (index into section.passages) whose key-or-pick choice shows over the act screen. */
+export const doorPrompt = signal<number | null>(null);
+export const useKey = (passage: number): boolean => {
+  const ok = runAction((r) => sect.useKey(r, passage)) ?? false;
+  if (ok) doorPrompt.value = null;
+  return ok;
+};
+export const pickLock = (passage: number): boolean => {
+  const ok = runAction((r) => sect.pickLock(r, passage)) ?? false;
+  if (ok) doorPrompt.value = null;
+  return ok;
+};
+export const cancelDoor = (): void => {
+  doorPrompt.value = null;
+};
+/** Done with a room's screen (workbench, trader, oil): the core clears the room, pays its Brass and runs the midnight check. */
+export const leaveRoom = (): boolean => {
+  fuseOffer.value = null;
+  return leave();
+};
 export const benchUpgrade = (uid: number): boolean => runAction((r) => rooms.workbenchUpgrade(r, uid)) ?? false;
 export const benchRemove = (uid: number): boolean => runAction((r) => rooms.workbenchRemove(r, uid)) ?? false;
 /** Ask for the two fuse candidates for the chosen parts; they show on the workbench until one is picked. */
@@ -762,8 +742,6 @@ export function tradeCost(r: RunState, index: number, offerUid: number | null): 
   return rooms.barterPrice(r, item, v);
 }
 
-type TraderPending = Extract<NonNullable<RunState['pending']>, { kind: 'trader' }>;
-
 /** Test cheat: arrive in a room as if walked there, at no hour. */
 function cheatGotoRoom(id: string): void {
   const r = liveRun;
@@ -777,42 +755,11 @@ function cheatGotoRoom(id: string): void {
     const o = roomAt(r, other);
     if (o) o.revealed = true;
   }
-  r.combat = null;
-  r.pending = null;
+  // an elite standing in the room has moved on (a cheat skips the collision, or the screen would end in a fight)
+  for (const e of r.elites ?? []) if (!e.defeated && e.patrol[e.at] === id) e.at = (e.at + 1) % e.patrol.length;
   r.phase = 'section';
   fuseOffer.value = null;
-  if (room.kind === 'workbench') {
-    r.pending = { kind: 'workbench', usedUpgrade: false, usedRemove: false, usedFuse: false };
-    r.phase = 'workbench';
-  } else if (room.kind === 'trader') {
-    let stock: TraderPending['stock'] = [];
-    try {
-      stock = rooms.traderStock(r);
-    } catch {
-      stock = [];
-    }
-    r.pending = { kind: 'trader', stock };
-    r.phase = 'trader';
-  } else if (room.kind === 'oil') {
-    r.phase = 'oil';
-  } else if (room.kind === 'event' && room.eventId) {
-    r.pending = { kind: 'event', eventId: room.eventId };
-    r.phase = 'event';
-  } else if (room.kind === 'fight' && room.encounter) {
-    const opts: CreateCombatOpts & { chassis: string } = {
-      seed: int(r.rng, 'enemy', 0x7fffffff),
-      bin: r.bin,
-      enemies: room.encounter,
-      hp: r.hp,
-      maxHp: r.maxHp,
-      kind: 'fight',
-      trinkets: r.trinkets,
-      handSize: r.config.handSize,
-      chassis: r.config.chassis,
-    };
-    r.combat = createCombat(opts);
-    r.phase = 'combat';
-  }
+  sect.resolveRoom(r);
   afterRun(true);
 }
 
@@ -1139,11 +1086,14 @@ function cheatRunFight(enemies: string[]): void {
   newRun(1);
   const r = liveRun;
   if (!r) return;
-  const id = core.availableNodes(r)[0];
-  const node = r.map.nodes.find((n) => n.id === id);
-  if (!node) return;
-  node.type = 'fight';
-  core.enterNode(r, id);
+  if (!r.section) {
+    const id = core.availableNodes(r)[0];
+    const node = r.map.nodes.find((n) => n.id === id);
+    if (!node) return;
+    node.type = 'fight';
+    core.enterNode(r, id);
+  }
+  r.phase = 'combat';
   r.combat = createCombat({
     seed: 1,
     bin: r.bin,
@@ -1367,7 +1317,7 @@ export async function init(): Promise<void> {
       if (empty) {
         const profile = meta.newProfile('Tinkerer', new Date().toISOString());
         enterSlot(1, profile, legacy);
-        await writeSlot({ slot: 1, version: 1, profile, run: legacy, updatedAt: new Date().toISOString() });
+        await writeSlot({ slot: 1, version: SAVE_VERSION, profile, run: legacy, updatedAt: new Date().toISOString() });
         await clearRun();
       } else {
         liveRun = legacy;

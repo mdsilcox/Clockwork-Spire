@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+﻿import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { noSidewaysScroll, press, skipFirstLaunch, watchErrors } from './helpers';
 
@@ -159,7 +159,7 @@ test('W2: 40 Brass buys Reinforced Frame I, and the next run has 55 max HP', asy
   await expect(page.getByTestId('ws-brass')).toContainText('0');
   await expect(page.getByTestId('upgrade-frame')).toHaveAttribute('data-level', '1');
   await press(page, page.getByTestId('climb'));
-  await expect(page.getByTestId('map')).toBeVisible();
+  await expect(page.getByTestId('act-section')).toBeVisible();
   expect((await call<any>(page, 'g.runState()')).maxHp).toBe(55);
 });
 
@@ -174,7 +174,7 @@ test('W3: an unlocked chassis can be picked and starts with its own bin', async 
   await expect(page.getByTestId('chassis-stoker')).toHaveAttribute('data-unlocked', 'true');
   await press(page, page.getByTestId('chassis-select-stoker'));
   await press(page, page.getByTestId('climb'));
-  await expect(page.getByTestId('map')).toBeVisible();
+  await expect(page.getByTestId('act-section')).toBeVisible();
   const run = await call<any>(page, 'g.runState()');
   const defs = run.bin.map((b: any) => b.defId);
   expect(defs).toContain('boiler');
@@ -236,13 +236,13 @@ test('title to slots to the Workshop, every panel fits, and the door starts a ru
     await noSidewaysScroll(page);
   }
   await press(page, page.getByTestId('climb'));
-  await expect(page.getByTestId('map')).toBeVisible();
+  await expect(page.getByTestId('act-section')).toBeVisible();
   // a climb in progress: the title and the Workshop both offer Continue
   await press(page, page.getByTestId('run-menu'));
   await press(page, page.getByTestId('run-to-title'));
   await expect(page.getByTestId('continue-run')).toBeVisible();
   await press(page, page.getByTestId('continue-run'));
-  await expect(page.getByTestId('map')).toBeVisible();
+  await expect(page.getByTestId('act-section')).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -250,9 +250,9 @@ test('a reload during a climb resumes it; the other slots stay intact', async ({
   await call(page, 'g.newSlot(2, "Bo")');
   await call(page, 'g.useSlot(1)');
   await call(page, 'g.climb("tinker")');
-  await expect(page.getByTestId('map')).toBeVisible();
+  await expect(page.getByTestId('act-section')).toBeVisible();
   await page.reload();
-  await expect(page.getByTestId('map')).toBeVisible();
-  expect((await call<any>(page, 'g.runState()')).phase).toBe('map');
+  await expect(page.getByTestId('act-section')).toBeVisible();
+  expect((await call<any>(page, 'g.runState()')).phase).toBe('section');
   expect((await rawSlot(page, 2)).data.profile.name).toBe('Bo');
 });

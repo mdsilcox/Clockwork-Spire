@@ -7,6 +7,7 @@ import {
   benchRemove,
   benchUpgrade,
   cancelDoor,
+  doorPrompt,
   fuseOffer,
   leaveRoom,
   moveRoom,
@@ -423,6 +424,7 @@ export function ActScreen() {
         </div>
       </div>
       <ActCard run={run} />
+      <DoorPrompt />
       {tip.node}
     </main>
   );
@@ -629,16 +631,16 @@ export function TraderScreen() {
   );
 }
 
-export function DoorScreen() {
+export function DoorPrompt() {
   const run = runView.value;
-  if (!run || run.pending?.kind !== 'door') return null;
-  const passage = run.pending.passage;
+  const passage = doorPrompt.value;
+  if (!run || passage === null) return null;
   const keys = run.keys ?? 0;
   const scrap = scrapOf(run);
   const lateAfter = (run.hour ?? 0) + 1 >= (run.hours ?? 12);
   return (
-    <RoomShell run={run} title="A locked door" testid="door">
-      <section class="forgebox">
+    <div class="dooroverlay" data-testid="door" role="dialog" aria-label="A locked door">
+      <section class="forgebox doorbox">
         <p class="evline">A heavy lock, older than the corridor around it. Behind it, a shortcut or a vault.</p>
         <div class="choices two">
           <button class="choice" data-testid="door-key" disabled={keys < 1} onClick={() => useKey(passage)}>
@@ -658,7 +660,7 @@ export function DoorScreen() {
           </button>
         </div>
       </section>
-    </RoomShell>
+    </div>
   );
 }
 
@@ -666,7 +668,7 @@ export function OilRoomScreen() {
   const run = runView.value;
   if (!run || !run.section) return null;
   const room = run.section.rooms.find((r) => r.id === run.roomId);
-  const used = !!room?.used;
+  const used = run.pending?.kind === 'oil' ? run.pending.done : !!room?.used;
   const heal = Math.max(0, Math.min(run.maxHp - run.hp, Math.floor(run.maxHp * 0.3)));
   const left = Math.max(0, (run.hours ?? 12) - (run.hour ?? 0));
   return (
