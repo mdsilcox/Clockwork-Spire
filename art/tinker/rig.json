@@ -1,0 +1,19 @@
+{
+  "size": [1216, 832],
+  "view": "profile",
+  "facing": "right",
+  "paintingFacing": "left",
+  "flipX": true,
+  "feet": 748,
+  "moods": ["idle", "walk", "cheer", "hurt"],
+  "durations": { "idle": 4, "walk": 2, "cheer": 3, "hurt": 1.5 },
+  "anchors": {
+    "hand": [565, 360, 38],
+    "head": [725, 150, 85],
+    "satchel": [905, 330, 95],
+    "core": [765, 375, 60],
+    "eyes": [690, 176, 40]
+  },
+  "frame": { "crop": [440, -45, 630, 850], "note": "recorded frame is this crop of the padded painting, mirrored. rig.anchor(id) returns [x, y, r] in CSS pixels of .stage, already mirrored and cropped." },
+  "note": "anchors here are in unmirrored painting pixels; the page mirrors the painting with CSS so he faces right"
+}

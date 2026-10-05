@@ -1,0 +1,17 @@
+{
+  "size": [1216, 832],
+  "view": "profile",
+  "facing": "left",
+  "feet": 735,
+  "moods": ["idle", "attack", "hurt", "death"],
+  "durations": { "idle": 3, "attack": 2.4, "hurt": 1.6, "death": 3 },
+  "liveValues": {},
+  "brokenFlag": "rig.state.broken = { 'beetle-mandibles': true, 'beetle-shell': true, 'beetle-carapace': true } draws the damage at that part in any mood (a snapped notch on the snout, cracked belly plate, cracked dome with ember chunks). It survives mood changes. ?broken=id,id on the page sets it for review.",
+  "anchors": {
+    "beetle-mandibles": [112, 452, 70],
+    "beetle-shell": [740, 490, 85],
+    "beetle-carapace": [880, 250, 230],
+    "core": [620, 370, 90],
+    "eyes": [232, 420, 40]
+  }
+}

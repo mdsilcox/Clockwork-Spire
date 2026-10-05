@@ -1,0 +1,19 @@
+{
+  "size": [1216, 832],
+  "pad": [250, 110],
+  "view": "side",
+  "facing": "left",
+  "feet": 772,
+  "moods": ["idle", "attack", "hurt", "death"],
+  "durations": { "idle": 4, "attack": 2.4, "hurt": 1.6, "death": 3 },
+  "liveValues": { "heat": "0..1, mood target, default 0.2; scales eye glow and engine steam" },
+  "brokenFlag": "rig.state.broken = { 'hound-fangs': true, 'hound-snout': true, 'hound-haunch': true } draws ink cracks and missing chunks with an ember interior at each anchor, in any mood (the fangs get a patch on each tooth row so each follows its jaw)",
+  "pulse": "rig.pulse() plays the magnet shimmer at the snout (flat teal ink-edged arcs); idle fires it once per loop, attack during the windup",
+  "anchors": {
+    "hound-fangs": [125, 235, 95],
+    "hound-snout": [62, 162, 36],
+    "hound-haunch": [938, 468, 72],
+    "core": [600, 255, 90],
+    "eyes": [160, 125, 26]
+  }
+}

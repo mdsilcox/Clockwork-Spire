@@ -1,0 +1,17 @@
+{
+  "size": [1216, 832],
+  "pad": [220, 120],
+  "view": "side",
+  "facing": "left",
+  "feet": 745,
+  "moods": ["idle", "attack", "hurt", "death"],
+  "durations": { "idle": 4, "attack": 2.3, "hurt": 1.4, "death": 3 },
+  "anchors": {
+    "imp-tail": [1045, 520, 95],
+    "imp-key": [680, 365, 58],
+    "core": [680, 430, 100],
+    "eyes": [310, 195, 75]
+  },
+  "brokenFlag": "rig.state.broken = { 'imp-tail': true, 'imp-key': true } or ?broken=imp-tail,imp-key: a jagged notch is erased from the silhouette with a glowing edge, thick cracks and leaking sparks and steam, in any mood",
+  "notes": "Death holds its last pose after 3 s."
+}

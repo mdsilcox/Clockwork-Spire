@@ -16,3 +16,6 @@ art/*/r1/
 art/*/candidates/**/*.png
 art/*/hires*/
 art/*/happy/seed*.png
+art/*/candidates/**/*.png
+art/tinker/hand/seed*.png
+art/foreman/apron/seed*.png

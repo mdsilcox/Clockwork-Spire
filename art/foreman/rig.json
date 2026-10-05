@@ -1,0 +1,28 @@
+{
+  "size": [896, 1152],
+  "pad": [300, 230],
+  "view": "front",
+  "facing": "front",
+  "feet": 1095,
+  "textures": ["cut.png", "cut-phase2.png"],
+  "moods": ["idle", "attack", "hurt", "phase", "death"],
+  "durations": { "idle": 4, "attack": 2.8, "hurt": 1.8, "phase": 4, "death": 3 },
+  "anchors": {
+    "foreman-wrench": [715, 770, 100],
+    "foreman-grate": [448, 432, 97],
+    "foreman-apron": [448, 690, 110],
+    "foreman-bulwark": [448, 655, 100],
+    "foreman-rivet": [175, 690, 100],
+    "core": [448, 560, 60],
+    "eyes": [443, 201, 45]
+  },
+  "api": {
+    "setMood": "idle|attack|hurt|phase|death. phase tears the apron at 0.72 s and the phase 2 painting then stays",
+    "setPhase": "rig.setPhase(2) switches to the phase 2 painting (0.4 s crossfade) without the tear",
+    "setBroken": "rig.setBroken({'foreman-grate': true}) or rig.state.broken[id] = true; the page rebuilds both textures with a notch, ember rim and ink cracks",
+    "act": "rig.act('foreman-rivet') fires the muzzle flash and arm kick",
+    "url": "?broken=id,id (short ids ok, or all) and ?phase=2"
+  },
+  "brokenFlag": "foreman-apron shows only in phase 1, foreman-bulwark only in phase 2; the others in both",
+  "stage": "stage aspect 1496 x 1612 (painting plus pad); anchors are image pixels, rig.anchor(id) returns CSS pixels"
+}

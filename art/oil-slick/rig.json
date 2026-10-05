@@ -1,0 +1,17 @@
+{
+  "size": [1216, 832],
+  "pad": [300, 100],
+  "view": "side",
+  "facing": "left",
+  "feet": 690,
+  "moods": ["idle", "attack", "hurt", "death"],
+  "durations": { "idle": 4, "attack": 2.4, "hurt": 1.5, "death": 3 },
+  "anchors": {
+    "slick-nozzle": [620, 150, 85],
+    "slick-spitter": [288, 388, 60],
+    "core": [620, 340, 90],
+    "eyes": [288, 388, 40]
+  },
+  "brokenFlag": "rig.state.broken = { 'slick-nozzle': true, 'slick-spitter': true } draws cracks, missing chunks with an ember interior and loose facets at that anchor in any mood; a broken part also leaks oil drops",
+  "notes": "Death holds its last pose after 3 s. The spat glob leaves the stage to the left (pad 300 px)."
+}

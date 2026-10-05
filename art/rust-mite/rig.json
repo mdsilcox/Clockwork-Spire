@@ -1,0 +1,16 @@
+{
+  "size": [1216, 832],
+  "view": "profile",
+  "facing": "left",
+  "feet": 750,
+  "moods": ["idle", "attack", "hurt", "death"],
+  "durations": { "idle": 2.4, "attack": 2, "hurt": 1.5, "death": 2.6 },
+  "liveValues": {},
+  "brokenFlag": "rig.state.broken = { 'mite-pincers': true, 'mite-gland': true } draws the damage at that part in any mood (a jagged bite erased from the horn and from the dome edge, with an ember cavity). It survives mood changes. ?broken=id,id on the page sets it for review.",
+  "anchors": {
+    "mite-pincers": [265, 480, 78],
+    "mite-gland": [725, 255, 150],
+    "core": [610, 410, 90],
+    "eyes": [418, 488, 38]
+  }
+}

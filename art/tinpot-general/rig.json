@@ -1,0 +1,19 @@
+{
+  "size": [896, 1152],
+  "pad": [380, 130],
+  "view": "front",
+  "facing": "left",
+  "feet": 1115,
+  "moods": ["idle", "attack", "hurt", "death", "buff"],
+  "durations": { "idle": 4, "attack": 2.2, "hurt": 1.5, "death": 3, "buff": 2 },
+  "anchors": {
+    "tinpot-horn": [655, 826, 70],
+    "tinpot-bugle": [100, 850, 70],
+    "tinpot-sabre": [735, 280, 90],
+    "tinpot-hat": [445, 200, 130],
+    "core": [445, 625, 110],
+    "eyes": [452, 413, 70]
+  },
+  "brokenFlag": "?broken=tinpot-horn,tinpot-bugle,tinpot-sabre,tinpot-hat or rig.state.broken = {id: true}; erases a jagged chunk from the painting (hat sprite, blade, hand, skirt edge), flat ember rim, thick ink cracks, a steam puff; works in every mood",
+  "notes": "The hat is a separate sprite (hat.png) so it can bob, be knocked askew and roll off in death; anchors follow the deformed body, the hat anchor is the head-relative rest position. Death holds its last pose."
+}
