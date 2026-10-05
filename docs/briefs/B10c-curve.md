@@ -37,3 +37,11 @@ Retune v2 to the curve (rules 5.8, 7.4) on Journeyman. This is the owner's first
 
 ## Rules
 Shared tree or a worktree, as the orchestrator says per step; never stash, checkout, reset or restore outside it; commit only when told; deterministic core; American English, no em dashes. Report numbers before and after, and every content.md row changed.
+
+## Draft review additions (review/B10c/draft-verdict.md, PASS 7.5; these supersede the sections above where they differ)
+- **The warn floor also bounds the careers**: B10c may close with a `warn` only if, in addition, the BV2 median first win is at least run 6, the BV10 median is at most run 20, and at most 5 of 100 expert careers never win by run 30.
+- **BV10 guard per round**: the greedy careers' median first win is at most run 15 after round 1 and at most run 20 after round 2.
+- **Round 1 starts with a death report**: before any lever, report no-meta expert deaths by act and by killer (each regular, elite and warden: count and share), and log which killer each change targets. Attack increases go through one per-act constant (act 2, act 3 multipliers in `content/balance.ts`, applied where amounts are read), not by editing many enemy rows; content.md 3.0 or 10 records the constants.
+- **Round 0**: if BV4 is borderline after the reset, BV4 wins and the Governor cap stays 10.
+- **Round 2 levers** also include the chassis prices; after round 2, check the career e2e's tail. The career e2e seed is the one it uses today (seed 1), fixed in advance.
+- **BV5** is a regression guard only. Round 3 drops its separate mode check (the ladder covers it). The gate restates the Plating gap with the new reach numbers.
