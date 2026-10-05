@@ -51,7 +51,7 @@ export function actionText(a: ActionDef): string {
     case 'echo':
       return 'Echoes its last action';
     case 'rewind':
-      return `Rewinds ${n || 1} of your parts`;
+      return `Rewinds your ${(n || 1) > 1 ? `${n} strongest combinations` : 'strongest part and the part feeding it'} back to your hand, and heals by half their damage`;
     default:
       return 'Acts';
   }
@@ -78,8 +78,24 @@ export function cadenceText(c: Cadence): string {
     }
   }
   if ('countdown' in c) return `Acts after a countdown of ${c.countdown} turns.`;
-  if ('buildUp' in c) return `Builds up ${c.buildUp} a turn and acts at ${c.to}.`;
-  return `Acts on turns ${c.at.join(' and ')} of every ${c.of}.`;
+  if ('buildUp' in c) return `Builds ${c.buildUp} a turn${c.bonus === 'drained' ? ' (+1 per Pressure drained)' : ''}; at ${c.to} it acts and drops back to 0.`;
+  if (c.at.length >= c.of) return 'Acts every turn.';
+  if (c.of === 2) return c.at[0] === 1 ? 'Acts on odd turns.' : 'Acts on even turns.';
+  return `Acts on turn${c.at.length > 1 ? 's' : ''} ${c.at.join(' and ')} of every ${c.of}.`;
+}
+
+/** What a part does and when, in plain words; parts with different actions by turn describe each turn. */
+export function partActionText(pd: EnemyPartDef): string {
+  if (pd.actionsByTurn && typeof pd.cadence === 'object' && 'of' in pd.cadence) {
+    const of = pd.cadence.of;
+    const name = (k: number): string => (of === 2 ? (k === 1 ? 'Odd turns' : 'Even turns') : `Turn ${k} of ${of}`);
+    return Object.keys(pd.actionsByTurn)
+      .map(Number)
+      .sort((a, b) => a - b)
+      .map((k) => `${name(k)}: ${actionsText((pd.actionsByTurn as Record<number, ActionDef[]>)[k])}.`)
+      .join(' ');
+  }
+  return `${actionsText(pd.actions)}. ${cadenceText(pd.cadence)}`;
 }
 
 /** The number shown beside an intent icon: damage first, otherwise the main amount. */
@@ -88,6 +104,8 @@ export function intentValue(it: PartIntent, bonus = 0): string {
   if (hit) return `${(hit.amount ?? 0) + bonus}${(hit.hits ?? 1) > 1 ? ` x${hit.hits}` : ''}`;
   const corrode = it.actions.find((a) => a.kind === 'corrode');
   if (corrode) return `${corrode.pct ?? 0}%`;
+  const rewind = it.actions.find((a) => a.kind === 'rewind');
+  if (rewind) return `Rewind ${rewind.amount ?? 1}`;
   const summon = it.actions.find((a) => a.kind === 'summon');
   if (summon) return `+${summon.count ?? 1}`;
   const other = it.actions.find((a) => (a.amount ?? 0) > 0);

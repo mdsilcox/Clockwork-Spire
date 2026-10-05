@@ -35,9 +35,9 @@ const LINE: Record<string, string> = {
 
 /** What the archivist says about the Clockmaker's memory (B9a, rules 5.4): the plan he remembers and the part he has for it. */
 const MEMORY_NOTE: Record<Plan, { plan: string; part: string }> = {
-  plating: { plan: 'Plating', part: 'a drill' },
+  plating: { plan: 'plating', part: 'a drill' },
   burst: { plan: 'burst', part: 'a governor cap' },
-  pressure: { plan: 'Pressure', part: 'a drain valve' },
+  pressure: { plan: 'pressure', part: 'a drain valve' },
   statuses: { plan: 'statuses', part: 'a purge chime' },
 };
 

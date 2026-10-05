@@ -9,7 +9,7 @@ import { partAnchors } from '../render/anchors';
 import type { Rect } from '../render/layout';
 import type { StageView } from '../render/replay';
 import { INTENT_NAME, IntentIcon, StatusIcon } from './icons';
-import { actionsText, cadenceText, enemyPartDef, intentValue, intentWait, pendingRatchet } from './partText';
+import { partActionText, enemyPartDef, intentValue, intentWait, pendingRatchet } from './partText';
 import type { TipInfo } from './Tooltip';
 import './machines.css';
 
@@ -97,7 +97,9 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
     const isCancelled = cancelled.has(id);
     const wait = it ? intentWait(it) : '';
     const grows = it ? it.actions.some((x) => x.kind === 'attack' || x.kind === 'pierce') && bonus > 0 : false;
-    const val = it ? intentValue(it, bonus) : '';
+    const bu = pd && typeof pd.cadence === 'object' && 'buildUp' in pd.cadence ? pd.cadence : null;
+    const val = it ? (bu && it.kind === 'charge' ? `${st?.gauge ?? 0}/${bu.to}` : intentValue(it, bonus)) : '';
+    const nextLabel = it ? it.label.replace(/ at (\d+) \((\d+)\)$/, ' when the gauge reaches $1 (now $2)') : '';
     const info = (): Info => {
       if (core) {
         return {
@@ -110,10 +112,10 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
       const bits: string[] = [`${hp} of ${maxHp} HP.`];
       if (st?.jammed) bits.push('Jammed: it skips its next action.');
       if (pd?.keystone) bits.push('Keystone: break it to open the core.');
-      if (it) bits.push(`Next: ${it.label}${grows ? `, +${bonus} Strength from the Ratchet first` : ''}${isCancelled ? ' (your Run breaks this part first, so it is cancelled)' : ''}.`);
+      if (it) bits.push(`Next: ${nextLabel}${grows ? `, +${bonus} Strength from the Ratchet first` : ''}${isCancelled ? ' (your Run breaks this part first, so it is cancelled)' : ''}.`);
       if (pos >= 0) bits.push(`Number ${pos + 1} in your target order. Tap to remove.`);
       else bits.push('Tap to add it to your target order.');
-      const action = pd && pd.actions.length > 0 ? `${actionsText(pd.actions)}. ${cadenceText(pd.cadence)}` : '';
+      const action = pd && pd.actions.length > 0 ? partActionText(pd) : '';
       const passive = pd?.passive
         ? pd.passive.kind === 'bulwark'
           ? 'Bulwark: halves damage to the core while it stands.'
@@ -125,7 +127,7 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
         : '';
       return { title: `${label}.`, text: [action, passive].filter(Boolean).join(' ') || 'A part of the machine.', detail: bits.join(' ') };
     };
-    const aria = `${label}, ${broken ? 'broken' : `${hp} of ${maxHp} HP`}${it ? `. Next: ${it.label}${grows ? `, plus ${bonus} Strength` : ''}` : ''}${sealed ? '. Sealed' : ''}${pos >= 0 ? `. Order ${pos + 1}` : ''}`;
+    const aria = `${label}, ${broken ? 'broken' : `${hp} of ${maxHp} HP`}${it ? `. Next: ${nextLabel}${grows ? `, plus ${bonus} Strength` : ''}` : ''}${sealed ? '. Sealed' : ''}${pos >= 0 ? `. Order ${pos + 1}` : ''}`;
     const testid = core ? `enemy-core-e${i}` : `enemy-part-e${i}-${id}`;
     const intentChip = it ? (
       <span
@@ -139,7 +141,7 @@ export function EnemyMachine({ c, i, slot, vw, preview, name, cb, interactive, t
           ? {}
           : tip(() => ({
               title: `${INTENT_NAME[it.kind]}.`,
-              text: `${it.label}${grows ? ` (+${bonus} Strength from the Ratchet first)` : ''}.${isCancelled ? ' Your Run will break its part first, so this is cancelled.' : ''}`,
+              text: `${nextLabel}${grows ? ` (+${bonus} Strength from the Ratchet first)` : ''}.${isCancelled ? ' Your Run will break its part first, so this is cancelled.' : ''}`,
               detail: pd ? `From ${label}.` : `From the ${name} core.`,
             })))}
       >

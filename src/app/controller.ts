@@ -19,6 +19,7 @@ import { generateActMap } from '../core/map';
 import { partName } from '../core/content/parts';
 import { enemyDef } from '../core/content/enemies';
 import { actionLabel, listIntentKind } from '../core/framelib';
+import { memoryPlan } from '../core/record';
 import type { Speed, Stage } from '../render/stage';
 import { sharedRigHub } from '../render/rig';
 import type { StageView } from '../render/replay';
@@ -206,7 +207,10 @@ function onEvent(e: GameEvent, sp: Speed): void {
     safely(() => (e.note === 'won' ? audio.victory() : audio.defeat()));
     return;
   }
-  if (e.kind === 'phase') {
+  if (e.kind === 'sabotage' && e.note === 'jam') {
+    const who = e.target !== undefined && live?.enemies[e.target] ? enemyDef(live.enemies[e.target].defId).name : 'The enemy';
+    showBanner(`${who} jammed your Mainspring: ${live?.ticksThisTurn ?? 2} ticks next turn.`, 'rewind');
+  } else if (e.kind === 'phase') {
     showBanner(e.note ?? 'He changes.', 'phase');
     const defId = e.target !== undefined ? live?.enemies[e.target]?.defId : undefined;
     const act = defId && e.amount !== undefined ? enemyDef(defId).frame?.phases?.[e.amount]?.action : null;
@@ -1133,6 +1137,7 @@ function cheatRunFight(enemies: string[]): void {
     trinkets: r.trinkets,
     handSize: r.config.handSize,
     chassis: r.config.chassis,
+    memory: active ? memoryPlan(active.profile.planHistory) : null,
   } as CreateCombatOpts);
   afterRun(true);
 }

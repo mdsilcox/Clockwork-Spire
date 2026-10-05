@@ -369,7 +369,8 @@ export interface RunStats {
   blueprintsFound: string[];
   removals?: number; // ADDED in B3: shop removals bought this run (raises the price)
   floorBrass?: number; // ADDED in B3: Brass from floors climbed (4/6/8 by act)
-  bonusBrass?: number; // ADDED in B3: Brass from events
+  bonusBrass?: number; // ADDED in B3: Brass from events (includes clockBrass)
+  clockBrass?: number; // B9a: Brass from broken Clockmaker parts (already counted in bonusBrass), for the breakdown
   /** B9a: the run's play style by source (docs/briefs/B9a-wardens.md), filled by recordFight. */
   plan?: PlanStats;
   offers: { partId: string; taken: boolean; act: number; source: 'reward' | 'shop' | 'trader' | 'fuse' | 'salvage' }[]; // for the balance sim (rules 7)

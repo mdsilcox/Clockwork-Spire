@@ -153,7 +153,7 @@ export function RewardScreen() {
     <Shell run={run} title="Spoils" art={<SpoilsArt />}>
       <section class="rewardbox">
         <p class="bigline" data-testid="reward-cogs">
-          +{p.cogs} Cogs
+          +{p.cogs} {run?.section ? 'Scrap' : 'Cogs'}
         </p>
         {p.blueprint && (
           <p class="banner-line" data-testid="blueprint-banner">
