@@ -122,6 +122,25 @@ function attempt(rng: RngState, act: 1 | 2 | 3): { section: ActSection; elites: 
   const nb = (id: string, openOnly = false): string[] =>
     passages.filter((p) => (p.a === id || p.b === id) && !(openOnly && p.locked)).map((p) => (p.a === id ? p.b : p.a));
   const next = new Set(nb(entry.id));
+  // opening pacing: a regular fight next to the entry, no trader there (nothing to barter yet), no locked passage out of it
+  if (passages.some((p) => p.locked && (p.a === entry.id || p.b === entry.id))) return null;
+  const swapKinds = (a: Room, b: Room): void => {
+    const k = a.kind;
+    a.kind = b.kind;
+    b.kind = k;
+  };
+  const swappable = (r: Room): boolean => r !== entry && r !== door && r !== vault;
+  if (!rest.some((r) => next.has(r.id) && r.kind === 'fight')) {
+    const near = rest.filter((r) => next.has(r.id) && swappable(r));
+    const far = rest.filter((r) => !next.has(r.id) && r.kind === 'fight');
+    if (!near.length || !far.length) return null;
+    swapKinds(near[R(near.length)], far[R(far.length)]);
+  }
+  for (const t of rest.filter((r) => next.has(r.id) && r.kind === 'trader')) {
+    const far = rest.filter((r) => !next.has(r.id) && r.kind !== 'trader' && r.kind !== 'fight');
+    if (!far.length) return null;
+    swapKinds(t, far[R(far.length)]);
+  }
   const usedEnc: string[] = [];
   const poolFor = (band: 'easy' | 'middle' | 'deep') => ENCOUNTERS.filter((e) => e.act === act && e.band === band && e.tier !== 'elite' && e.tier !== 'boss');
   for (const r of rooms) {

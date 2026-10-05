@@ -262,6 +262,19 @@ describe('CL1: section generation over 200 seeds (rules 4.1, 4.3, 4.4)', () => {
     });
   }
 
+  it('opening pacing over 200 seeds: a regular fight and no trader next to the entry, no locked passage out of it', () => {
+    for (const act of [1, 2, 3] as const) {
+      for (const seed of SEEDS) {
+        const { section } = generateSection(initStreams(seed), act);
+        const near = neighborsOf(section, section.entry).map((id) => section.rooms.find((r) => r.id === id)!);
+        const why = `act ${act} seed ${seed}`;
+        expect(near.some((r) => r.kind === 'fight'), why).toBe(true);
+        expect(near.some((r) => r.kind === 'trader'), why).toBe(false);
+        expect(section.passages.some((p) => p.locked && (p.a === section.entry || p.b === section.entry)), why).toBe(false);
+      }
+    }
+  });
+
   it('the same seed generates the same section; different seeds generate different ones', () => {
     const a = generateSection(initStreams(7), 1);
     expect(generateSection(initStreams(7), 1)).toEqual(a);
