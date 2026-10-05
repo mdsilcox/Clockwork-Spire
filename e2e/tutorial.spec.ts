@@ -296,3 +296,49 @@ test('the tutorial writes nothing: not to the saves, and a practice fight in pro
   await expect(page.getByTestId('coach')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test('the name dialog is focused when it opens, Enter confirms, and the typed name is the one saved (after the tutorial: a hint on the slot screen)', async ({ page }) => {
+  await firstLaunch(page);
+  await press(page, page.getByTestId('coach-skip'));
+  await expect(page.getByTestId('slots-hint')).toHaveText('Name your tinker to start your first climb.');
+  await press(page, page.getByTestId('slot-begin-1'));
+  await expect(page.getByTestId('name-input')).toBeFocused();
+  await page.keyboard.type('Mina');
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('bellfoot')).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as G).__game.profile()?.name)).toBe('Mina');
+});
+
+test('wrong taps say what the step wants; Run is asleep and says so until its step; the Strut is named and has a 40 px hit area', async ({ page }) => {
+  await firstLaunch(page);
+  await waitStep(page, 1);
+  await expect(page.getByTestId('run')).toHaveCSS('opacity', '0.45');
+  await press(page, page.getByTestId('run')); // not yet
+  await expect(page.getByTestId('coach-note')).toContainText('glowing cell next to the Mainspring');
+  expect(await tutorialStep(page)).toBe(1);
+  await press(page, card(page, 'Escapement'));
+  await press(page, page.getByTestId('cell-B2'));
+  await expect(page.getByTestId('coach-note')).toContainText('glowing cell');
+  await advanceTo(page, 3);
+  await press(page, page.getByTestId('enemy-core-e0'));
+  await expect(page.getByTestId('coach-note')).toHaveText('Tap the Strut, the arm with 6 HP.');
+  expect(await tutorialStep(page)).toBe(3);
+  const strut = page.getByTestId('enemy-part-e0-rig-strut');
+  expect(await page.evaluate(() => document.body.dataset.tut)).toBe('target');
+  expect(await strut.evaluate((el) => getComputedStyle(el, '::after').content)).toContain('Strut');
+  // a tap 19 px off the marker's centre (a 40 px area) still lands on the Strut
+  const b = (await strut.boundingBox())!;
+  const hit = await page.evaluate(
+    ([x, y]) => (document.elementFromPoint(x, y) as HTMLElement | null)?.closest('[data-testid]')?.getAttribute('data-testid'),
+    [b.x + b.width / 2 + 19, b.y + b.height / 2] as const,
+  );
+  expect(hit).toBe('enemy-part-e0-rig-strut');
+  // the Incoming pill's place is kept once the Strut's attack is cancelled: the pills after it do not move
+  const before = await page.getByTestId('turn').boundingBox();
+  await press(page, strut);
+  await waitStep(page, 4);
+  const after = await page.getByTestId('turn').boundingBox();
+  expect(after?.x).toBe(before?.x);
+  expect(after?.y).toBe(before?.y);
+  await expect(page.getByTestId('run')).not.toHaveCSS('opacity', '0.45');
+});

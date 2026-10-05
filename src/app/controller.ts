@@ -1110,8 +1110,35 @@ export function endTutorial(silent = false): void {
   stash = null;
   if (silent) return;
   publish();
-  if (t.origin === 'climb') void openSlots();
+  tutorialNote.value = '';
+  if (t.origin === 'climb') {
+    slotsHint.value = true;
+    void openSlots();
+  }
   else screen.value = t.origin;
+}
+
+/** A short line under the coach banner saying what the step wants (a wrong tap, an early Run). */
+export const tutorialNote = signal('');
+/** The slot screen's one-line hint after a tutorial that began with Climb. */
+export const slotsHint = signal(false);
+let noteTimer = 0;
+const WANTS = [
+  'Put the Spur Gear on the glowing cell next to the Mainspring.',
+  'Put the second Spur Gear on the glowing cell, next to the first.',
+  'Tap the Strut, the arm with 6 HP.',
+  'Press Run.',
+  'Tap Got it to go on.',
+  'Choose Keep it or Done.',
+];
+/** Says what the current step wants. Returns true so the combat screen does not add its own complaint. */
+function tutorialNudge(): boolean {
+  const t = tutorial.value;
+  if (!t) return false;
+  tutorialNote.value = WANTS[t.step - 1] ?? '';
+  window.clearTimeout(noteTimer);
+  noteTimer = window.setTimeout(() => (tutorialNote.value = ''), 3500);
+  return true;
 }
 
 /** The guided fight takes only what the script asks: a Spur Gear on the next cell of its path. */
@@ -1149,7 +1176,10 @@ function advanceTutorial(afterRun: boolean): void {
   if (want === 2 && at(PLACE[1])) want = 3;
   if (want === 3 && aimed) want = 4;
   if (t.step === 4 && afterRun && broke) want = 5; // the order is pruned once the Strut is gone, so this reads the break itself
-  if (want > t.step && t.step <= 4) tutorial.value = { ...t, step: want, turn: c.turn };
+  if (want > t.step && t.step <= 4) {
+    tutorial.value = { ...t, step: want, turn: c.turn };
+    tutorialNote.value = '';
+  }
 }
 
 /** Test and debug: where the tutorial stands (0 when it is not running). */
@@ -1160,7 +1190,7 @@ export function tutorialStep(): number {
 export function place(handIndex: number, target: number | string): boolean {
   if (!live || isBusy()) return false;
   const idx = typeof target === 'string' ? cellIndex(target) : target;
-  if (tutorial.value && !tutorialAllowsPlace(handIndex, idx)) return false;
+  if (tutorial.value && !tutorialAllowsPlace(handIndex, idx)) return tutorialNudge();
   const cold = (live.overwind ?? 0) >= 4 && !live.flags?.coldJoints;
   const ok = placePart(live, handIndex, idx);
   if (ok) {
@@ -1233,7 +1263,7 @@ export function target(idx: number): void {
 /** v2: tap a part or core: add it to the target order, or remove it. */
 export function toggleTarget(ref: TargetRef): boolean {
   if (!live || isBusy() || live.outcome !== 'ongoing') return false;
-  if (tutorial.value && (ref !== STRUT || tutorial.value.step !== 3)) return false; // the guided fight aims at the Strut, once
+  if (tutorial.value && (ref !== STRUT || tutorial.value.step !== 3)) return tutorialNudge(); // the guided fight aims at the Strut, once
   const changed = toggleOrder(live, ref);
   if (changed) {
     publish();
@@ -1324,7 +1354,10 @@ export function preview(): TurnPreview | null {
 
 export async function run(): Promise<TurnResult | null> {
   if (!live || isBusy() || live.outcome !== 'ongoing') return null;
-  if (tutorial.value && tutorial.value.step !== 4) return null; // the guided fight runs when the script says so
+  if (tutorial.value && tutorial.value.step !== 4) {
+    tutorialNudge(); // the guided fight runs when the script says so
+    return null;
+  }
   const before = cloneCombat(live);
   let gentleRun = false;
   gentle.value = false;
