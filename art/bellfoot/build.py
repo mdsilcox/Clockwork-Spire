@@ -43,6 +43,16 @@ def sky():
     b = b.resize((round(b.width * k), round(b.height * k)), Image.LANCZOS)
     c = rgba(CAND / "sky2_seed3.png")
     c = c.resize((round(c.width * k), round(c.height * k)), Image.LANCZOS)
+    # match the three pictures' levels (mean color of their visible upper part) so no block reads as another tone
+    from PIL import ImageStat
+    ref = ImageStat.Stat(a.convert("RGB").crop((0, 0, a.width, 330))).mean
+
+    def match(im):
+        m = ImageStat.Stat(im.convert("RGB").crop((0, 0, im.width, 330))).mean
+        gains = [max(0.85, min(1.18, ref[i] / m[i])) for i in range(3)]
+        return tint(im, gains, 1.0)
+
+    b, c = match(b), match(c)
     out = Image.new("RGBA", (1800, 800), (24, 16, 12, 255))
     x = 0
     for i, im in enumerate((a, b, c)):
@@ -171,13 +181,23 @@ def street():
     for lx in (360, 1000, 1320, 1590):
         nd.ellipse([lx - 110, 0, lx + 110, 150], fill=130)
     cob = Image.composite(soft, cob, near.filter(ImageFilter.GaussianBlur(30)))
-    img.paste(cob, (0, GROUND))
-    d.rectangle([0, GROUND - 4, W, GROUND + 2], fill=(20, 14, 10, 255))
+    # the cobbles fade in from the dark wall foot over 50 px (no straight ground line)
+    fade_in = Image.new("L", cob.size, 255)
+    fd = ImageDraw.Draw(fade_in)
+    for y in range(50):
+        fd.line([(0, y), (W, y)], fill=int(255 * (y / 50) ** 1.3))
+    cob.putalpha(ImageChops.multiply(cob.getchannel("A"), fade_in))
+    foot = Image.new("RGBA", (W, 90), (0, 0, 0, 0))
+    fo = ImageDraw.Draw(foot)
+    for y in range(90):
+        fo.line([(0, y), (W, y)], fill=(20, 14, 10, int(235 * min(1.0, y / 30))))
+    img.alpha_composite(foot, (0, GROUND - 30))
+    img.alpha_composite(cob, (0, GROUND))
     # places, back to front by x: (name, anchor x, height, crop box or None, mirror)
     places = [
         ("gate", 200, 520, None),
         ("workshop", 520, 310, (60, 0, 920, 775)),
-        ("sprocket", 840, 380, "sprocket"),
+        ("sprocket", 840, 410, "sprocket"),
         ("trophies", 1160, 380, None),
         ("archivist", 1480, 420, None),
         ("clocktower", 2250, 460, None),
@@ -186,7 +206,7 @@ def street():
         im = rgba(CUTS / f"{name}.png")
         if crop == "sprocket":
             im = no_dog(im)
-            im = im.crop((int(im.width * 0.08), int(im.height * 0.12), int(im.width * 0.92), im.height))
+            im = im.crop((int(im.width * 0.08), int(im.height * 0.05), int(im.width * 0.92), im.height))
         elif crop:
             im = im.crop(crop)
         a = im.getchannel("A")
@@ -209,11 +229,11 @@ def street():
             for y in range(12):
                 rd.line([(0, y), (im.width, y)], fill=int(255 * (y / 12) ** 1.4))
             im.putalpha(ImageChops.multiply(im.getchannel("A"), ramp))
-            glow = Image.new("RGBA", (im.width + 20, 70), (0, 0, 0, 0))
+            glow = Image.new("RGBA", (im.width - 30, 70), (0, 0, 0, 0))
             gd = ImageDraw.Draw(glow)
             for y in range(70):
                 gd.line([(0, y), (glow.width, y)], fill=(12, 8, 7, int(95 * (y / 69) ** 1.6)))
-            glow = glow.filter(ImageFilter.GaussianBlur(18))
+            glow = glow.filter(ImageFilter.GaussianBlur(26))
             img.alpha_composite(glow, (x - glow.width // 2, GROUND + 4 - im.height - 52))
         # a darker band on the wall behind the front, so it sits in the street instead of on it
         bw, bh = im.width + 90, im.height + 50
@@ -249,11 +269,12 @@ def street():
         img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(5)), (x - s.width // 2, GROUND - 10))
         img.alpha_composite(s, (x - s.width // 2, GROUND + 6 - s.height))
     # the walk lane: the foot of every front dims a little (y 590 to the ground line) so walkers stand out
-    dim = Image.new("RGBA", (W, 60), (0, 0, 0, 0))
+    dim = Image.new("RGBA", (W, 110), (0, 0, 0, 0))
     dd = ImageDraw.Draw(dim)
-    for y in range(60):
-        dd.line([(0, y), (W, y)], fill=(12, 8, 6, int(85 * (y / 59) ** 1.5)))
-    dim.putalpha(ImageChops.multiply(dim.getchannel("A"), img.crop((0, 585, W, 645)).getchannel("A")))
+    for y in range(110):
+        k = (y / 55) ** 1.5 if y < 55 else (1 - (y - 55) / 55) ** 1.2
+        dd.line([(0, y), (W, y)], fill=(12, 8, 6, int(85 * k)))
+    dim.putalpha(ImageChops.multiply(dim.getchannel("A"), img.crop((0, 585, W, 695)).getchannel("A")))
     img.alpha_composite(dim, (0, 585))
     return img
 
@@ -266,6 +287,20 @@ def foreground():
     lamp = lamp.crop((int(lamp.width * 0.36), 0, int(lamp.width * 0.66), lamp.height))
     bbox = lamp.getchannel("A").point(lambda v: 255 if v > 24 else 0).getbbox()
     lamp = fit_h(lamp.crop(bbox), 330)
+    # the ivy planter and fence ends fade out at their sides and foot (no rectangle)
+    m = Image.new("L", lamp.size, 255)
+    md = ImageDraw.Draw(m)
+    sidew, topy = 34, int(lamp.height * 0.45)
+    for i in range(sidew):
+        v = int(255 * (i / sidew) ** 1.5)
+        md.line([(i, topy), (i, lamp.height)], fill=v)
+        md.line([(lamp.width - 1 - i, topy), (lamp.width - 1 - i, lamp.height)], fill=v)
+    for i in range(22):
+        md.line([(0, lamp.height - 1 - i), (lamp.width, lamp.height - 1 - i)], fill=min(255, int(255 * (i / 22))))
+    # keep the pole column whole
+    ImageDraw.Draw(m).rectangle([lamp.width // 2 - 12, 0, lamp.width // 2 + 12, lamp.height], fill=255)
+    m = ImageChops.darker(m, Image.new("L", lamp.size, 255)).filter(ImageFilter.GaussianBlur(2))
+    lamp.putalpha(ImageChops.multiply(lamp.getchannel("A"), m))
     for x in (360, 1000, 1320, 1590):
         gs = Image.new("RGBA", (lamp.width + 90, 40), (0, 0, 0, 0))
         ImageDraw.Draw(gs).ellipse([0, 8, gs.width - 1, 34], fill=(6, 4, 3, 150))
