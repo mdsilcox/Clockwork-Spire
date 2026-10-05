@@ -185,7 +185,8 @@ interface Profile { /* v1 fields */ version: 2;
   achievements: Record<string, string>;       // id -> unlocked at (ISO)
   achievementProgress: Record<string, number>; // counters (Sprocket pets, bells rung)
   residents: string[]; landmarks: string[];
-  planHistory: ('plating'|'burst'|'pressure'|'statuses')[]; // last 3 runs, newest first
+  planHistory: ('plating'|'burst'|'pressure'|'statuses')[]; // last 3 runs, oldest first (B9a)
+  rewards: { journal: string[]; collars: string[]; landmarks: string[]; overwind: number; chassis: string[] }; // B9b: rewards with no system yet, applied in B10
   modesUnlocked: string[]; overwindMax: number; lastMode: string; lastOverwind: number;
   journal: string[]; bestiary: string[]; collars: string[]; collar: string | null; }
 
@@ -194,7 +195,7 @@ interface RunState { /* v1 fields, minus floor/map/nodeId/cogs */
   act: 1|2|3; section: ActSection; roomId: string; hour: number;
   phase: 'section'|'combat'|'salvage'|'event'|'trader'|'workbench'|'oil'|'door'|'victory'|'defeat';
   elites: { defId: string; patrol: string[]; at: number; defeated: boolean }[];
-  keys: number; legendaryTaken: boolean;
+  keys: number; legendary: string | null; // B9b: the run's one Legendary (part or trinket id)
   stats: { /* v1 */ roomsCleared: number; bellsRung: number; partsBroken: number; plan: Record<string, number> }; }
 interface ActSection { act: number; rooms: Room[]; passages: Passage[]; entry: string; door: string; }
 interface Room { id: string; floor: number; slot: number; kind: 'fight'|'workbench'|'oil'|'trader'|'event'|'vault'|'entry'|'door';
@@ -216,8 +217,8 @@ type Pending = { kind: 'salvage'; parts: { defId: string; rarity: Rarity }[]; sc
 
 ### New invariants
 7. A broken part never acts and never shows an intent; a sealed core never takes damage.
-8. Damage is never carried past a target (rules 2.3): the sum of damage events for a target never exceeds the HP it had.
-9. At most one Legendary part in a run's bin; no locked part (by blueprint or achievement) ever enters a run.
+8. Damage is never carried past a target (rules 2.3), except by the Cascade Piston, the Overrun Coupler and the Apprentice's Hands; a carried hit never carries again. The sum of damage events for a target never exceeds the HP it had.
+9. At most one Legendary part or trinket per run (`RunState.legendary` holds its id, else null; it replaces `legendaryTaken`); no locked part or trinket (by blueprint or achievement) ever enters a run.
 10. Achievements, residents, landmarks, planHistory, Brass and blueprints are written in the same save write as the RunRecord (extends invariant 5).
 11. `hour` only grows; the warden fight starts at most once per act, at midnight or at the bell.
 

@@ -17,6 +17,18 @@ export interface MigrationResult {
 export function migrateSlot(stored: unknown): MigrationResult {
   const input = stored as SaveSlot;
   if (input.profile && !input.profile.planHistory) input.profile.planHistory = []; // B9a: any version
+  if (input.profile) {
+    // B9b: any version
+    input.profile.achievements ??= {};
+    input.profile.achievementProgress ??= {};
+    const r = (input.profile.rewards ??= { journal: [], collars: [], landmarks: [], overwind: 0, chassis: [] });
+    r.journal ??= [];
+    r.collars ??= [];
+    r.landmarks ??= [];
+    r.overwind ??= 0;
+    r.chassis ??= [];
+  }
+  if (input.run && input.run.legendary === undefined) input.run.legendary = null; // B9b: an old run holds no Legendary
   if ((input.version ?? 1) >= SAVE_VERSION) return { slot: input, notice: null };
   const slot = structuredClone(input);
   const profile = slot.profile;

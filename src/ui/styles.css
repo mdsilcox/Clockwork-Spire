@@ -3456,3 +3456,15 @@ button:disabled {
     animation: none;
   }
 }
+
+/* B9b.0: the tier mark (color plus a shape; docs/art-direction.md). Minimal so nothing shifts; progression styles the shapes. */
+.tier {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  vertical-align: -1px;
+  flex: none;
+}
+.tier-common {
+  display: none;
+}

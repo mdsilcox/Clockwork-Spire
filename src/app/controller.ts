@@ -1459,7 +1459,18 @@ export function installDebug(): void {
     leave: (): boolean => leave(),
     /** B8: the same as tapping the room on the act screen. */
     move: (id: string): boolean => moveRoom(id),
+    // ---- B9b.0 CONTRACT (progression lane, B9b.3, replaces the bodies; nobody else edits this block) ----
+    /** Trophy shelf data: achievements (with earned times and progress), rewards and what each unlocks. */
+    trophies: (): unknown => {
+      throw new Error('B9b: progression');
+    },
+    // ---- end B9b.0 block ----
     cheat: {
+      // ---- B9b.0 CONTRACT (progression lane): earn an achievement now, as finishRun would (unlocks, rewards, one save write) ----
+      unlock: (_id: string): void => {
+        throw new Error('B9b: progression');
+      },
+      // ---- end B9b.0 block ----
       /** B9a: set the active profile's planHistory (the Clockmaker's memory), save, and re-render the Workshop. */
       setPlanHistory: (plans: Plan[]): void => {
         if (!active) return;

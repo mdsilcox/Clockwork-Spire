@@ -2,7 +2,9 @@
 // Pure: no DOM, no clock (times are passed in).
 import { CHASSIS } from './content/chassis';
 import { STORY_NOTES } from './content/story';
+import { ACHIEVEMENTS } from './content/achievements';
 import { TRINKETS } from './content/trinkets';
+import { checkAchievements } from './achievements';
 import { UPGRADES } from './content/upgrades';
 import { split } from './rng';
 import { mainPlan, memoryPlan } from './record';
@@ -35,6 +37,9 @@ export function newProfile(name: string, createdAt: string): Profile {
     lastSprocketMood: null,
     finishedSeeds: [],
     planHistory: [],
+    achievements: {},
+    achievementProgress: {},
+    rewards: { journal: [], collars: [], landmarks: [], overwind: 0, chassis: [] },
   };
 }
 
@@ -127,12 +132,12 @@ export function finishRun(
   profile: Profile,
   run: RunState,
   endedAt: string,
-): { record: RunRecord; mood: SprocketMood; brass: number; newUnlocks: string[]; newNotes: string[] } {
+): { record: RunRecord; mood: SprocketMood; brass: number; newUnlocks: string[]; newNotes: string[]; newAchievements: string[] } {
   const seed = run.config.seed;
   if (profile.finishedSeeds.includes(seed)) {
     const prior = profile.history.find((r) => r.seed === seed);
     const record = prior ?? { ...runRecord(run), n: profile.runsFinished, endedAt };
-    return { record, mood: profile.lastSprocketMood ?? 'comfort', brass: 0, newUnlocks: [], newNotes: [] };
+    return { record, mood: profile.lastSprocketMood ?? 'comfort', brass: 0, newUnlocks: [], newNotes: [], newAchievements: [] };
   }
   const brass = brassFor(run);
   const base = runRecord(run);
@@ -172,11 +177,13 @@ export function finishRun(
   profile.lastSprocketMood = mood;
   const main = mainPlan(run.stats.plan);
   if (main) profile.planHistory = [...(profile.planHistory ?? []), main].slice(-3);
+  // B9b: finishRun's fixed sequence: RunRecord and Brass -> planHistory -> achievements (unlocks and rewards) -> one save write
+  const newAchievements = ACHIEVEMENTS.length > 0 ? checkAchievements(profile, run, record) : [];
   profile.finishedSeeds.push(seed);
   if (profile.finishedSeeds.length > SEEDS_KEPT) profile.finishedSeeds.splice(0, profile.finishedSeeds.length - SEEDS_KEPT);
 
   const newNotes = profile.storyFlags.filter((f) => !before.has(f) && STORY_NOTES.some((n) => n.id === f));
-  return { record, mood, brass, newUnlocks, newNotes };
+  return { record, mood, brass, newUnlocks, newNotes, newAchievements };
 }
 
 /** The Workshop notes unlocked so far, oldest first (wall order). */

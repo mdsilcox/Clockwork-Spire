@@ -28,11 +28,12 @@ import { trinketDef } from '../core/content/trinkets';
 import { removeCost, UPGRADE_SCRAP } from '../core/rooms';
 import { scrapOf } from '../core/rewards';
 import { BELL_BRASS_PER_HOUR, BELL_SCRAP_PER_HOUR, LOCK_PICK_SCRAP } from '../core/section';
-import type { PartInstance, Room, RoomKind, RunState } from '../core/types';
+import type { PartInstance, Rarity, Room, RoomKind, RunState } from '../core/types';
 import { unlockAudio } from '../audio/synth';
 import { FAMILY_COLOR, FAMILY_LABEL } from '../render/palette';
 import { ACT_TITLE, ActCard, RunBar } from './Map';
 import { PartCard } from './PartCard';
+import { TierMark } from './TierMark';
 import { NodeIcon, TrinketIcon } from './runicons';
 import { useTip } from './useTip';
 import './climb.css';
@@ -481,6 +482,7 @@ function PartChip({ p, selected, onClick, testid }: { p: PartInstance; selected:
     <button class={`partchip ${selected ? 'sel' : ''}`} data-testid={testid} aria-pressed={selected} onClick={onClick}>
       <span class="band" style={{ background: FAMILY_COLOR[d.family] }} />
       <span class="pname">{partName(p.defId, p.plus)}</span>
+      <TierMark rarity={d.rarity} />
       <span class="pfam" style={{ color: FAMILY_COLOR[d.family] }}>
         {FAMILY_LABEL[d.family]}
         {d.rarity !== 'common' ? `, ${d.rarity}` : ''}
@@ -609,12 +611,12 @@ export function WorkbenchScreen() {
   );
 }
 
-function itemName(it: { kind: string; id?: string }): { name: string; text: string } {
+function itemName(it: { kind: string; id?: string }): { name: string; text: string; rarity?: Rarity | 'boss' } {
   try {
-    if (it.kind === 'part' && it.id) return { name: partName(it.id, false), text: partText(it.id, false) };
+    if (it.kind === 'part' && it.id) return { name: partName(it.id, false), text: partText(it.id, false), rarity: partDef(it.id).rarity };
     if (it.kind === 'trinket' && it.id) {
       const d = trinketDef(it.id);
-      return { name: d.name, text: d.text };
+      return { name: d.name, text: d.text, rarity: d.rarity };
     }
   } catch {
     // fall through
@@ -665,6 +667,7 @@ export function TraderScreen() {
                 >
                   {it.kind === 'trinket' && <TrinketIcon name={n.name} size={26} />}
                   <span class="sname">{n.name}</span>
+                  {n.rarity && <TierMark rarity={n.rarity} />}
                   <span class="stext">{it.sold ? 'Sold' : n.text}</span>
                   <span class="sval">worth {it.value}</span>
                 </button>

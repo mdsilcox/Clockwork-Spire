@@ -2,13 +2,16 @@
 // The `combat-hooks` lane adds combat hooks; the `run-core` lane reads ids for run-level effects (see briefs).
 import type { CombatState } from '../types';
 
-export type TrinketRarity = 'common' | 'uncommon' | 'rare' | 'boss';
+export type TrinketRarity = 'common' | 'uncommon' | 'rare' | 'boss' | 'masterwork' | 'legendary';
 
 export interface TrinketDef {
   id: string;
   name: string;
   rarity: TrinketRarity;
   text: string;
+  /** B9b: Masterwork and Legendary trinkets start locked; `unlock` is the achievement id that unlocks one (content.md section 7). */
+  locked?: boolean;
+  unlock?: string;
   /** Combat hooks (combat-hooks lane). All optional. */
   onCombatStart?(c: CombatState): void;
 }
@@ -42,6 +45,15 @@ const list: TrinketDef[] = [
   { id: 'ember-coal', name: 'Ember Coal', rarity: 'boss', text: 'Boilers give +1 Pressure.' },
   { id: 'echo-chamber', name: 'Echo Chamber', rarity: 'boss', text: 'The first part to fire each turn fires with Echo.' },
   { id: 'brass-heart', name: 'Brass Heart', rarity: 'boss', text: '+15 max HP.' },
+  // B9b: 4 Masterwork and 2 Legendary trinkets (docs/content.md section 5). B9b.0 CONTRACT: effects are no-ops until the lane
+  // that owns each fills them (items-engine: Overrun Coupler and the Whistle's fetch; turn-tools: Foresight Dial, Two Left
+  // Hands, the Inventor's Watch; progression: Tow Hook, a salvage effect). All locked until their achievement.
+  { id: "overrun-coupler", name: "Overrun Coupler", rarity: "masterwork", locked: true, unlock: "m-drill", text: "Once per turn, a Strike that deals more than its target has left carries the excess to the next standing entry of your target order." },
+  { id: "foresight-dial", name: "Foresight Dial", rarity: "masterwork", locked: true, unlock: "m-three-elites", text: "Intents are shown two enemy turns ahead (the second turn dimmed)." },
+  { id: "two-left-hands", name: "Two Left Hands", rarity: "masterwork", locked: true, unlock: "m-bell3", text: "Two free swaps each turn, and a swap may trade a board part with a part in your hand." },
+  { id: "tow-hook", name: "Tow Hook", rarity: "masterwork", locked: true, unlock: "m-wrecker", text: "Once per combat, when a core dies, its best standing part (highest rarity, then leftmost) is salvaged as if you had broken it." },
+  { id: "inventors-watch", name: "The Inventor's Watch", rarity: "legendary", locked: true, unlock: "h-master-bare", text: "Once per combat, after a Run, wind back: everything returns to how it was before that Run, your hand and draw order included. Usable after a lost Run." },
+  { id: "sprockets-whistle", name: "Sprocket's Whistle", rarity: "legendary", locked: true, unlock: "h-whole-clock", text: "At the start of each of your turns, Sprocket fetches: Pry 5 at the first living enemy, free. A part he breaks drops 1 extra Scrap." },
 ];
 
 export const TRINKETS: Record<string, TrinketDef> = Object.fromEntries(list.map((d) => [d.id, d]));

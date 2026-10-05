@@ -21,6 +21,7 @@ import { familyHint } from './synergy';
 import { ACT_TITLE, TrinketBar } from './Map';
 import { EnemyMachine } from './EnemyParts';
 import { damageText, enemyPartDef, pendingRatchet } from './partText';
+import { TierMark } from './TierMark';
 import { Tooltip } from './Tooltip';
 import type { TipInfo } from './Tooltip';
 
@@ -345,13 +346,13 @@ export function CombatScreen() {
     else if (p.charge > 0) bits.push(`Charge ${p.charge}.`);
     if (p.defId === 'cam') bits.push(`Fired ${p.counter} ${p.counter === 1 ? 'time' : 'times'} this fight.`);
     if (p.rusted > 0) bits.push('Rusted: it will not fire or pass motion on the next run.');
-    return { title: `${partName(p.defId, p.plus)}.`, text: partText(p.defId, p.plus), detail: [bits.join(' '), familyHint(p.defId)].filter(Boolean).join(' ') };
+    return { title: `${partName(p.defId, p.plus)}.`, rarity: partDef(p.defId).rarity, text: partText(p.defId, p.plus), detail: [bits.join(' '), familyHint(p.defId)].filter(Boolean).join(' ') };
   };
   const cardInfo = (idx: number): Omit<TipInfo, 'rect'> | null => {
     const uid = c.hand[idx];
     if (uid === undefined) return null;
     const inst = c.parts[uid];
-    return { title: `${partName(inst.defId, inst.plus)}.`, text: partText(inst.defId, inst.plus), detail: `${familyHint(inst.defId)} Fresh: no charge yet.` };
+    return { title: `${partName(inst.defId, inst.plus)}.`, rarity: partDef(inst.defId).rarity, text: partText(inst.defId, inst.plus), detail: `${familyHint(inst.defId)} Fresh: no charge yet.` };
   };
 
   // a tap or click anywhere outside the tooltip dismisses it
@@ -786,6 +787,7 @@ export function CombatScreen() {
                 <span class="band" style={{ background: FAMILY_COLOR[def.family] }} />
                 <span class="key">{idx + 1}</span>
                 <span class="cname">{partName(inst.defId, inst.plus)}</span>
+                <TierMark rarity={def.rarity} />
                 <span class="cfam" style={{ color: FAMILY_COLOR[def.family] }}>
                   {FAMILY_LABEL[def.family]}
                 </span>

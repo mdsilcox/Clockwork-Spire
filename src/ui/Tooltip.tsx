@@ -4,9 +4,13 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { LINK_TERMS, glossaryFor } from '../core/content/glossary';
 import { openGlossary } from '../app/prefs';
+import type { Rarity } from '../core/types';
+import { TierMark } from './TierMark';
 
 export interface TipInfo {
   title: string;
+  /** B9b: an item's tier, shown as a tier mark beside the title. */
+  rarity?: Rarity;
   text: string;
   /** Extra live facts, e.g. "Charge 2. Rusted." */
   detail?: string;
@@ -74,7 +78,7 @@ export function Tooltip({ tip, onEnter, onLeave }: { tip: TipInfo; onEnter: () =
       onPointerLeave={onLeave}
       style={{ width: `min(${WIDTH}px, calc(100vw - 8px))`, maxHeight: 'calc(100vh - 8px)', overflowY: 'auto', visibility: 'hidden' }}
     >
-      <b>{tip.title}</b> <Linked text={tip.text} />
+      <b>{tip.title}</b> {tip.rarity && <TierMark rarity={tip.rarity} />} <Linked text={tip.text} />
       {tip.detail && <span class="tipdetail">{tip.detail}</span>}
     </div>
   );

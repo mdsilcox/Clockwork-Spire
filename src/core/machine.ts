@@ -25,6 +25,21 @@ export const hasTrinket = (c: CombatState, id: string): boolean => c.trinkets.in
 /** Pressure above this at the end of the turn overpressures (Pressure Gauge raises it to 25). */
 export const overpressureAbove = (c: CombatState): number => (hasTrinket(c, 'pressure-gauge') ? 25 : OVERPRESSURE_ABOVE);
 
+/** B9b hook (items-engine): does this turn end in overpressure? (Sun-Orb Core: never.) */
+export function overpressureCheck(c: CombatState): boolean {
+  return c.pressure > overpressureAbove(c);
+}
+
+/** B9b hook (items-engine): is this tick the last tick? (Hour Hand: its neighbors treat every tick as the last.) */
+export function isLastTick(c: CombatState, tick: number, _cell: number): boolean {
+  return tick >= c.ticksThisTurn;
+}
+
+/** B9b hook (items-engine): a status was applied to enemy `idx`; Conductor's Baton applies it to every other enemy. */
+function spreadStatus(_rt: Rt, _idx: number, _status: string, _amount: number): void {
+  // pass-through
+}
+
 export function anyAlive(c: CombatState): boolean {
   return c.enemies.some((e) => e.hp > 0);
 }
@@ -93,7 +108,7 @@ export function runMachine(c: CombatState, events: GameEvent[]): TurnPreview {
   for (let tick = 1; tick <= c.ticksThisTurn && anyAlive(c); tick++) runTick(rt, tick);
 
   let overpressure = false;
-  if (anyAlive(c) && c.pressure > overpressureAbove(c)) {
+  if (anyAlive(c) && overpressureCheck(c)) {
     overpressure = true;
     events.push({ kind: 'overpressure', tick: 0, step: 0, amount: OVERPRESSURE_DAMAGE });
     if (hasTrinket(c, 'steam-locket')) {
@@ -275,6 +290,9 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
     const t = parseRef(ref);
     return hitAt(t.enemy, t.part, raw, opts);
   };
+  /** B9b hook (items-engine): a Strike at `ref`. Cascade Piston, Overrun Coupler and Apprentice's Hands carry or add second
+   * targets here (invariant 8 as amended). Pass-through: the plain single-target hit. */
+  const routeStrike = (ref: string, raw: number, opts: HitOpts = {}): HitResult => hitRef(ref, raw, opts);
   const knuckles = (): number => (hasTrinket(c, 'brass-knuckles') && ctx.oncePerTurn('brass-knuckles') ? 4 : 0);
   const grit = (): number => c.playerStatuses.grit ?? 0;
 
@@ -289,7 +307,7 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
     released: false,
     isEcho: false,
     pending: [],
-    isLastTick: () => tick >= c.ticksThisTurn,
+    isLastTick: () => isLastTick(c, tick, cell),
     isFirstFire: () => p.firedThisTurn === 1 && !ctx.isEcho,
     oncePerTurn(key) {
       if (acc.once.has(key)) return false;
@@ -300,7 +318,7 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
     strike(amount) {
       const ref = currentTarget(c);
       if (!ref) return;
-      hitRef(ref, amount + ctx.boostIn + grit() + knuckles());
+      routeStrike(ref, amount + ctx.boostIn + grit() + knuckles(), { word: 'strike' });
     },
     strikeAt(idx, amount) {
       const e = c.enemies[idx];
@@ -315,13 +333,13 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
         }
       }
       const ref = frontOf(c, idx);
-      if (ref) hitRef(ref, raw);
+      if (ref) routeStrike(ref, raw, { word: 'strike' });
     },
     sweep(amount) {
       for (let i = 0; i < c.enemies.length; i++) {
         if (c.enemies[i].hp <= 0) continue;
         const ref = frontOf(c, i);
-        if (ref) hitRef(ref, amount + ctx.boostIn);
+        if (ref) hitRef(ref, amount + ctx.boostIn, { word: 'sweep' });
       }
     },
     plate(amount) {
@@ -377,6 +395,7 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
         e.statuses[status] = status === 'scald' ? cur + n : Math.max(cur, n);
         acc.statuses.push({ target: idx, status, amount: n });
         events.push({ kind: 'status', ...base, target: idx, status, amount: n });
+        spreadStatus(rt, idx, status, n); // B9b hook (items-engine)
       }
     },
     heal(amount) {
@@ -394,12 +413,12 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
       if (!ref) return;
       const idx = parseRef(ref).enemy;
       const raw = amount + ctx.boostIn + grit() + knuckles();
-      for (const p of c.enemies[idx].parts.slice()) if (!p.broken) hitAt(idx, p.id, raw);
+      for (const p of c.enemies[idx].parts.slice()) if (!p.broken) hitAt(idx, p.id, raw, { word: 'shatter' });
     },
     drill(amount) {
       const ref = currentTarget(c);
       if (!ref) return;
-      hitRef(ref, amount + ctx.boostIn + grit() + knuckles(), { drill: true });
+      routeStrike(ref, amount + ctx.boostIn + grit() + knuckles(), { drill: true, word: 'drill' });
     },
     jam() {
       const ref = currentTarget(c);
@@ -420,7 +439,7 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
           weakest = p.id;
         }
       }
-      const r = weakest ? hitAt(idx, weakest, raw) : hitRef(ref, raw);
+      const r = weakest ? hitAt(idx, weakest, raw, { word: 'pry' }) : hitRef(ref, raw, { word: 'pry' });
       return r.broke;
     },
     patch(amount) {

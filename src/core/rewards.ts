@@ -2,6 +2,7 @@
 import { int, next, pick } from './rng';
 import { PARTS } from './content/parts';
 import { TRINKETS } from './content/trinkets';
+import type { TrinketRarity } from './content/trinkets';
 import type { PartDef } from './defs';
 import type { PartInstance, Rarity, RunState } from './types';
 
@@ -41,7 +42,7 @@ export function partPool(run: RunState): PartDef[] {
 export function lockedPartsLeft(run: RunState): string[] {
   const open = new Set([...run.config.unlockedParts, ...run.stats.blueprintsFound]);
   return Object.values(PARTS)
-    .filter((p) => p.locked && !open.has(p.id))
+    .filter((p) => p.locked && !p.unlock && !open.has(p.id)) // B9b: achievement-gated parts (Masterwork, Legendary) are never blueprints
     .map((p) => p.id);
 }
 
@@ -123,7 +124,7 @@ export function gainTrinket(run: RunState, id: string): boolean {
 }
 
 /** A random trinket of the given rarities that the run does not own. */
-export function randomTrinket(run: RunState, rarities: ('common' | 'uncommon' | 'rare' | 'boss')[], stream: 'reward' | 'event' | 'shop', exclude: string[] = []): string | null {
+export function randomTrinket(run: RunState, rarities: TrinketRarity[], stream: 'reward' | 'event' | 'shop', exclude: string[] = []): string | null {
   const all = Object.values(TRINKETS).filter((t) => !run.trinkets.includes(t.id) && !exclude.includes(t.id));
   const cand = all.filter((t) => rarities.includes(t.rarity));
   return cand.length ? pick(run.rng, stream, cand).id : null;

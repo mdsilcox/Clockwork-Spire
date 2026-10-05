@@ -60,8 +60,8 @@ describe('B2 machine', () => {
       expect(p.textPlus, p.id).not.toBe(p.text);
     }
     // v1's 17, plus Sapper, Core Drill and Sunder (v2), plus the Masterwork stubs (all locked until B9)
-    expect(all.filter((p) => p.locked && p.rarity !== 'masterwork').length).toBe(20);
-    expect(all.filter((p) => p.rarity === 'masterwork').every((p) => p.locked)).toBe(true);
+    expect(all.filter((p) => p.locked && p.rarity !== 'masterwork' && p.rarity !== 'legendary').length).toBe(20);
+    expect(all.filter((p) => p.rarity === 'masterwork' || p.rarity === 'legendary').every((p) => p.locked)).toBe(true); // B9b: 10 M and 5 L, all locked
   });
 
   it('M12b: every part fires without error, base and upgraded, in a busy machine', () => {

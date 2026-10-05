@@ -5,6 +5,7 @@ import { inBoard } from './board';
 import { enemyDef } from './content/enemies';
 import { afterPlayerTurn, chooseIntent, enemyTurn, newEnemy, summonEnemy } from './enemy';
 import { initPart } from './framelib';
+import { beforeEnemyTurn, canPlaceAt, onPlatingFall, onTurnStart } from './itemhooks';
 import { defaultOrder, defaultOrderFor, syncTargetIdx } from './frames';
 import { PARTS } from './content/parts';
 import { trinketDef } from './content/trinkets';
@@ -175,6 +176,7 @@ export function placePart(c: CombatState, handIndex: number, cellIdx: number): b
   if (!Number.isInteger(handIndex) || handIndex < 0 || handIndex >= c.hand.length) return false;
   const uid = c.hand[handIndex];
   const inst = c.parts[uid];
+  if (!canPlaceAt(c, inst.defId, cellIdx)) return false; // B9b hook (items-engine): the Twin Mainspring's D2-only rule
   const old = c.board[cellIdx];
   if (old) c.discard.push(old.uid);
   const flags = (c.flags ??= {});
@@ -258,6 +260,7 @@ function runTurnInner(c: CombatState): TurnResult {
   for (let i = 0; i < c.enemies.length; i++) {
     if (c.enemies[i].hp > 0) enemyDef(c.enemies[i].defId).afterMachine?.(c, i, events);
   }
+  beforeEnemyTurn(c, events); // B9b hook (items-engine): Night Watchman
   afterPlayerTurn(c, events);
   enemyTurn(c, events, (i, partId) => runEnemyAttackHooks(c, i, events, partId));
   if (c.playerHp <= 0) return finish(c, events, preview, 'lost');
@@ -278,7 +281,7 @@ function finish(c: CombatState, events: GameEvent[], preview: TurnPreview, outco
 
 function beginTurn(c: CombatState, events: GameEvent[]): void {
   c.turn += 1;
-  c.plating = 0;
+  c.plating = onPlatingFall(c, c.plating); // B9b hook (items-engine): Sprocket's Blanket keeps some (pass-through: 0)
   for (const e of c.enemies) {
     for (const s of Object.keys(e.statuses)) {
       if (s === 'scald' || s === 'strength') continue; // scald ticks at the end of the enemy turn; strength lasts
@@ -320,6 +323,7 @@ function beginTurn(c: CombatState, events: GameEvent[]): void {
     }
   }
   runTurnStartHooks(c, events);
+  onTurnStart(c, events); // B9b hook (items-engine): Sprocket's Whistle fetches
   if (!anyAlive(c)) return;
   const want = c.handSize + (c.extraDraw ?? 0);
   c.extraDraw = 0;

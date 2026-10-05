@@ -51,7 +51,7 @@ The order of a tick is therefore deterministic and visible: the animation shows 
 Nothing between pressing Run and the end of your machine's ticks is random, so the preview is exact. Every random element is resolved at a fixed moment, from its own seeded stream, before the player sees it:
 - **Draws** (`draw` stream): at the start of your turn, before you build. Extra draws from the Sprocket Wheel happen at the next turn's start.
 - **Enemy intents** (`enemy` stream): chosen at the end of the enemy turn and shown immediately, including the target cell of a sabotage. Random choices for the turn after next are rolled one turn early, so an effect that shows two turns ahead (the Foresight Dial) is exact.
-- **Rewinding a turn** (the Inventor's Watch): restores the whole combat state at the start of your turn, every random stream's state included, so the same draws and intents follow.
+- Winding back a Run (the Inventor's Watch): once per combat, after a Run's replay ends, "Wind back" restores the snapshot taken just before that Run: board, charges, Pressure, HP, statuses, every enemy, the hand, the draw order, every random stream's state and the fight's tallies, so the same draws and intents follow and nothing from the rewound Run is counted. It is usable after a lost Run too: a defeat waits for the choice "Wind back" or "Accept defeat" before the fight settles (not offered after a won fight). The snapshot is taken only while the trinket is held and lives in the combat state, so a reload keeps it; whether the Watch was used lives outside it.
 - **Enemy actions** execute the shown intent with no further randomness.
 - **Act layout, trader stock, events, fuse results** (`map`, `shop`, `event`, `reward` streams): rolled when the act starts or the room is entered, and saved, so a reload shows the same offer.
 - **Event choices with a chance** (the Gear Wheel of Fortune) roll from the `event` stream when chosen; the odds are shown on the button.
@@ -78,7 +78,7 @@ Every part has an upgraded form, shown with a **+** (for example Spur Gear+). Up
 
 ### 2.3 Targeting: the target order
 - Before Run, you build a **target order**: tap enemy parts and cores to number them 1, 2, 3... (up to 6). Tap again to remove one. A sealed core can't be added. The order is kept between turns (broken and dead entries drop out) and defaults to: the leftmost enemy's acting parts in intent order, then its core.
-- **Strike X** hits the first entry of the order that is still standing. Damage beyond what that target has left is **lost**: it never carries over to another target, a core or a later phase. The next Strike goes to the next standing entry.
+- **Strike X** hits the first entry of the order that is still standing. Damage beyond what that target has left is **lost**: it never carries over to another target, a core or a later phase, with three exceptions (B9b): the Cascade Piston (once per its own Strike), the Overrun Coupler trinket (once per turn) and the Apprentice's Hands (its second entry takes half) send damage past a target, to the next standing entry of your target order. A carried hit never carries again; the Piston and the Coupler can each carry once in the same turn. The next Strike goes to the next standing entry.
 - If the order is empty or every entry is down, Strikes hit the **front** of the leftmost living enemy: its core, or, while the core is sealed, its first unbroken keystone.
 - **Sweep X** hits the front of every living enemy.
 - New player words (parts in `docs/content.md`): **Shatter X** (X to every unbroken part of the enemy your next Strike would hit), **Drill X** (a Strike that ignores Shell, Bulwark and Governor), **Jam** (the part your next Strike would hit skips its next action, and a Countdown on it doesn't tick), **Pry X** (a Strike X at the weakest unbroken part, by HP left, of the enemy your next Strike would hit; ties left to right), **Patch X** (heal X HP).
@@ -231,6 +231,7 @@ All *(tune)*. The curve (5.8) is set on Journeyman. **Overwind** unlocks after y
 
 ## 6. Saves
 - Three slots, settings global (v1). The run is saved after every action (placements, Run, moves, choices).
+- B9b fields: a save of any version gains the new profile fields on load (`achievements` {}, `achievementProgress` {}, `rewards` empty) and an old run gets `legendary: null`. A combat saved mid-fight keeps its Inventor's Watch snapshot and `watchUsed`.
 - **Version 2**: v1 saves migrate on load: Brass, bench upgrades, blueprints, chassis, history and statistics carry over; Cogs are dropped; a v1 run in progress is closed as a loss at its floor and credited its Brass, with a one-line notice ("The Spire has changed while you were away.").
 
 ## 7. The balance simulator

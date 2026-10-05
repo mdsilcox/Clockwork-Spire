@@ -24,6 +24,8 @@ Paintings carry their own color; the game's UI and effects (`src/render/palette.
 | Steam | #E8EEF0 at 40 to 70% | steam and smoke (code) |
 Rarity colors (UI): Common iron #8C8F94, Uncommon copper, Rare brass, Masterwork teal-glow #3FD1C2, Legendary furnace #FFB547 with a slow shimmer.
 
+**Tier marks (B9b).** Every item card shows its tier as a small mark, color plus a shape so it never relies on color alone: Common none, Uncommon one notch (copper), Rare a diamond (brass), Masterwork a cog (teal-glow), Legendary a star (furnace, with the slow shimmer). One component, `TierMark` (`src/ui/TierMark.tsx`, class `tier tier-<rarity>`, `data-testid="tier-mark"`), on the hand, the board tooltip, salvage, trader, fuse, vault, reward, trophy shelf and bin cards. It is 12 px and sits beside the name, so a card never changes size.
+
 ## Line, shading and light
 - Black ink outlines, thicker on the silhouette than inside. No soft airbrushed edges on characters.
 - Soft painterly shading with visible strokes; flat-ish areas of color; no photo texture.

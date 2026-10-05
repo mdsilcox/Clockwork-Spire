@@ -172,7 +172,7 @@ export async function readSlot(n: SlotNo): Promise<SlotRead> {
     const row = await getRow(slotKey(n));
     if (!row) return { state: 'empty' };
     if ((row.version === VERSION || row.version === SAVE_VERSION) && looksLikeSlot(row.data)) {
-      if ((row.data.version ?? 1) >= SAVE_VERSION) return { state: 'ok', slot: row.data };
+      if ((row.data.version ?? 1) >= SAVE_VERSION) return { state: 'ok', slot: migrateSlot(row.data).slot }; // B9b: fills the new profile and run fields in memory (the next save writes them)
       // a version 1 save: migrate, write the result back (the run closed and its Brass credited in the same write)
       const m = migrateSlot(row.data);
       await writeSlot(m.slot);

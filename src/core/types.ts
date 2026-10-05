@@ -177,9 +177,18 @@ export interface CombatState {
   outcome: 'ongoing' | 'won' | 'lost';
   /** B9a: this fight's play style so far, accumulated per turn from the event timeline; recordFight moves it into the run. */
   planAcc?: PlanStats;
+  /** B9b: the Inventor's Watch snapshot taken just before the last Run (only while the trinket is held): the whole combat
+   * state (board, charges, Pressure, HP, statuses, every enemy, hand, draw order, every random stream, tallies), minus
+   * these two fields. A reload keeps it. */
+  watchSnapshot?: WatchSnapshot;
+  /** B9b: the Watch was used this combat. Lives outside the snapshot. */
+  watchUsed?: boolean;
   trinkets: string[];
   log: TurnSummary[];
 }
+
+/** B9b: a CombatState as it stood before a Run; JSON-serializable. */
+export type WatchSnapshot = Omit<CombatState, 'watchSnapshot' | 'watchUsed'>;
 
 export interface TurnSummary {
   turn: number;
@@ -248,6 +257,13 @@ export interface GameEvent {
   status?: string;
   uid?: number;
   note?: string;
+  /** B9b: on 'partBroken': the player word that broke it ('strike' | 'drill' | 'shatter' | 'pry' | 'sweep' | 'status'). */
+  word?: string;
+  /** B9b: on 'partBroken': what stood protecting that enemy at the hit, any of 'shell' (Shell above 0), 'bulwark', 'governor'
+   * (a standing passive part), even when the word (Drill) ignored it. Omitted when none. */
+  protectedBy?: string[];
+  /** B9b: on 'partBroken': who broke it; omitted for the player's machine. Sprocket's Whistle sets 'sprocket'. */
+  by?: 'sprocket';
 }
 
 export interface TurnPreview {
@@ -353,7 +369,8 @@ export type Pending =
   | { kind: 'event'; eventId: string; result?: string; needsPart?: 'remove' | 'upgrade' | 'duplicate' | 'transform' | 'sell'; choice?: number; partFilter?: Family } // choice, partFilter ADDED in B3
   | { kind: 'shop'; stock: ShopItem[]; removalsBought: number }
   | { kind: 'forge'; done: boolean }
-  | { kind: 'oil'; done: boolean };
+  | { kind: 'oil'; done: boolean }
+  | { kind: 'legendary'; options: string[] }; // B9b: the Queen's core: one or two Legendary ids (parts or trinkets), take one, no skip
 
 /** B9a: a run's main plan, for the Clockmaker's memory (rules 5.4). */
 export type Plan = 'plating' | 'burst' | 'pressure' | 'statuses';
@@ -373,6 +390,20 @@ export interface RunStats {
   clockBrass?: number; // B9a: Brass from broken Clockmaker parts (already counted in bonusBrass), for the breakdown
   /** B9a: the run's play style by source (docs/briefs/B9a-wardens.md), filled by recordFight. */
   plan?: PlanStats;
+  // B9b achievement facts (docs/briefs/B9b-rarity.md "Achievement facts"); all optional so older runs load. Counted by
+  // recordFight and the call sites named there (progression lane).
+  partsBroken?: number; // enemy parts the player broke this run (retracted parts are not broken)
+  partsBrokenAct1?: number; // the same, counted only while in act 1
+  fuses?: number; // fuses done this run
+  vaultsByAct?: [number, number, number]; // vaults opened in act 1, 2, 3
+  elitesByAct?: [number, number, number]; // elites defeated in act 1, 2, 3
+  bells?: { act: number; hoursLeft: number }[]; // bells rung early (section.ts ringBell)
+  overpressured?: boolean; // an overpressure happened this run
+  scaldBest?: number; // most Scald damage dealt in one fight
+  drillThrough?: boolean; // a Drill broke a part that Shell, Bulwark or Governor protected
+  shatterTriple?: boolean; // 3 parts of one enemy broken by Shatter in one turn
+  wreckWins?: number; // fights won by killing a core with 2+ of its parts standing
+  wardenFights?: { enemy: string; turns: number; hpLost: number; allBroken: boolean; won: boolean }[]; // one entry per warden fight; hpLost excludes damage Plating absorbed
   offers: { partId: string; taken: boolean; act: number; source: 'reward' | 'shop' | 'trader' | 'fuse' | 'salvage' }[]; // for the balance sim (rules 7)
 }
 
@@ -414,6 +445,8 @@ export interface RunState {
   pending: Pending | null;
   recentEncounters: string[]; // last 3 encounter keys, to avoid repeats
   stats: RunStats;
+  /** B9b: the run's one Legendary (part or trinket id), or null; replaces data-model's `legendaryTaken`. */
+  legendary: string | null;
   flags: Record<string, boolean>; // secondWindUsed, firstEliteThisAct..., event once-flags
   killedBy?: string;
   // B8 the climb (optional while v1's flow still exists; new runs set them all):
@@ -468,6 +501,20 @@ export interface Profile {
   finishedSeeds: number[]; // seeds already settled by finishRun (guards double payout), last 20
   /** B9a: main plans of the last three finished runs, oldest first (rules 5.4); migrates to []. */
   planHistory?: Plan[];
+  /** B9b: achievement id -> ISO time it was earned (docs/content.md section 7). Migrates to {}. */
+  achievements: Record<string, string>;
+  /** B9b: counters across runs (pets, bells with 3+ hours, parts broken, wrecking wins, per-chassis win flags). Migrates to {}. */
+  achievementProgress: Record<string, number>;
+  /** B9b: rewards with no system yet are recorded here (the trophy shelf lists them; B10 applies them). Migrates to empty. */
+  rewards: ProfileRewards;
+}
+
+export interface ProfileRewards {
+  journal: string[];
+  collars: string[];
+  landmarks: string[];
+  overwind: number; // highest Overwind level earned so far
+  chassis: string[]; // e.g. 'scrapper'; the chassis rack never offers it before B10 builds it
 }
 
 export interface SaveSlot {

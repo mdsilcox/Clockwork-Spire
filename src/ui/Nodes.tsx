@@ -9,6 +9,7 @@ import { salvagePayout } from '../core/salvage';
 import type { PartInstance, RunState } from '../core/types';
 import { FAMILY_COLOR, FAMILY_LABEL } from '../render/palette';
 import { PartCard } from './PartCard';
+import { TierMark } from './TierMark';
 import { familyHint } from './synergy';
 import { RunBar } from './Map';
 import { TrinketIcon } from './runicons';
@@ -44,6 +45,7 @@ function TrinketCard({ id, onClick, disabled, extra, testid = 'trinket-card' }: 
     <>
       <TrinketIcon name={d.name} size={34} />
       <span class="cname">{d.name}</span>
+      <TierMark rarity={d.rarity} />
       <span class="cfam">{d.rarity === 'boss' ? 'Boss trinket' : `${d.rarity[0].toUpperCase()}${d.rarity.slice(1)} trinket`}</span>
       <span class="ctext">{d.text}</span>
       {extra && <span class="cextra">{extra}</span>}
@@ -100,6 +102,7 @@ export function PartPicker({ title, hint, bin, upgrade, onPick, onCancel }: { ti
                 {partName(g.defId, false)}
                 {g.n > 1 ? ` x${g.n}` : ''}
               </span>
+              <TierMark rarity={partDef(g.defId).rarity} />
               <span class="cfam" style={{ color: FAMILY_COLOR[partDef(g.defId).family] }}>
                 {FAMILY_LABEL[partDef(g.defId).family]}
               </span>
@@ -260,7 +263,10 @@ export function SalvageScreen() {
                 return (
                   <div key={`${it.enemy}.${it.partId}`} class={`salvage-item ${kept ? 'kept' : ''} ${it.locked ? 'locked' : ''}`} data-testid={`salvage-item-${n}`}>
                     <span class="sname">{name}</span>
-                    <span class="srarity">{RARITY_LABEL[it.rarity] ?? it.rarity}</span>
+                    <span class="srarity">
+                      <TierMark rarity={it.rarity} />
+                      {RARITY_LABEL[it.rarity] ?? it.rarity}
+                    </span>
                     {known && !it.locked && <span class="ctext">{known.text}</span>}
                     {unknown ? (
                       <span class="snote" data-testid={`salvage-unknown-${n}`}>

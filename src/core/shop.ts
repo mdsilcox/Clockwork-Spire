@@ -5,7 +5,7 @@ import { randomPart, randomTrinket, recordOffers } from './rewards';
 import type { RunState, ShopItem } from './types';
 
 const PART_PRICE = { common: 45, uncommon: 70, rare: 110 } as const;
-const TRINKET_PRICE = { common: 120, uncommon: 160, rare: 200, boss: 250 } as const;
+const TRINKET_PRICE = { common: 120, uncommon: 160, rare: 200, boss: 250, masterwork: 320, legendary: 0 } as const; // B9b: Masterwork trinkets never reach the v1 shop; Legendaries are never sold
 export const OIL_PRICE = 30;
 export const OIL_HEAL = 15;
 export const REMOVAL_BASE = 60;

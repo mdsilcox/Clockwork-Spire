@@ -2,6 +2,7 @@
 import type { ComponentChildren } from 'preact';
 import { partDef, partName, partText } from '../core/content/parts';
 import { FAMILY_COLOR, FAMILY_LABEL } from '../render/palette';
+import { TierMark } from './TierMark';
 
 export function PartCard({
   defId,
@@ -33,6 +34,7 @@ export function PartCard({
     <>
       <span class="band" style={{ background: FAMILY_COLOR[def.family] }} />
       <span class="cname">{partName(defId, plus)}</span>
+      <TierMark rarity={def.rarity} />
       <span class="cfam" style={{ color: FAMILY_COLOR[def.family] }}>
         {FAMILY_LABEL[def.family]}
         {def.rarity !== 'common' ? `, ${def.rarity}` : ''}

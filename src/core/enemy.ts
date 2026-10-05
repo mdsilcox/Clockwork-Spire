@@ -171,6 +171,8 @@ export interface HitOpts {
   /** The caller already applied Cracked. */
   noCracked?: boolean;
   strikeEvent?: boolean;
+  /** B9b: the player word behind this hit, copied onto a 'partBroken' event ('strike' | 'drill' | 'shatter' | 'pry' | 'sweep'). */
+  word?: string;
 }
 
 export interface HitResult {
@@ -184,6 +186,15 @@ const NO_HIT: HitResult = { lost: 0, broke: false, died: false, cancelled: false
 
 function lostEvent(events: GameEvent[], base: EventBase, idx: number, part: string, amount: number, kind: 'lost' | 'braced' = 'lost'): void {
   if (amount > 0) events.push({ kind, ...base, target: idx, part, amount });
+}
+
+/** B9b: what stood protecting the enemy at a hit (Shell above 0 before the hit, a standing Bulwark or Governor), for achievement facts. */
+function protectionsOf(e: EnemyState, shellBefore: number): string[] {
+  const out: string[] = [];
+  if (shellBefore > 0) out.push('shell');
+  if (standingPassive(e, 'bulwark')) out.push('bulwark');
+  if (standingPassive(e, 'governor')) out.push('governor');
+  return out;
 }
 
 /**
@@ -220,6 +231,7 @@ export function damageTarget(
     }
     if (isCore && standingPassive(e, 'bulwark')) amt = Math.floor(amt / 2);
   }
+  const shellBefore = e.shell;
   let absorbed = 0;
   if (!opts.status && !opts.drill) {
     absorbed = Math.min(e.shell, amt);
@@ -267,25 +279,27 @@ export function damageTarget(
     return { lost, broke: false, died: false, cancelled: false };
   }
   const p = part as EnemyPartState;
+  const protectedBy = protectionsOf(e, shellBefore);
   p.hp -= lost;
   p.tookThisTurn += lost;
   if (opts.strikeEvent !== false) events.push({ kind: 'partHit', ...base, target: idx, part: partId, amount: lost, note });
   if (p.hp <= 0) {
-    const cancelled = breakPartState(c, idx, p, events, base);
+    const word = opts.word ?? (opts.status ? 'status' : opts.drill ? 'drill' : 'strike');
+    const cancelled = breakPartState(c, idx, p, events, base, { word, ...(protectedBy.length ? { protectedBy } : {}) });
     return { lost, broke: true, died: false, cancelled };
   }
   return { lost, broke: false, died: false, cancelled: false };
 }
 
 /** A part reaches 0 HP: it never acts again, its intent is cancelled at once, its salvage is queued. Returns whether it had an intent. */
-export function breakPartState(c: CombatState, idx: number, part: EnemyPartState, events: GameEvent[], base: EventBase = NO_BASE): boolean {
+export function breakPartState(c: CombatState, idx: number, part: EnemyPartState, events: GameEvent[], base: EventBase = NO_BASE, extra: Pick<GameEvent, 'word' | 'protectedBy' | 'by'> = {}): boolean {
   const e = c.enemies[idx];
   const f = frameOf(e) as FrameDef;
   const d = partDefOf(e, part.id);
   part.broken = true;
   part.hp = 0;
   if (d?.salvage) c.broken.push({ enemy: idx, partId: part.id, salvage: d.salvage, rarity: d.rarity, locked: false });
-  events.push({ kind: 'partBroken', ...base, target: idx, part: part.id });
+  events.push({ kind: 'partBroken', ...base, target: idx, part: part.id, ...extra });
   const had = e.intents.some((i) => i.partId === part.id);
   const ph = f.phases?.[e.phase];
   if (ph) {

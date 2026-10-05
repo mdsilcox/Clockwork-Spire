@@ -73,6 +73,8 @@ export interface PartDef {
   family: Family;
   rarity: Rarity;
   locked: boolean;
+  /** B9b: the achievement id that unlocks this Masterwork or Legendary part (content.md section 7). */
+  unlock?: string;
   text: string;
   textPlus: string;
   flavor?: string;
@@ -174,4 +176,28 @@ export interface EnemyDef {
   afterMachine?: (c: CombatState, idx: number, events: GameEvent[]) => void;
   /** Summons this def once when its HP drops to half or below (checked at the start of its turn). */
   summonAtHalf?: string;
+}
+
+// ---------- B9b: achievements (docs/content.md section 7; rules 5.6) ----------
+
+export interface AchievementReward {
+  parts?: string[]; // part ids into the pool (unlocks)
+  trinkets?: string[]; // trinket ids into the pool
+  journal?: string; // a journal page title
+  collar?: string; // a collar id (cosmetic, recorded in profile.rewards until B10)
+  landmark?: string; // a landmark id (recorded until B10)
+  overwind?: number; // Overwind level reached (recorded until B10)
+  chassis?: string; // a chassis id (the Scrapper waits for B10)
+}
+
+export interface AchievementDef {
+  id: string;
+  name: string;
+  /** The condition, as shown on the trophy shelf. */
+  text: string;
+  tier: 'easy' | 'medium' | 'hard';
+  hidden: boolean;
+  reward: AchievementReward;
+  /** False when it opens with Bellfoot in B10: shown locked with "Opens with Bellfoot". */
+  available: boolean;
 }

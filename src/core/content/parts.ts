@@ -781,24 +781,39 @@ const list: PartDef[] = [
     },
   },
 
-  // ---------- Masterwork stubs (B9 builds them): locked, never offered, here so salvage ids resolve ----------
+  // ---------- B9b: the 10 Masterwork and 5 Legendary parts (docs/content.md section 2) ----------
+  // B9b.0 CONTRACT: ids, names, families, texts and unlock achievement ids are final; every effect is a no-op until the
+  // items-engine lane (B9b.1) fills it. All locked: an achievement unlocks each (one apiece, content.md section 7), so no
+  // run sees them before then. The `unlock` field is the achievement id.
   ...(
     [
-      ['skewframe', 'Skewframe', 'gear'],
-      ['twin-mainspring', 'Twin Mainspring', 'spring'],
-      ['free-pawl', 'Free Pawl', 'spring'],
-      ['cascade-piston', 'Cascade Piston', 'steam'],
+      ["skewframe", "Skewframe", "gear", "masterwork", "m-quick-foreman", "Strike 2. Motion passes to all 8 neighbors, diagonals included.", "Strike 4."],
+      ["mirror-gear", "Mirror Gear", "gear", "masterwork", "m-residents", "Fires as a copy of the first adjacent part (up, right, down, left) that isn't a Mirror Gear, using its own charge.", "Also Boost 1."],
+      ["twin-mainspring", "Twin Mainspring", "spring", "masterwork", "m-all-chassis", "Place only on D2. Emits its own pulse each tick, right after the Mainspring's.", "Its first powered part gets Boost 1."],
+      ["free-pawl", "Free Pawl", "spring", "masterwork", "m-calm-steam", "Springs adjacent to it charge and pass motion instead of holding.", "Also Boost 1 on each release."],
+      ["night-watchman", "Night Watchman", "cam", "masterwork", "m-break-all", "If powered this turn: before the enemies act, it fires once: Strike 7 at the first part that will act.", "Strike 10."],
+      ["resonance-rod", "Resonance Rod", "cam", "masterwork", "m-burst", "Plate 1. The other two cells in its column fire with Echo.", "Plate 3."],
+      ["hour-hand", "Hour Hand", "tempo", "masterwork", "m-bells", "The parts to its left and right treat every tick as the last tick.", "Also Plate 2."],
+      ["ballast-lance", "Ballast Lance", "tempo", "masterwork", "m-vaults", "On the last tick: Strike equal to half your Plating (rounded up, max 20). Your Plating is kept.", "Three quarters, max 24."],
+      ["cascade-piston", "Cascade Piston", "steam", "masterwork", "m-no-plating", "Spend 3 Pressure: Strike 12; damage beyond what the target has left carries to the next standing entry in your target order, once. Without Pressure: Strike 3.", "Strike 16."],
+      ["conductors-baton", "Conductor's Baton", "chime", "masterwork", "m-status", "Strike 2. Each Cracked, Dazed or Scald applied this turn is also applied to every other enemy.", "Strike 3."],
+      ["perpetual-engine", "Perpetual Engine", "tempo", "legendary", "h-ow5", "On the last tick, every part that fired this turn fires once more (once each, in the order first reached).", "Also Plate 6."],
+      ["bottled-dusk", "Bottled Dusk", "tempo", "legendary", "h-clockwork", "+2 ticks this turn (once per turn). Each tick after the 3rd adds 2 Pressure.", "+3 ticks."],
+      ["sun-orb-core", "Sun-Orb Core", "steam", "legendary", "h-ow10", "You never overpressure. Spend all Pressure above 10: Sweep 2 per Pressure spent.", "Sweep 3 per Pressure."],
+      ["apprentices-hands", "Apprentice's Hands", "gear", "legendary", "h-master", "While powered this turn, your Strikes hit the first two standing entries of your target order; the second takes half (rounded down).", "The second takes three quarters."],
+      ["sprockets-blanket", "Sprocket's Blanket", "spring", "legendary", "h-flawless", "Plate 3. Half your Plating (rounded down, max 12) stays when it would fall away at the start of your turn.", "Plate 5; keeps two thirds, max 18."],
     ] as const
   ).map(
-    ([id, name, family]): PartDef => ({
+    ([id, name, family, rarity, unlock, text, textPlus]): PartDef => ({
       id,
       name,
       family,
-      rarity: 'masterwork',
+      rarity,
       locked: true,
-      text: 'Coming soon.',
-      textPlus: 'Coming soon+.',
-      onFire: () => {},
+      unlock,
+      text,
+      textPlus,
+      onFire: () => {}, // B9b hook (items-engine)
     }),
   ),
 ];

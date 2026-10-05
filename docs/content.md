@@ -529,10 +529,10 @@ v1's 28, with the changes noted, plus 8 new, plus 4 Masterwork and 2 Legendary t
 | **new** breakers-mallet | Breaker's Mallet | U | When you break an enemy part, Plate 4. | breaking parts |
 | **new** mending-thread | Mending Thread | C | Patch parts heal 2 more. | healing |
 | **new** overrun-coupler | Overrun Coupler | M | Once per turn, a Strike that deals more than its target has left carries the excess to the next standing entry of your target order. Unlocked by `m-drill`. | rule-bending |
-| **new** foresight-dial | Foresight Dial | M | Intents are shown two enemy turns ahead (the second turn dimmed). Unlocked by `m-three-elites`. | rule-bending |
+| **new** foresight-dial | Foresight Dial | M | Intents are shown two enemy turns ahead (the second turn dimmed): each standing part's action on the enemy's next-but-one turn, computed from the part cadences (random targets are not named) and recomputed whenever the state changes. Unlocked by `m-three-elites`. | rule-bending |
 | **new** two-left-hands | Two Left Hands | M | Two free swaps each turn, and a swap may trade a board part with a part in your hand. Unlocked by `m-bell3`. | rule-bending |
 | **new** tow-hook | Tow Hook | M | Once per combat, when a core dies, its best standing part (highest rarity, then leftmost) is salvaged as if you had broken it. Unlocked by `m-wrecker`. | rule-bending |
-| **new** inventors-watch | The Inventor's Watch | L | Once per combat, after a Run, wind back: your board, charge, Pressure, HP and every enemy return to how they were before that Run (your hand and draw order stay). Unlocked by `h-master-bare`. | run-defining |
+| **new** inventors-watch | The Inventor's Watch | L | Once per combat, after a Run's replay ends, wind back: everything returns to how it was before that Run: board, charge, Pressure, HP, statuses, every enemy, your hand, the draw order and every random stream, so the same draws and intents follow. Usable after a lost Run (defeat waits for the choice). Unlocked by `h-master-bare`. | run-defining |
 | **new** sprockets-whistle | Sprocket's Whistle | L | At the start of each of your turns, Sprocket fetches: Pry 5 at the first living enemy, free. A part he breaks drops 1 extra Scrap. Unlocked by `h-whole-clock`. | run-defining |
 
 Counts: 15 Common (12 v1, 3 new), 14 Uncommon (10 v1, 4 new), 3 Rare (2 v1, 1 new), 4 Masterwork, 2 Legendary, 4 Boss: 42 trinkets. A run holds at most one Legendary, part or trinket.
@@ -688,6 +688,9 @@ Rules 4.2, 4.4 and 4.5, in one place. Prices are fixed (no variance).
 12. A Spring Trap release can break the acting part and cancel the rest of its action (2.6).
 13. Salvage is optional to keep (2.5); the simulator watches bin size.
 14. Phase timing: a Run's remaining damage is lost when the last keystone breaks; the next enemy turn is the phase action only; cadences restart (4.8). Braced makes 2 turns per phase and 3 for the last a floor (2.4).
+
+15. (Question 3, B9b) The Foresight Dial's second turn is computed, not rolled: v2 intents come from part cadences, which are deterministic (`previewIntents(combat, enemyIndex, 2)`); random targets are not named. Shown dimmed beside the current intent and never stale.
+16. (Question 4, B9b) The Inventor's Watch restores the snapshot taken just before the last Run, hand, draw order and every stream included (rules 1.6), once per combat, also after a lost Run; the defeat prompt "Wind back or Accept defeat" comes before the fight settles.
 
 **Round 2 decisions in this file:** the Plating bypass shares per act (3.0); regular cores at about 60% of HP; every Ratchet is 1; Corrode is a percentage everywhere (regulars 50%, elites and wardens 50% to 75%); wardens re-sized for Braced with floors 5, 7 and 7 turns; Masterwork and Legendary trinkets (section 5); early non-win feats open a Rare, a Masterwork trinket and Masterwork parts (section 7); the archivist is present from the first run and the Hour Ghost adds lore pages and fuller bestiary entries (section 6); warden lines picked from content and lore (the lines are final here; lore.md is synced to them).
 

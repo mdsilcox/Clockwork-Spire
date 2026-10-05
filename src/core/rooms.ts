@@ -16,7 +16,7 @@ export const PART_VALUE: Record<string, number> = { common: 20, uncommon: 35, ra
 export const BUY_MARKUP = 1.25; // buying with Scrap alone costs value + 25%
 export const OIL_SCRAP = 15;
 export const OIL_HEAL = 15;
-export const TRINKET_VALUE: Record<string, number> = { common: 60, uncommon: 90, rare: 120, boss: 120, masterwork: 160 };
+export const TRINKET_VALUE: Record<string, number> = { common: 60, uncommon: 90, rare: 120, boss: 120, masterwork: 160, legendary: 0 };
 export const VAULT_SCRAP = 40;
 
 const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'masterwork', 'legendary'];
