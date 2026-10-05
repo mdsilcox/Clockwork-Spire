@@ -194,13 +194,16 @@ export function finishRun(
   const bestBefore = profile.bestFloor;
   profile.runsFinished += 1;
   profile.runsStarted = Math.max(profile.runsStarted, profile.runsFinished);
-  const record: RunRecord = { ...base, n: profile.runsFinished, endedAt };
+  const record: RunRecord = { ...base, brassEarned: brass, n: profile.runsFinished, endedAt }; // the Brass paid (the mode and Overwind applied)
   profile.brass += brass;
   profile.brassEarnedTotal += brass;
   for (const b of base.blueprintsFound) if (!profile.blueprints.includes(b)) profile.blueprints.push(b);
   profile.history.unshift(record);
   if (profile.history.length > HISTORY_CAP) profile.history.length = HISTORY_CAP;
-  if (record.result === 'win') profile.wins += 1;
+  if (record.result === 'win') {
+    profile.wins += 1;
+    openModes(profile, record.mode ?? DEFAULT_MODE);
+  }
   profile.bestFloor = Math.max(profile.bestFloor, absoluteFloor(run));
 
   const before = new Set(profile.storyFlags);
@@ -236,6 +239,17 @@ export function finishRun(
 
   const newNotes = profile.storyFlags.filter((f) => !before.has(f) && STORY_NOTES.some((n) => n.id === f));
   return { record, mood, brass, newUnlocks, newNotes, newAchievements };
+}
+
+/** B10b: a win opens the next mode (Journeyman: Master; Master: Clockwork; a harder win also opens the ones below it), and the first win
+ * on Journeyman or harder opens Overwind 1 to 3 (an Apprentice win opens neither). */
+function openModes(profile: Profile, mode: string): void {
+  const rank = ['apprentice', 'journeyman', 'master', 'clockwork'].indexOf(mode);
+  if (rank < 1) return;
+  const modes = (profile.modesUnlocked ??= START_MODES.slice());
+  for (const id of ['master', 'clockwork'].slice(0, rank)) if (!modes.includes(id)) modes.push(id);
+  const rw = (profile.rewards ??= { journal: [], collars: [], landmarks: [], overwind: 0, chassis: [] });
+  rw.overwind = Math.max(rw.overwind, 3);
 }
 
 /** B10a: a run's memory goes into the profile in finishRun's one write (rules 5.4): the resident its event sent to Bellfoot

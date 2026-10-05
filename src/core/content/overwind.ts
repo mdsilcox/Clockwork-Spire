@@ -38,9 +38,9 @@ export const THIRTEENTH_HOUR: WardenPhaseDef = {
     keystone({ id: 'clock-hourless-dial', name: 'Hourless Dial', hp: 30, actions: [{ kind: 'rewind', amount: 3 }], anchor: 'the great wheel behind his head' }),
   ],
   beat: 'There is one more hour. I kept it for you.',
-  action: null, // the phase action is chosen by B10b.1 with the engine wiring
+  action: { kind: 'rewind', amount: 2 }, // the phase action: he winds the hour back once more
   mood: 'phase',
-  coreExposed: true,
+  coreExposed: false, // the core re-seals behind the two keystones
 };
 
 export const THIRTEENTH_CORE = { hp: 40, bracedTo: 13, governor: false, plating: 'lost at the start of each of his turns' } as const;

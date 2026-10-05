@@ -1,4 +1,5 @@
 // The act map, the run bar (HP, Cogs, parts, trinkets) and the bin viewer.
+import { modeText } from './ClockTower';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { abandonClimb, availableNow, goNode, runToTitle, runView } from '../app/controller';
 import { binOpen, colorBlind, openGlossary, openHowTo, openSettings, setColorBlind } from '../app/prefs';
@@ -59,6 +60,9 @@ export function RunBar({ run, title }: { run: RunState; title?: string }) {
         <b data-testid="act-title">{title ?? ACT_TITLE[run.act]}</b>
         <span class="rfloor">{floorLine(run)}</span>
       </div>
+      <span class="modetag" data-testid="run-mode" data-mode={run.config.mode ?? 'journeyman'} data-overwind={run.config.overwind ?? 0}>
+        {modeText(run.config.mode, run.config.overwind)}
+      </span>
       <div class="pill hp" data-testid="run-hp">
         <span class="lbl">HP</span>
         <span class="bar">

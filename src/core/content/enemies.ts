@@ -6,6 +6,7 @@
 // nominal 10 (the engine clamps your last biggest hit to 6..18); the Minute Needle rusts your strongest part.
 import type { EnemyDef, EnemyPartDef, FrameDef, IntentStep, Passive, WardenPhaseDef } from '../defs';
 import { attackLabel } from '../enemy';
+import { THIRTEENTH_HOUR } from './overwind';
 import type { ActionDef, Cadence, Plan, Rarity } from '../types';
 
 const attack = (amount: number, hits = 1): IntentStep => ({ kind: 'attack', amount, hits: hits > 1 ? hits : undefined, label: attackLabel(amount, hits) });
@@ -92,6 +93,7 @@ interface WardenSpec {
   bestiary: string;
   phases: WardenPhaseDef[];
   memoryParts?: Record<Plan, EnemyPartDef>;
+  extraPhase?: WardenPhaseDef;
 }
 
 /** A warden (B9a): a braced frame machine with phases (docs/content.md 3.2, 3.4, 3.6). Phase 1 parts are phases[0].parts. */
@@ -112,6 +114,7 @@ const warden = (id: string, name: string, act: 1 | 2 | 3, w: WardenSpec): EnemyD
     punishes: w.punishes,
     bestiary: w.bestiary,
     memoryParts: w.memoryParts,
+    extraPhase: w.extraPhase,
   },
 });
 
@@ -129,6 +132,14 @@ const even: Cadence = 'even';
 const every: Cadence = 'every';
 const passive: Cadence = 'passive';
 const of3 = (...at: number[]): Cadence => ({ of: 3, at });
+
+/** The memory parts (B9a), shared since B10b: the Clockmaker always has the one for the plan he remembers; Overwind 9 gives the Foreman and the Queen the same. */
+export const MEMORY_PARTS: Record<Plan, EnemyPartDef> = {
+  plating: part({ id: 'mem-drill', name: 'Pierce Drill', hp: 24, r: 'R', cadence: every, actions: [pierce(14)], salvage: null, anchor: 'the drill on his shoulder' }),
+  burst: part({ id: 'mem-governor', name: 'Governor Cap', hp: 24, r: 'R', cadence: passive, passive: { kind: 'governor', cap: 12 }, salvage: null, anchor: 'the cap on his head' }),
+  pressure: part({ id: 'mem-valve', name: 'Drain Valve', hp: 22, r: 'R', cadence: every, actions: [{ kind: 'drain', amount: 8 }], salvage: null, anchor: 'the valve at his collar' }),
+  statuses: part({ id: 'mem-chime', name: 'Purge Chime', hp: 22, r: 'R', cadence: every, actions: [{ kind: 'purge' }], salvage: null, anchor: 'the small chime at his belt' }),
+};
 
 const list: EnemyDef[] = [
   { id: 'dummy', name: 'Practice Dummy', act: 1, tier: 'normal', hp: 999, pattern: [{ kind: 'special', label: 'Waits' }] },
@@ -501,12 +512,8 @@ const list: EnemyDef[] = [
     scrap: 0,
     punishes: ['plating', 'burst', 'pressure', 'slow'],
     bestiary: 'Each phase has a part that Rewinds your strongest combination: break it. He remembers how you played, and each broken part pays Brass.',
-    memoryParts: {
-      plating: part({ id: 'mem-drill', name: 'Pierce Drill', hp: 24, r: 'R', cadence: every, actions: [pierce(14)], salvage: null, anchor: 'the drill on his shoulder' }),
-      burst: part({ id: 'mem-governor', name: 'Governor Cap', hp: 24, r: 'R', cadence: passive, passive: { kind: 'governor', cap: 12 }, salvage: null, anchor: 'the cap on his head' }),
-      pressure: part({ id: 'mem-valve', name: 'Drain Valve', hp: 22, r: 'R', cadence: every, actions: [{ kind: 'drain', amount: 8 }], salvage: null, anchor: 'the valve at his collar' }),
-      statuses: part({ id: 'mem-chime', name: 'Purge Chime', hp: 22, r: 'R', cadence: every, actions: [{ kind: 'purge' }], salvage: null, anchor: 'the small chime at his belt' }),
-    },
+    memoryParts: MEMORY_PARTS,
+    extraPhase: THIRTEENTH_HOUR,
     phases: [
       phaseDef("Welcome back. It's still evening.", null, ['clock-hour', 'clock-tick'], [
         part({ id: 'clock-hour', name: 'Hour Hand', hp: 26, r: 'R', cadence: every, actions: [corrode(50), hit(20)], salvage: null, key: true, anchor: 'the hour hand across his chest' }),
@@ -517,7 +524,7 @@ const list: EnemyDef[] = [
         part({ id: 'clock-tock', name: 'Tock Weight', hp: 30, r: 'R', cadence: every, actions: [{ kind: 'rewind', amount: 1 }, { kind: 'reset-pressure' }], salvage: null, key: true, anchor: 'the pendulum weight under his ribs' }),
       ]),
       phaseDef('If the hour ends, the inventor ends with it.', { kind: 'jam' }, [], [
-        part({ id: 'clock-gov', name: 'Governor Frame', hp: 24, r: 'R', cadence: passive, passive: { kind: 'governor', cap: 10 }, salvage: null, anchor: 'the brass frame around his core' }),
+        part({ id: 'clock-gov', name: 'Governor Frame', hp: 24, r: 'R', cadence: passive, passive: { kind: 'governor', cap: 10 }, salvage: null, last: 3, anchor: 'the brass frame around his core' }),
         part({ id: 'clock-wheel', name: 'Hour Wheel', hp: 26, r: 'R', cadence: every, actions: [{ kind: 'rewind', amount: 2 }], salvage: null, anchor: 'the great wheel behind his head' }),
         part({
           id: 'clock-bell',

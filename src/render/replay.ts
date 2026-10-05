@@ -70,6 +70,10 @@ export function applyEvent(v: StageView, ev: GameEvent): void {
         v.partBroken[k] = false;
       }
       break;
+    case 'enemyHeal':
+      // a core that came back for the Thirteenth Hour (B10b): the view had it at 0
+      if (ev.note === 'phase' && ev.target !== undefined) v.enemyHp[ev.target] = ev.amount ?? v.enemyHp[ev.target];
+      break;
     case 'plate':
       v.plating += ev.amount ?? 0;
       break;

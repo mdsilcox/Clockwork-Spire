@@ -1,4 +1,5 @@
 // The Workshop: the home between runs. Sprocket, the upgrade bench, the chassis rack, notes, blueprints and the door.
+import { modeText } from './ClockTower';
 import { signal } from '@preact/signals';
 import { useState } from 'preact/hooks';
 import { abandonClimb, climb, climbing, buyChassisNow, buyUpgrade, continueRun } from '../app/controller';
@@ -254,6 +255,9 @@ export function GatePanel({ p }: { p: Profile }) {
   return (
     <section class="gatepanel" data-testid="gate">
       <p class="gateline">{on ? 'Your climb is waiting where you left it.' : 'The Spire stands over the street, quiet and very tall.'}</p>
+      <p class="modetag" data-testid="gate-mode" data-mode={p.lastMode ?? 'journeyman'} data-overwind={p.lastOverwind ?? 0}>
+        {modeText(p.lastMode, p.lastOverwind)}
+      </p>
       <footer class="door">
         {on ? (
           <>

@@ -37,6 +37,7 @@ import { unlockAudio } from '../audio/synth';
 import type { RigHandle } from '../render/rig';
 import { sharedRigHub } from '../render/rig';
 import { Archivist } from './Archivist';
+import { ClockTower } from './ClockTower';
 import { drawAmbience, drawStreet, VIEW_H, VIEW_TOP } from './bellfootScene';
 import { drawStalls } from './bellfootStalls';
 import { fmt } from './format';
@@ -508,16 +509,6 @@ function Stall({ id }: { id: string }) {
         <dt>How they came</dt>
         <dd>You met them in the Spire: {ev ? `"${ev.title}"` : 'a chance meeting'}. They moved to Bellfoot when the climb ended.</dd>
       </dl>
-    </section>
-  );
-}
-
-function ClockTower({ p }: { p: Profile }) {
-  const wins = (p.history ?? []).some((h) => h.result === 'win');
-  return (
-    <section class="towerpanel" data-testid="clocktower-panel">
-      <p>Mode: Journeyman. {wins ? 'You have won on it.' : 'The door is shut and the hands do not move.'}</p>
-      <p>Overwind opens after a Journeyman win.</p>
     </section>
   );
 }

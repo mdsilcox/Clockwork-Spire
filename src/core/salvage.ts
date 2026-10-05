@@ -1,7 +1,7 @@
 // Salvage (docs/rules.md 2.5). B7: the 'salvage' Pending replaces the part reward after fights and elites;
 // Scrap in the climb (run.scrap); v1 runs without it still pay Cogs.
 import { PARTS } from './content/parts';
-import { salvageKeepLimit } from './difficulty';
+import { salvageKeepLimit, scrapPerScrapped } from './difficulty';
 import { partOpen } from './pool';
 import { addScrap, newPart, recordOffers, markOfferTaken } from './rewards';
 import type { CombatState, RunState, SalvageItem } from './types';
@@ -25,14 +25,14 @@ export function salvageItems(c: CombatState, isUnlocked: (partId: string) => boo
 }
 
 /** Keep the items at `keep` (indices into items, locked ones can't be kept); everything else pays Scrap. */
-export function salvagePayout(items: SalvageItem[], keep: number[], wrecked: number): { kept: string[]; scrap: number } {
+export function salvagePayout(items: SalvageItem[], keep: number[], wrecked: number, scrapEach = SCRAP_PER_SCRAPPED): { kept: string[]; scrap: number } {
   const keepSet = new Set(keep);
   const kept: string[] = [];
   let scrap = Math.max(0, wrecked) * SCRAP_PER_WRECKED;
   items.forEach((it, i) => {
     if (it.locked) scrap += SCRAP_PER_LOCKED;
     else if (keepSet.has(i)) kept.push(it.salvage);
-    else scrap += SCRAP_PER_SCRAPPED;
+    else scrap += scrapEach;
   });
   return { kept, scrap };
 }
@@ -42,8 +42,8 @@ export function takeSalvage(run: RunState, keep: number[]): boolean {
   const p = run.pending;
   if (run.phase !== 'reward' || !p || p.kind !== 'salvage' || p.done) return false;
   if (keep.some((k) => !Number.isInteger(k) || k < 0 || k >= p.items.length)) return false;
-  if (keep.length > salvageKeepLimit(run)) return false; // B10b hook (modes-overwind): Overwind 7
-  const { kept, scrap } = salvagePayout(p.items, keep, p.wrecked ?? 0);
+  if (keep.filter((k) => !p.items[k].scrapper).length > salvageKeepLimit(run)) return false; // B10b hook (modes-overwind): Overwind 7 (the Scrapper's and the Tow Hook's offers don't count)
+  const { kept, scrap } = salvagePayout(p.items, keep, p.wrecked ?? 0, scrapPerScrapped(run, SCRAP_PER_SCRAPPED));
   const keepSet = new Set(keep);
   p.items.forEach((it, i) => {
     if (it.locked || !keepSet.has(i)) return;

@@ -1,7 +1,7 @@
 // Frame helpers shared by enemy.ts, machine.ts, frames.ts and run.ts: part lookup, passives, cadences, intent labels.
 // Pure. Legacy enemies (no `frame`) have no parts; every helper treats them as a core-only enemy.
-import { enemyDef } from './content/enemies';
-import type { EnemyPartDef, FrameDef, Passive } from './defs';
+import { enemyDef, MEMORY_PARTS } from './content/enemies';
+import type { EnemyPartDef, FrameDef, Passive, WardenPhaseDef } from './defs';
 import type { ActionDef, Cadence, EnemyPartState, EnemyState, IntentKind } from './types';
 
 export function frameOf(e: EnemyState): FrameDef | undefined {
@@ -11,7 +11,15 @@ export function frameOf(e: EnemyState): FrameDef | undefined {
 /** Every part def of a frame (all phases for wardens). */
 export function allPartDefs(f: FrameDef): EnemyPartDef[] {
   const base = f.phases ? f.phases.flatMap((p) => p.parts) : f.parts;
-  return f.memoryParts ? [...base, ...Object.values(f.memoryParts)] : base;
+  const withExtra = f.extraPhase ? [...base, ...f.extraPhase.parts] : base;
+  // the memory parts are shared: the Clockmaker's own, and Overwind 9's extra part on the Foreman and the Queen
+  return f.memoryParts ? [...withExtra, ...Object.values(f.memoryParts)] : f.phases ? [...withExtra, ...Object.values(MEMORY_PARTS)] : withExtra;
+}
+
+/** A warden's phases at this Overwind level: the Clockmaker has a fourth, the Thirteenth Hour, from level 10. */
+export function phasesOf(f: FrameDef, overwind = 0): WardenPhaseDef[] {
+  const base = f.phases ?? [];
+  return f.extraPhase && overwind >= 10 ? [...base, f.extraPhase] : base;
 }
 
 export function partDefOf(e: EnemyState, id: string): EnemyPartDef | undefined {

@@ -2,7 +2,7 @@
 // loss, abandonRun); B9b extends it with the achievement facts, in sequence. The per-turn accumulation lives in combat.ts
 // (`accumulatePlan`, from the GameEvent timeline); recordFight moves a fight's totals into the run.
 import { enemyDef } from './content/enemies';
-import { partDefOf, partState } from './framelib';
+import { partDefOf, partState, phasesOf } from './framelib';
 import { addScrap } from './rewards';
 import type { CombatState, GameEvent, Plan, PlanStats, RunState } from './types';
 
@@ -69,7 +69,8 @@ function everPartIds(c: CombatState, idx: number): string[] {
   const e = c.enemies[idx];
   const fr = enemyDef(e.defId).frame;
   const ids = new Set<string>(e.parts.map((p) => p.id));
-  if (fr?.phases) for (let i = 0; i <= e.phase && i < fr.phases.length; i++) for (const p of fr.phases[i].parts) ids.add(p.id);
+  const phs = fr ? phasesOf(fr, c.overwind) : [];
+  if (fr?.phases) for (let i = 0; i <= e.phase && i < phs.length; i++) for (const p of phs[i].parts) ids.add(p.id);
   else for (const p of fr?.parts ?? []) ids.add(p.id);
   return [...ids];
 }

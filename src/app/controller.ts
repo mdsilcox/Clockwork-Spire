@@ -23,8 +23,10 @@ import { townPlaces } from '../ui/town';
 import { generateActMap } from '../core/map';
 import { partName } from '../core/content/parts';
 import { enemyDef } from '../core/content/enemies';
-import { actionLabel, listIntentKind } from '../core/framelib';
+import { actionLabel, allPartDefs, listIntentKind, phasesOf } from '../core/framelib';
 import { memoryPlan } from '../core/record';
+import { MODE_BY_ID, MODES } from '../core/content/modes';
+import { modeLock, overwindLock } from '../core/difficulty';
 import type { Speed, Stage } from '../render/stage';
 import { sharedRigHub } from '../render/rig';
 import type { StageView } from '../render/replay';
@@ -218,7 +220,8 @@ function onEvent(e: GameEvent, sp: Speed): void {
   } else if (e.kind === 'phase') {
     showBanner(e.note ?? 'He changes.', 'phase');
     const defId = e.target !== undefined ? live?.enemies[e.target]?.defId : undefined;
-    const act = defId && e.amount !== undefined ? enemyDef(defId).frame?.phases?.[e.amount]?.action : null;
+    const fr = defId ? enemyDef(defId).frame : undefined;
+    const act = fr && e.amount !== undefined ? phasesOf(fr, live?.overwind)[e.amount]?.action : null;
     phaseIntent.value = act && e.target !== undefined ? { enemy: e.target, intent: { partId: 'core', actions: [act], kind: listIntentKind([act]), label: actionLabel(act) } } : null;
   }
   else if (e.kind === 'rewind') {
@@ -489,6 +492,46 @@ export function setCollar(id: string | null): void {
 
 /** Drink an Oil Flask on the climb screen: heal 15 HP, no hour. */
 export const useOilFlask = (): boolean => runAction((r) => (r.phase === 'section' ? rooms.useOilFlask(r) : false)) ?? false;
+
+/** The clock tower door: pick a mode (only an open one). */
+export function pickMode(id: string): void {
+  if (!active || !MODE_BY_ID[id] || modeLock(active.profile, id)) return;
+  active.profile.lastMode = id;
+  saveActive();
+}
+
+/** The clock tower door: pick an Overwind level 0 to 10 (only an open one). */
+export function pickOverwind(n: number): void {
+  if (!active || !Number.isInteger(n) || n < 0 || n > 10 || overwindLock(active.profile, n)) return;
+  active.profile.lastOverwind = n;
+  saveActive();
+}
+
+export interface ClocktowerView {
+  mode: string;
+  overwind: number;
+  overwindOpen: number;
+  modes: { id: string; locked: boolean; reason: string | null }[];
+  levels: { level: number; locked: boolean; reason: string | null }[];
+}
+
+/** What the clock tower door shows (the browser hook `__game.clocktower()`). */
+function clocktowerView(): ClocktowerView {
+  const p = active?.profile;
+  return {
+    mode: p?.lastMode ?? 'journeyman',
+    overwind: p?.lastOverwind ?? 0,
+    overwindOpen: p?.rewards?.overwind ?? 0,
+    modes: MODES.map((m) => {
+      const reason = p ? modeLock(p, m.id) : null;
+      return { id: m.id, locked: !!reason, reason };
+    }),
+    levels: Array.from({ length: 11 }, (_, level) => {
+      const reason = p ? overwindLock(p, level) : null;
+      return { level, locked: !!reason, reason };
+    }),
+  };
+}
 
 export function petSprocket(): void {
   if (active) {
@@ -1216,6 +1259,8 @@ function cheatRunFight(enemies: string[]): void {
     handSize: r.config.handSize,
     chassis: r.config.chassis,
     memory: active ? memoryPlan(active.profile.planHistory) : null,
+    mode: active?.profile.lastMode,
+    overwind: active?.profile.lastOverwind,
   } as CreateCombatOpts);
   afterRun(true);
 }
@@ -1228,7 +1273,8 @@ async function cheatBreakPhase(enemy: number): Promise<void> {
   const c = live;
   const e = c?.enemies[enemy];
   if (!c || !e) return;
-  const ph = enemyDef(e.defId).frame?.phases?.[e.phase];
+  const fr0 = enemyDef(e.defId).frame;
+  const ph = fr0 ? phasesOf(fr0, c.overwind)[e.phase] : undefined;
   if (!ph) return;
   const events: GameEvent[] = [];
   for (const id of ph.keystones) {
@@ -1247,7 +1293,7 @@ function cheatBreakPart(enemy: number, partId: string): void {
   const st = e.parts.find((p) => p.id === partId);
   if (!st || st.broken) return;
   const fr = enemyDef(e.defId).frame;
-  const defs = fr ? [...fr.parts, ...(fr.phases ?? []).flatMap((ph) => ph.parts)] : [];
+  const defs = fr ? allPartDefs(fr) : [];
   const def = defs.find((d) => d.id === partId);
   st.hp = 0;
   st.broken = true;
@@ -1551,9 +1597,7 @@ export function installDebug(): void {
     // ---- end B10a.0 block ----
     // ---- B10b.0 CONTRACT (modes-overwind fills clocktower(); nobody else edits these blocks) ----
     /** The clock tower door: the modes (with what opens each locked one), the Overwind levels open, and the current choice. */
-    clocktower: (): unknown => {
-      throw new Error('B10b');
-    },
+    clocktower: (): ClocktowerView => clocktowerView(),
     // ---- end B10b.0 block ----
     cheat: {
       // ---- B9b.0 CONTRACT (progression lane): earn an achievement now, as finishRun would (unlocks, rewards, one save write) ----
@@ -1574,11 +1618,15 @@ export function installDebug(): void {
       },
       // ---- end B10a.0 block ----
       // ---- B10b.0 CONTRACT (modes-overwind): pick the mode or Overwind level for the next run on the active profile, then save ----
-      setMode: (_id: string): void => {
-        throw new Error('B10b');
+      setMode: (id: string): void => {
+        if (!active || !MODE_BY_ID[id]) return;
+        active.profile.lastMode = id;
+        saveActive();
       },
-      setOverwind: (_n: number): void => {
-        throw new Error('B10b');
+      setOverwind: (n: number): void => {
+        if (!active) return;
+        active.profile.lastOverwind = Math.max(0, Math.min(10, Math.floor(n)));
+        saveActive();
       },
       // ---- end B10b.0 block ----
       /** B9a: set the active profile's planHistory (the Clockmaker's memory), save, and re-render the Workshop. */

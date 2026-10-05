@@ -31,6 +31,8 @@ export function checkAchievements(profile: Profile, run: RunState, record: RunRe
   const bellAct = (act: number): boolean => (s.bells ?? []).some((b) => b.act === act && b.hoursLeft >= 3);
   const steam = run.bin.filter((p) => PARTS[p.defId]?.family === 'steam').length;
   const plating = s.plan?.plating ?? 0;
+  const mode = record.mode ?? run.config.mode ?? 'journeyman';
+  const level = record.overwind ?? run.config.overwind ?? 0;
 
   const met: Record<string, boolean> = {
     'e-first-win': won,
@@ -60,6 +62,13 @@ export function checkAchievements(profile: Profile, run: RunState, record: RunRe
     'm-residents': profile.residents.length >= 5,
     'm-lift': profile.landmarks.includes('lift'),
     'm-beacon': profile.landmarks.includes('beacon'),
+    // B10b: the six hard ones (the mode and level the run was played on)
+    'h-master': won && mode === 'master',
+    'h-clockwork': won && mode === 'clockwork',
+    'h-ow5': won && level >= 5,
+    'h-ow8': won && level >= 8,
+    'h-ow10': won && level >= 10,
+    'h-master-bare': won && mode === 'master' && plating < 150,
     'h-whole-clock': wardens.some((w) => w.enemy === 'clockmaker' && w.won && w.allBroken),
   };
 

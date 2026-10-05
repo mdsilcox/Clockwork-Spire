@@ -9,54 +9,127 @@
 //   hours per act: the mode's hours, minus 1 (Overwind 2), plus 1 in act 3 with the beacon, never below 6;
 //   oil: base times mode oil % times 0.5 at Overwind 6, round half up (stations, trader oil and Oil Flasks alike);
 //   Brass: mode % times (1 + 0.1 times the Overwind level), once, at finishRun.
-import type { CombatState, EnemyState, RunState } from './types';
+import { DEFAULT_MODE, MODE_BY_ID } from './content/modes';
+import { MEMORY_PARTS } from './content/enemies';
+import { neighbors } from './board';
+import { MAINSPRING } from './types';
+import { frameOf, initPart } from './framelib';
+import type { ModeDef } from './defs';
+import type { CombatState, EnemyPartState, EnemyState, Plan, Profile, RunState } from './types';
 
-/** Combat start and every summon: scale the enemy's HP (parts and core). */
-export function scaleEnemy(_c: CombatState, _e: EnemyState): void {
-  // pass-through
+/** Round half up of n / d for non-negative integers. */
+const rh = (n: number, d: number): number => Math.floor((2 * n + d) / (2 * d));
+
+/** The mode of a combat or run config (missing or unknown: Journeyman, the old saves' mode). */
+export function modeOf(id: string | undefined): ModeDef {
+  return MODE_BY_ID[id ?? DEFAULT_MODE] ?? MODE_BY_ID[DEFAULT_MODE];
+}
+const runMode = (run: RunState): ModeDef => modeOf(run.config.mode);
+const runLevel = (run: RunState): number => run.config.overwind ?? 0;
+const combatLevel = (c: CombatState): number => c.overwind ?? 0;
+
+/** One part's HP: the mode % times Overwind 3's +20%, multiplied, rounded half up once. */
+export function scalePart(c: CombatState, p: EnemyPartState): void {
+  const hp = rh(p.maxHp * modeOf(c.mode).enemyHp * (combatLevel(c) >= 3 ? 120 : 100), 10000);
+  p.hp = hp;
+  p.maxHp = hp;
 }
 
-/** The amount of one enemy attack the player takes before reductions: base plus Strength today. */
-export function enemyAmount(_c: CombatState, base: number, strength: number): number {
-  return base + strength;
+/** Combat start and every summon: scale the enemy's HP (parts and core). The core takes the mode % only. */
+export function scaleEnemy(c: CombatState, e: EnemyState): void {
+  const m = modeOf(c.mode);
+  const core = rh(e.maxHp * m.enemyHp, 100);
+  e.hp = core;
+  e.maxHp = core;
+  for (const p of e.parts) scalePart(c, p);
 }
 
-/** Hours in this act (startAct). */
-export function hoursFor(_run: RunState, base: number): number {
-  return base;
+/** The amount of one enemy attack the player takes before reductions: the mode % of the base, then Strength, then Overwind 8's +2. */
+export function enemyAmount(c: CombatState, base: number, strength: number): number {
+  return rh(base * modeOf(c.mode).enemyDamage, 100) + strength + (combatLevel(c) >= 8 ? 2 : 0);
 }
 
-/** An oil heal (stations, trader oil, Oil Flasks). */
-export function oilHealFor(_run: RunState, base: number): number {
-  return base;
+/** Hours in this act (startAct): the mode's, one fewer with Overwind 2, one more in act 3 with the beacon, never below 6. */
+export function hoursFor(run: RunState, beacon: boolean): number {
+  return Math.max(6, runMode(run).hours - (runLevel(run) >= 2 ? 1 : 0) + (beacon ? 1 : 0));
+}
+
+/** An oil heal (stations, trader oil, Oil Flasks): the mode's percent as a ratio to Journeyman's 30, halved with Overwind 6. */
+export function oilHealFor(run: RunState, base: number): number {
+  return rh(base * runMode(run).oilHeal * (runLevel(run) >= 6 ? 50 : 100), 3000);
 }
 
 /** A trader price (Overwind 1: +15%). */
-export function traderPrice(_run: RunState, price: number): number {
-  return price;
+export function traderPrice(run: RunState, price: number): number {
+  return runLevel(run) >= 1 ? rh(price * 115, 100) : price;
 }
 
-/** How many salvaged parts may be kept from one tray (Overwind 7: 1; the Scrapper's and the Tow Hook's extra offers don't count). */
-export function salvageKeepLimit(_run: RunState): number {
-  return Infinity;
+/** How many ordinary salvaged parts may be kept from one tray (Overwind 7: 1; items marked `scrapper` don't count). */
+export function salvageKeepLimit(run: RunState): number {
+  return runLevel(run) >= 7 ? 1 : Infinity;
+}
+
+/** Scrap for a salvage item that is not kept (3, or 2 with Overwind 7). */
+export function scrapPerScrapped(run: RunState, base: number): number {
+  return runLevel(run) >= 7 ? 2 : base;
 }
 
 /** How many steps every elite takes when an hour passes (Overwind 5: 2 on every third hour spent). */
-export function eliteSteps(_run: RunState): number {
-  return 1;
+export function eliteSteps(run: RunState): number {
+  const hour = run.hour ?? 0;
+  return runLevel(run) >= 5 && hour > 0 && hour % 3 === 0 ? 2 : 1;
 }
 
 /** A part was placed on `cell` (Overwind 4: the first one placed each combat is Rusted until the next turn). */
-export function afterPlacement(_c: CombatState, _cell: number): void {
-  // pass-through
+export function afterPlacement(c: CombatState, cell: number): void {
+  if (combatLevel(c) < 4) return;
+  const flags = (c.flags ??= {});
+  if (flags.coldJoints) return;
+  flags.coldJoints = 1;
+  const part = c.board[cell];
+  if (!part) return;
+  if (c.trinkets.includes('grease-pot') && neighbors(MAINSPRING).includes(cell)) return; // an ordinary Rust: Grease Pot stops it
+  part.rusted = 1;
 }
 
 /** Combat start: wardens gain the extra part chosen by the player's plan (Overwind 9: the Foreman and the Queen). */
-export function wardenExtraPart(_c: CombatState): void {
-  // pass-through
+export function wardenExtraPart(c: CombatState, memory: Plan | null | undefined): void {
+  if (combatLevel(c) < 9 || !memory) return;
+  for (const e of c.enemies) {
+    if (e.defId !== 'foreman' && e.defId !== 'boilermaker') continue;
+    const d = MEMORY_PARTS[memory];
+    if (!d || !frameOf(e) || e.parts.some((p) => p.id === d.id)) continue;
+    const s = initPart(d);
+    scalePart(c, s);
+    e.parts.push(s);
+  }
 }
 
-/** Brass at the end of a run (finishRun): the mode % times the Overwind bonus. */
-export function scaleBrass(_run: RunState, brass: number): number {
-  return brass;
+/** Brass at the end of a run (finishRun): the mode % times the Overwind bonus, multiplied once. */
+export function scaleBrass(run: RunState, brass: number): number {
+  return rh(brass * runMode(run).brass * (10 + runLevel(run)), 1000);
+}
+
+
+// ---------- the clock tower door: what is open and what opens the rest ----------
+
+const MODE_LOCK: Record<string, string> = { master: 'Win a run on Journeyman', clockwork: 'Win a run on Master' };
+
+/** Why a mode is shut, or null when it is open. */
+export function modeLock(p: Profile, id: string): string | null {
+  return (p.modesUnlocked ?? []).includes(id) ? null : (MODE_LOCK[id] ?? 'Not open yet');
+}
+
+/** What opens Overwind level `n` (1 to 10). */
+export function overwindLockText(n: number): string {
+  if (n <= 3) return 'Win a run on Journeyman or harder';
+  if (n <= 5) return 'Win a run on Master';
+  if (n <= 7) return 'Win a run on Clockwork';
+  if (n <= 9) return 'Win a run at Overwind 5';
+  return 'Win a run at Overwind 8';
+}
+
+/** Why Overwind level `n` is shut, or null when it is open (level 0 is always open). */
+export function overwindLock(p: Profile, n: number): string | null {
+  return n <= (p.rewards?.overwind ?? 0) ? null : overwindLockText(n);
 }

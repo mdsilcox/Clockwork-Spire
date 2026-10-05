@@ -5,7 +5,7 @@ import { inBoard } from './board';
 import { enemyDef } from './content/enemies';
 import { afterPlayerTurn, chooseIntent, enemyTurn, newEnemy, summonEnemy } from './enemy';
 import { initPart } from './framelib';
-import { afterPlacement, scaleEnemy, wardenExtraPart } from './difficulty';
+import { afterPlacement, scaleEnemy, scalePart, wardenExtraPart } from './difficulty';
 import { beforeEnemyTurn, canPlaceAt, onPlatingFall, onTurnStart } from './itemhooks';
 import { defaultOrder, defaultOrderFor, syncTargetIdx } from './frames';
 import { PARTS } from './content/parts';
@@ -96,10 +96,14 @@ export function createCombat(o: CreateCombatOpts): CombatState {
   if (o.memory) {
     for (const e of c.enemies) {
       const m = enemyDef(e.defId).frame?.memoryParts?.[o.memory];
-      if (m) e.parts.push(initPart(m));
+      if (m) {
+        const s = initPart(m);
+        scalePart(c, s); // B10b: the memory part scales like the rest
+        e.parts.push(s);
+      }
     }
   }
-  wardenExtraPart(c); // B10b hook (modes-overwind): Overwind 9's extra warden part
+  wardenExtraPart(c, o.memory); // B10b hook (modes-overwind): Overwind 9's extra warden part
   if (o.overwound) {
     for (const e of c.enemies) {
       e.statuses.strength = 3;

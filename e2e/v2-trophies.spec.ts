@@ -65,14 +65,14 @@ test('AD2 (E): an unlocked achievement shows on the trophy shelf, earned, with i
   expect(errors).toEqual([]);
 });
 
-test('achievements that open with Bellfoot say so, and are never earned', async ({ page }) => {
+test('all 33 achievements are available (B10b opened the six Overwind and Master ones) and none is earned in a fresh town', async ({ page }) => {
   await workshop(page);
   await openPlace(page, 'trophies');
-  for (const id of ['h-master', 'h-clockwork', 'h-ow5', 'h-ow10']) { // B10a opened e-resident and m-residents
+  for (const id of ['h-master', 'h-clockwork', 'h-ow5', 'h-ow10']) { // B10a opened e-resident and m-residents, B10b these
     const row = page.getByTestId(`trophy-${id}`);
-    await expect(row).toHaveAttribute('data-available', 'false');
+    await expect(row).toHaveAttribute('data-available', 'true');
     await expect(row).toHaveAttribute('data-earned', 'false');
-    await expect(row).toContainText('Opens with Bellfoot');
+    await expect(row).not.toContainText('Opens with Bellfoot');
   }
   await expect(page.getByTestId('trophy-m-burst')).toHaveAttribute('data-available', 'true');
   await expect(page.getByTestId('trophy-m-burst')).not.toContainText('Opens with Bellfoot');
