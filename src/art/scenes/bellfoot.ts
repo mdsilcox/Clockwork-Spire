@@ -35,8 +35,8 @@ export const BELLFOOT: SceneDef | null = {
   ambience: {
     lamps: [360, 1000, 1320, 1590].map((x) => [x, 480] as [number, number]),
     chimneys: [
-      [600, 300],
-      [1560, 250],
+      [757, 243],
+      [1620, 214],
     ],
   },
 };
