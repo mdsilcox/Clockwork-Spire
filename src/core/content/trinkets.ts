@@ -16,7 +16,7 @@ export interface TrinketDef {
 const list: TrinketDef[] = [
   { id: 'oilcloth', name: 'Oilcloth', rarity: 'common', text: 'Start each combat with 4 Plating.', onCombatStart: (c) => { c.plating += 4; } },
   { id: 'copper-wire', name: 'Copper Wire', rarity: 'common', text: 'The first part the Mainspring powers each tick gets Boost 1.' },
-  { id: 'lucky-bolt', name: 'Lucky Bolt', rarity: 'common', text: '+20% Cogs from fights.' },
+  { id: 'lucky-bolt', name: 'Lucky Bolt', rarity: 'common', text: '+20% Scrap from fights.' },
   { id: 'whetstone', name: 'Whetstone', rarity: 'common', text: 'Grit 1: every Strike +1.', onCombatStart: (c) => { c.playerStatuses.grit = (c.playerStatuses.grit ?? 0) + 1; } },
   { id: 'tin-cup', name: 'Tin Cup', rarity: 'common', text: 'Heal 3 after each combat.' },
   { id: 'bellows', name: 'Bellows', rarity: 'common', text: 'Start each combat with 4 Pressure.' },
@@ -35,7 +35,7 @@ const list: TrinketDef[] = [
   { id: 'steam-locket', name: 'Steam Locket', rarity: 'uncommon', text: 'When you overpressure, Sweep 10.' },
   { id: 'hourglass', name: 'Hourglass', rarity: 'uncommon', text: 'From your 5th turn of a combat, +1 placement each turn.' },
   { id: 'gilded-cog', name: 'Gilded Cog', rarity: 'uncommon', text: 'Shop prices -20%.' },
-  { id: 'sprocket-tag', name: "Sprocket's Collar Tag", rarity: 'uncommon', text: 'When you skip a part reward, gain 12 Cogs (Sprocket fetched them). At each Oil station, heal 5 more.' },
+  { id: 'sprocket-tag', name: "Sprocket's Collar Tag", rarity: 'uncommon', text: 'When you skip a part reward, gain 12 Scrap (Sprocket fetched them). At each Oil station, heal 5 more.' },
   { id: 'clockwork-heart', name: 'Clockwork Heart', rarity: 'rare', text: '+8 max HP and heal 8.' },
   { id: 'spare-spring', name: 'Spare Spring', rarity: 'rare', text: "Every spring's release threshold is 1 lower (minimum 1)." },
   { id: 'mainspring-key', name: 'Mainspring Key', rarity: 'boss', text: '+1 tick every turn; hand size -1.' },

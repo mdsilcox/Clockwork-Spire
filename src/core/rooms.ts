@@ -1,7 +1,13 @@
 // The climb's rooms: workbench (upgrade, remove, fuse), traders (barter), oil stations, vaults; Scrap
-// (docs/rules.md 4.4, 4.5; prices in docs/content.md section 10). B8 CONTRACT: signatures fixed; the
-// economy-rooms lane implements the bodies. Every action is allowed once per visit where rules 4.4 says so.
-import type { RunState, TradeItem } from './types';
+// (docs/rules.md 4.4, 4.5; prices in docs/content.md section 10). Every action is allowed once per visit where rules 4.4
+// says so. The caller opens the room's screen (sets `phase` and `pending`); these functions act on that pending.
+import { int, next, pick, shuffle } from './rng';
+import { PARTS } from './content/parts';
+import { TRINKETS } from './content/trinkets';
+import { addScrap, gainTrinket, heal, markOfferTaken, newPart, partPool, randomTrinket, recordOffers, scrapOf } from './rewards';
+import { isPartUnlocked } from './salvage';
+import { spendHour } from './section';
+import type { Pending, Rarity, RunState, TradeItem } from './types';
 
 export const UPGRADE_SCRAP: Record<string, number> = { common: 15, uncommon: 25, rare: 40, masterwork: 60, legendary: 80 };
 export const REMOVE_SCRAP_BASE = 25;
@@ -10,56 +16,250 @@ export const PART_VALUE: Record<string, number> = { common: 20, uncommon: 35, ra
 export const BUY_MARKUP = 1.25; // buying with Scrap alone costs value + 25%
 export const OIL_SCRAP = 15;
 export const OIL_HEAL = 15;
+export const TRINKET_VALUE: Record<string, number> = { common: 60, uncommon: 90, rare: 120, boss: 120, masterwork: 160 };
+export const VAULT_SCRAP = 40;
+
+const RARITY_ORDER: Rarity[] = ['common', 'uncommon', 'rare', 'masterwork', 'legendary'];
+
+/** Trader stock odds by act (docs/content.md section 1), in percent: common, uncommon, rare, masterwork. */
+const TRADER_PARTS: Record<number, number[]> = { 1: [62, 33, 5, 0], 2: [46, 38, 14, 2], 3: [36, 38, 21, 5] };
+const TRADER_TRINKETS: Record<number, number[]> = { 1: [60, 35, 5], 2: [40, 45, 15], 3: [28, 44, 24] };
+
+const isSellable = (id: string): boolean => id !== 'mainspring' && id !== 'spire-key' && !!PARTS[id];
+
+/** Gilded Cog: -20% on the Scrap you pay at a trader. */
+const discount = (run: RunState): number => (run.trinkets.includes('gilded-cog') ? 0.8 : 1);
+
+/** The Scrap price of a trader item when handing over a part worth `offered` (null: Scrap alone, value + 25%). */
+export function barterPrice(run: RunState, item: TradeItem, offered: number | null): number {
+  if (item.kind === 'oil') return Math.round(item.value * discount(run));
+  const base = offered === null ? Math.round(item.value * BUY_MARKUP) : Math.max(0, item.value - offered);
+  return Math.round(base * discount(run));
+}
+
+function pendingOf<K extends Pending['kind']>(run: RunState, kind: K): Extract<Pending, { kind: K }> | null {
+  const p = run.pending;
+  return p && p.kind === kind && run.phase === kind ? (p as Extract<Pending, { kind: K }>) : null;
+}
+
+const roomHere = (run: RunState) => run.section?.rooms.find((r) => r.id === run.roomId);
 
 // Workbench
 export function workbenchUpgrade(run: RunState, uid: number): boolean {
-  void run;
-  void uid;
-  throw new Error('B8: workbenchUpgrade not implemented');
+  const p = pendingOf(run, 'workbench');
+  const part = run.bin.find((b) => b.uid === uid);
+  if (!p || p.usedUpgrade || !part || part.plus) return false;
+  const def = PARTS[part.defId];
+  if (!def) return false;
+  const cost = UPGRADE_SCRAP[def.rarity];
+  if (scrapOf(run) < cost) return false;
+  addScrap(run, -cost);
+  part.plus = true;
+  p.usedUpgrade = true;
+  return true;
 }
+
+/** What removing a part costs now (+15 per use in a run). */
+export function removeCost(run: RunState): number {
+  return REMOVE_SCRAP_BASE + REMOVE_SCRAP_STEP * (run.stats.removals ?? 0);
+}
+
 export function workbenchRemove(run: RunState, uid: number): boolean {
-  void run;
-  void uid;
-  throw new Error('B8: workbenchRemove not implemented');
+  const p = pendingOf(run, 'workbench');
+  if (!p || p.usedRemove || run.bin.length <= 1 || !run.bin.some((b) => b.uid === uid)) return false;
+  const cost = removeCost(run);
+  if (scrapOf(run) < cost) return false;
+  addScrap(run, -cost);
+  run.bin = run.bin.filter((b) => b.uid !== uid);
+  run.stats.removals = (run.stats.removals ?? 0) + 1;
+  p.usedRemove = true;
+  return true;
 }
+
+/** Why two parts cannot fuse, or their family and the target rarity. */
+function fuseInputs(run: RunState, a: number, b: number): { family: string; target: Rarity } | string {
+  if (a === b) return 'Pick two different parts.';
+  const pa = run.bin.find((x) => x.uid === a);
+  const pb = run.bin.find((x) => x.uid === b);
+  if (!pa || !pb) return 'Both parts must be in your bin.';
+  const da = PARTS[pa.defId];
+  const db = PARTS[pb.defId];
+  if (!da || !db) return 'Those parts cannot be fused.';
+  if (da.family !== db.family) return 'The parts must be of the same family.';
+  if (da.rarity !== db.rarity) return 'The parts must be of the same rarity.';
+  const i = RARITY_ORDER.indexOf(da.rarity);
+  if (da.rarity === 'masterwork' || da.rarity === 'legendary' || i < 0) return 'Masterworks do not fuse any further.';
+  return { family: da.family, target: RARITY_ORDER[i + 1] };
+}
+
 /** Two parts of the same family and rarity: the two candidate results (next rarity, same family; rolled from `reward`),
- * or null with the reason when fusing isn't possible. */
+ * or the reason when fusing isn't possible. Rolled once per pair: asking again returns the same candidates. */
 export function fuseCandidates(run: RunState, a: number, b: number): { candidates: string[] } | { reason: string } {
-  void run;
-  void a;
-  void b;
-  throw new Error('B8: fuseCandidates not implemented');
+  const p = pendingOf(run, 'workbench');
+  if (!p) return { reason: 'There is no workbench here.' };
+  const inp = fuseInputs(run, a, b);
+  if (typeof inp === 'string') return { reason: inp };
+  const cached = p.fuse;
+  if (cached && ((cached.a === a && cached.b === b) || (cached.a === b && cached.b === a))) return { candidates: cached.candidates.slice() };
+  const open = partPool(run).filter((d) => isSellable(d.id) && d.family === inp.family && d.rarity === inp.target && isPartUnlocked(run, d.id));
+  if (open.length === 0) return { reason: 'Nothing here is ready yet.' };
+  // content.md section 1 prefers parts sharing a role tag with an input; the data carries no role tags, so every unlocked
+  // part of that family and rarity qualifies, shuffled by `reward`. Spectacles show a third candidate.
+  const count = run.trinkets.includes('spectacles') ? 3 : 2;
+  const candidates = shuffle(run.rng, 'reward', open)
+    .slice(0, count)
+    .map((d) => d.id);
+  p.fuse = { a, b, candidates };
+  recordOffers(run, candidates, 'fuse');
+  return { candidates: candidates.slice() };
 }
+
+/** Fuse two parts into candidate `pick`: both leave the bin, the result joins it. Free; once per visit. */
 export function fuse(run: RunState, a: number, b: number, pick: number): boolean {
-  void run;
-  void a;
-  void b;
-  void pick;
-  throw new Error('B8: fuse not implemented');
+  const p = pendingOf(run, 'workbench');
+  if (!p || p.usedFuse) return false;
+  const res = fuseCandidates(run, a, b);
+  if (!('candidates' in res) || !Number.isInteger(pick) || pick < 0 || pick >= res.candidates.length) return false;
+  const id = res.candidates[pick];
+  run.bin = run.bin.filter((x) => x.uid !== a && x.uid !== b);
+  newPart(run, id);
+  markOfferTaken(run, id, 'fuse');
+  p.usedFuse = true;
+  p.fuse = undefined;
+  return true;
 }
 
 // Traders
-export function traderStock(run: RunState): TradeItem[] {
-  void run;
-  throw new Error('B8: traderStock not implemented');
+function rollIndex(run: RunState, weights: readonly number[]): number {
+  const r = next(run.rng, 'shop') * weights.reduce((x, y) => x + y, 0);
+  let acc = 0;
+  for (let i = 0; i < weights.length; i++) {
+    acc += weights[i];
+    if (r < acc) return i;
+  }
+  return 0;
 }
+
+/** Roll a trader's stock on entry (`shop` stream): 4 parts (5 with Spectacles), 1 trinket and oil. The parts are
+ * recorded as offers (source 'trader'). A tier with nothing unlocked folds into the tier below. */
+export function traderStock(run: RunState): TradeItem[] {
+  const act = run.act;
+  const stock: TradeItem[] = [];
+  const chosen: string[] = [];
+  const nParts = 4 + (run.trinkets.includes('spectacles') ? 1 : 0);
+  const pool = partPool(run).filter((d) => isSellable(d.id) && d.rarity !== 'legendary');
+  for (let n = 0; n < nParts; n++) {
+    let cand: typeof pool = [];
+    for (let tier = rollIndex(run, TRADER_PARTS[act] ?? TRADER_PARTS[1]); tier >= 0 && cand.length === 0; tier--) {
+      cand = pool.filter((d) => d.rarity === RARITY_ORDER[tier] && !chosen.includes(d.id));
+    }
+    if (cand.length === 0) cand = pool.filter((d) => !chosen.includes(d.id));
+    if (cand.length === 0) break;
+    const def = pick(run.rng, 'shop', cand);
+    chosen.push(def.id);
+    stock.push({ kind: 'part', id: def.id, value: PART_VALUE[def.rarity], sold: false });
+  }
+  recordOffers(run, chosen, 'trader');
+  const order = ['common', 'uncommon', 'rare'] as const;
+  let t: string | null = null;
+  for (let tier = rollIndex(run, TRADER_TRINKETS[act] ?? TRADER_TRINKETS[1]); tier >= 0 && !t; tier--) t = randomTrinket(run, [order[tier]], 'shop');
+  t ??= randomTrinket(run, ['common', 'uncommon', 'rare'], 'shop');
+  if (t) stock.push({ kind: 'trinket', id: t, value: TRINKET_VALUE[TRINKETS[t].rarity], sold: false });
+  stock.push({ kind: 'oil', value: OIL_SCRAP, sold: false });
+  return stock;
+}
+
 /** Buy stock item `index`, handing over part `offerUid` (worth its value) plus Scrap for the difference, or Scrap alone
- * (value + 25%) when offerUid is null. */
+ * (value + 25%) when offerUid is null. An offer worth more than the item is refused (no change is given). */
 export function barter(run: RunState, index: number, offerUid: number | null): boolean {
-  void run;
-  void index;
-  void offerUid;
-  throw new Error('B8: barter not implemented');
+  const p = pendingOf(run, 'trader');
+  const item = p?.stock[index];
+  if (!p || !item || item.sold) return false;
+  let offered: number | null = null;
+  let offer: RunState['bin'][number] | undefined;
+  if (offerUid !== null && item.kind !== 'oil') {
+    offer = run.bin.find((b) => b.uid === offerUid);
+    const def = offer ? PARTS[offer.defId] : undefined;
+    if (!offer || !def) return false;
+    offered = PART_VALUE[def.rarity];
+    if (offered > item.value) return false;
+  }
+  if (item.kind === 'trinket' && (!item.id || run.trinkets.includes(item.id))) return false;
+  const cost = barterPrice(run, item, offered);
+  if (scrapOf(run) < cost) return false;
+  addScrap(run, -cost);
+  if (offer) run.bin = run.bin.filter((b) => b.uid !== offer!.uid);
+  if (item.kind === 'part' && item.id) {
+    newPart(run, item.id);
+    markOfferTaken(run, item.id, 'trader');
+  } else if (item.kind === 'trinket' && item.id) {
+    gainTrinket(run, item.id);
+  } else if (item.kind === 'oil') {
+    heal(run, OIL_HEAL);
+  }
+  item.sold = true;
+  return true;
 }
 
 // Oil stations
+function oilReady(run: RunState): Extract<Pending, { kind: 'oil' }> | null {
+  const p = pendingOf(run, 'oil');
+  if (!p || p.done || roomHere(run)?.used) return null;
+  return p;
+}
+function useOil(run: RunState, p: Extract<Pending, { kind: 'oil' }>): void {
+  p.done = true;
+  const r = roomHere(run);
+  if (r) r.used = true;
+}
+
 /** Rest: heal 30% of max HP (rounded down), 1 extra hour (elites step). Once per station. */
 export function rest(run: RunState): boolean {
-  void run;
-  throw new Error('B8: rest not implemented');
+  const p = oilReady(run);
+  if (!p) return false;
+  heal(run, Math.floor(run.maxHp * 0.3) + (run.trinkets.includes('sprocket-tag') ? 5 : 0));
+  spendHour(run);
+  useOil(run, p);
+  return true;
 }
+
 /** Polish: +4 max HP, no extra hour. Once per station (rest or polish). */
 export function polish(run: RunState): boolean {
-  void run;
-  throw new Error('B8: polish not implemented');
+  const p = oilReady(run);
+  if (!p) return false;
+  run.maxHp += 4;
+  useOil(run, p);
+  return true;
+}
+
+// Vaults
+export interface VaultLoot {
+  partId: string;
+  scrap: number;
+  legendary: boolean;
+}
+
+/** Open the vault in the player's room (once): a Masterwork part and 40 Scrap; a random unlocked Rare if no Masterwork is
+ * unlocked; in act 3 a Legendary part instead when one is unlocked and none is held. Rolled from `reward`. Call it when
+ * the vault's guardian is beaten. Returns null if there is nothing to take. */
+export function takeVault(run: RunState): VaultLoot | null {
+  const room = roomHere(run);
+  if (!room || room.kind !== 'vault' || room.cleared) return null;
+  const pool = partPool(run).filter((d) => isSellable(d.id));
+  const held = run.bin.some((b) => PARTS[b.defId]?.rarity === 'legendary');
+  let cand = run.act === 3 && !held ? pool.filter((d) => d.rarity === 'legendary') : [];
+  const legendary = cand.length > 0;
+  if (!legendary) {
+    cand = pool.filter((d) => d.rarity === 'masterwork');
+    const families: string[] = run.act === 1 ? ['gear', 'cam'] : run.act === 2 ? ['spring', 'steam'] : ['tempo', 'chime'];
+    const weighted = cand.filter((d) => families.includes(d.family));
+    if (weighted.length) cand = weighted;
+  }
+  if (cand.length === 0) cand = pool.filter((d) => d.rarity === 'rare');
+  if (cand.length === 0) return null;
+  const def = cand[int(run.rng, 'reward', cand.length)];
+  newPart(run, def.id);
+  addScrap(run, VAULT_SCRAP);
+  room.cleared = true;
+  return { partId: def.id, scrap: VAULT_SCRAP, legendary };
 }

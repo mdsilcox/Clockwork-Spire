@@ -2,7 +2,7 @@
 import { int, next, pick } from './rng';
 import { partDef, partName } from './content/parts';
 import { trinketDef } from './content/trinkets';
-import { addBlueprint, gainTrinket, heal, hurt, newPart, partPool, randomPart, randomTrinket, rollBlueprint } from './rewards';
+import { addBlueprint, addScrap, gainTrinket, heal, hurt, newPart, partPool, randomPart, randomTrinket, rollBlueprint } from './rewards';
 import type { Family, PartInstance, Pending, RunState } from './types';
 
 type NeedKind = NonNullable<Extract<Pending, { kind: 'event' }>['needsPart']>;
@@ -39,8 +39,8 @@ function upgradeRandom(run: RunState, count: number): string {
 
 function giveTrinket(run: RunState, id: string): string {
   if (gainTrinket(run, id)) return `Gained ${tn(id)}.`;
-  run.cogs += 30;
-  return `You already had ${tn(id)}, so it turns into 30 Cogs.`;
+  addScrap(run, 30);
+  return `You already had ${tn(id)}, so it turns into 30 Scrap.`;
 }
 
 function givePart(run: RunState, defId: string): string {
@@ -55,14 +55,14 @@ function gainBlueprint(run: RunState, first?: string): string {
     if (id) addBlueprint(run, id);
   }
   if (!id) {
-    run.cogs += 20;
-    return 'There was nothing left to find. Gain 20 Cogs instead.';
+    addScrap(run, 20);
+    return 'There was nothing left to find. Gain 20 Scrap instead.';
   }
   return `Found the blueprint for ${partDef(id).name}.`;
 }
 
 const lose = (run: RunState, n: number) => {
-  run.cogs = Math.max(0, run.cogs - n);
+  addScrap(run, -n);
 };
 
 const sprocketTag = (run: RunState): string => giveTrinket(run, 'sprocket-tag');
@@ -127,8 +127,8 @@ export const EFFECTS: Record<string, Effect[]> = {
       prompt: 'Choose a part to sell.',
       run: (r, p) => {
         removePart(r, p!.uid);
-        r.cogs += 25;
-        return `Sold ${pn(p!)} for 25 Cogs.`;
+        addScrap(r, 25);
+        return `Sold ${pn(p!)} for 25 Scrap.`;
       },
     },
     { run: () => 'The cart rattles away.' },
@@ -144,8 +144,8 @@ export const EFFECTS: Record<string, Effect[]> = {
     },
     {
       run: (r) => {
-        r.cogs += 30;
-        return 'Gain 30 Cogs.';
+        addScrap(r, 30);
+        return 'Gain 30 Scrap.';
       },
     },
   ],
@@ -153,8 +153,8 @@ export const EFFECTS: Record<string, Effect[]> = {
     {
       run: (r) => {
         if (next(r.rng, 'event') < 0.5) {
-          r.cogs += 60;
-          return 'Click, click, click. Gain 60 Cogs.';
+          addScrap(r, 60);
+          return 'Click, click, click. Gain 60 Scrap.';
         }
         hurt(r, 8);
         return 'The wheel snaps back at you. Lost 8 HP.';
@@ -206,7 +206,7 @@ export const EFFECTS: Record<string, Effect[]> = {
     {
       run: (r) => {
         lose(r, 40);
-        return 'The gate swings open. Paid 40 Cogs.';
+        return 'The gate swings open. Paid 40 Scrap.';
       },
     },
     {
@@ -246,7 +246,7 @@ export const EFFECTS: Record<string, Effect[]> = {
     {
       run: (r) => {
         lose(r, 10);
-        return 'The long way costs a few Cogs in tolls and tips. Lost 10 Cogs.';
+        return 'The long way costs a few Scrap in tolls and tips. Lost 10 Scrap.';
       },
     },
   ],
@@ -286,8 +286,8 @@ export const EFFECTS: Record<string, Effect[]> = {
       prompt: 'Choose a Steam part to patch the pipe with.',
       run: (r, p) => {
         removePart(r, p!.uid);
-        r.cogs += 40;
-        return `${pn(p!)} seals the leak. Gain 40 Cogs.`;
+        addScrap(r, 40);
+        return `${pn(p!)} seals the leak. Gain 40 Scrap.`;
       },
     },
     {
@@ -364,7 +364,7 @@ export const EFFECTS: Record<string, Effect[]> = {
     {
       run: (r) => {
         lose(r, 60);
-        return `${gainBlueprint(r)} Paid 60 Cogs.`;
+        return `${gainBlueprint(r)} Paid 60 Scrap.`;
       },
     },
     {

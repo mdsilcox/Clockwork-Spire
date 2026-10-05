@@ -10,7 +10,7 @@ import type { RunResult } from './run';
 /** The sensible path: each entry buys the next level of that upgrade. Rules 7 order, then the remaining levels. */
 export const SENSIBLE_PATH: string[] = [
   'frame',
-  'cogs',
+  'scrap',
   'bearings',
   'toolbelt',
   'notes',
@@ -18,11 +18,11 @@ export const SENSIBLE_PATH: string[] = [
   'charm',
   // remaining levels
   'frame',
-  'cogs',
+  'scrap',
   'bearings',
   'notes',
   'frame',
-  'cogs',
+  'scrap',
   'bearings',
   'frame',
   'frame',
