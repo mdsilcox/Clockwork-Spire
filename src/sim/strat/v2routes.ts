@@ -30,6 +30,8 @@ export interface RouteOptsV2 {
   seed: number;
   runs: number;
   policies: RoutePolicyV2[];
+  /** B10b: the difficulty mode every run is played on (default 'journeyman'); the ladder test plays all four. */
+  mode?: string;
 }
 
 export const ROUTE_COMBAT = makeExpert2({ width: 6, swapStates: 2, finalists: 3 });
@@ -50,6 +52,8 @@ export interface RouteRun {
 export interface RouteRunOpts {
   /** A profile with every available achievement earned: every reachable Masterwork and both Sprocket items are in the pool. */
   rarity?: boolean;
+  /** B10b: the difficulty mode (RunConfig.mode); missing: journeyman. */
+  mode?: string;
 }
 
 /** A fresh profile with every available achievement earned (the B9b.5 input). */
@@ -66,6 +70,7 @@ const PLATER_COMBAT = turtle2;
 export function routeRun(policy: RoutePolicyV2, seed: number, index: number, opts: RouteRunOpts = {}): RouteRun {
   const sd = seed * 100003 + index;
   const cfg = opts.rarity ? runConfigFor(allEarnedProfile(), sd, 'tinker') : { ...defaultRunConfig(sd), legacyMap: false };
+  if (opts.mode !== undefined) cfg.mode = opts.mode; // B10b
   DRAFT.plating = policy === 'plater' ? 2 : 0;
   try {
     const r = playClimb(cfg, seed * 31 + index, policy, policy === 'plater' ? PLATER_COMBAT : ROUTE_COMBAT);
@@ -90,5 +95,5 @@ export function summarize(policy: RoutePolicyV2, rows: RouteRun[]): RouteStatsV2
 
 /** Play `runs` Journeyman runs per policy (no meta progression) and report each policy's win rate. Deterministic. */
 export function routeStatsV2(o: RouteOptsV2): RouteStatsV2[] {
-  return o.policies.map((p) => summarize(p, Array.from({ length: o.runs }, (_, i) => routeRun(p, o.seed, i))));
+  return o.policies.map((p) => summarize(p, Array.from({ length: o.runs }, (_, i) => routeRun(p, o.seed, i, o.mode !== undefined ? { mode: o.mode } : {}))));
 }
