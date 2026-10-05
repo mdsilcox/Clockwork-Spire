@@ -151,6 +151,26 @@ const list: EnemyDef[] = [
     hp: 20,
     pattern: [attack(3), attack(3), { kind: 'sabotage', sabotage: 'rust', label: 'Rusts a part' }, attack(4)],
   },
+  // B10d: the v2 tutorial's enemy (docs/briefs/B10d-front-door.md). summonOnly keeps it out of every pool, filter and the bestiary.
+  // Two Spur Gears break the Strut on the first Run (6 HP against Strike 3 a tick). The tutorial can't be lost (the `gentle` safeguard).
+  machine(
+    'tutorial-rig',
+    'Tutorial Rig',
+    1,
+    'normal',
+    {
+      core: 14,
+      bump: 1,
+      scrap: 0,
+      punishes: [],
+      bestiary: 'A practice rig. Take the Strut first.',
+      parts: [
+        part({ id: 'rig-strut', name: 'Strut', hp: 6, r: 'C', cadence: every, actions: [hit(2)], salvage: 'spur', anchor: 'the front strut' }),
+        part({ id: 'rig-plate', name: 'Plate', hp: 8, r: 'C', cadence: even, actions: [shell(3)], salvage: 'idler', anchor: 'the plate on its back' }),
+      ],
+    },
+    { summonOnly: true },
+  ),
 
   // ---------- Act 1: the Gearworks ----------
   machine('rust-mite', 'Rust Mite', 1, 'normal', {

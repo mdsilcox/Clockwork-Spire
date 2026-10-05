@@ -25,7 +25,8 @@ A1 starts with B7. Art phases need only the approved style; gameplay phases need
 | **A1 Art: fixes and act 1 cast** | art | owner's D4 notes (Sprocket's happy, the rat's motion, the title at 2x); the tinker; act 1's 5 regulars, 2 elites and the Foreman (two phase paintings if needed), each rigged with anchors for its content.md parts | AR2 (act 1), AR5 |
 | **A2 Art: acts 2 and 3 cast** | art | the remaining 10 regulars, 4 elites, the Clockmaker (phase paintings), summons | AR2, AR5 |
 | **A3 Art: parts, scenes and events** | art | painted sprites for the 70 parts; the three act cross-sections as layered scenes (2x; Bellfoot's street moved to B10a); key event and journal illustrations; trinket icons | AR5, AR6 (scenes) |
-| **B11 Art integration** | both | RigHub in the stage, the art manifest and build script, A1 rescoped to AR1, rigs replacing code-drawn enemies with part UI on anchors, painted parts on the board, painted scenes, the title screen, ambient sound beds; phone performance; BF6's Spire half (Sprocket walking with the tinker between rooms in the Spire) | AR1, AR3, AR4, AR6, BF6 |
+| **B10d The front door** | both | the painted title (AR3, pulled from B11), the v2 tutorial against `tutorial-rig` (pulled from B11), first-launch order, the v1-done note | AR3, tutorial e2e |
+| **B11 Art integration** | both | RigHub in the stage, the art manifest and build script, A1 rescoped to AR1, rigs replacing code-drawn enemies with part UI on anchors, painted parts on the board, painted scenes (the title and the v2 tutorial moved to B10d), ambient sound beds; phone performance; BF6's Spire half (Sprocket walking with the tinker between rooms in the Spire) | AR1, AR4, AR6, BF6 |
 | **B12 Hardening and release** | both | full suite, a v2 career autoplayed through the real UI to a victory, console and performance sweep, README, REPORT-v2.md, final critic | P2, P5 (v2), all |
 
 ## Rules every build phase follows

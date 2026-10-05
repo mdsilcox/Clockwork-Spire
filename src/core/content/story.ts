@@ -7,6 +7,9 @@ export interface StoryNote {
   text: string;
 }
 
+/** B10d: Sprocket's closing line of the v2 tutorial. */
+export const TUTORIAL_CLOSING = 'Sprocket thumps his tail. Take a thing apart and it stops being scary. Mostly.';
+
 export const STORY_NOTES: StoryNote[] = [
   {
     id: 'first-run',

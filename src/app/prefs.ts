@@ -29,6 +29,15 @@ export function tutorialDone(): boolean {
   return read('cs.tutorialDone') === '1';
 }
 
+/** B10d: the one-line note about the new tutorial on the title shows when `tutorialDone()` is set and this is not. */
+export function tutorialV2Seen(): boolean {
+  return read('cs.tutorialV2Seen') === '1';
+}
+
+export function markTutorialV2Seen(): void {
+  write('cs.tutorialV2Seen', '1');
+}
+
 export function markTutorialDone(): void {
   write('cs.tutorialDone', '1');
 }

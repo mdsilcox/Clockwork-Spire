@@ -1527,8 +1527,11 @@ export async function init(): Promise<void> {
     live = saved;
     publish();
     screen.value = 'combat';
+  // B10d first-launch (tutorial lane): becomes "show the title"; a fresh profile's first `climb` runs the v2 tutorial
+  // (`startTutorial` in src/app/tutorial.ts), then the name prompt, then Bellfoot. Unchanged until the lane builds it.
   } else if (!tutorialDone()) {
     startTutorial(); // the very first launch: a guided fight, skippable
+  // end B10d first-launch
   } else {
     screen.value = 'title';
   }
