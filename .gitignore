@@ -24,3 +24,4 @@ art/*/cut.clean.png
 
 # browser-check screenshots stay local (large)
 review/**/shots/
+review/**/*-shots/
