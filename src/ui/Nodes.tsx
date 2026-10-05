@@ -261,7 +261,7 @@ export function SalvageScreen() {
                   <div key={`${it.enemy}.${it.partId}`} class={`salvage-item ${kept ? 'kept' : ''} ${it.locked ? 'locked' : ''}`} data-testid={`salvage-item-${n}`}>
                     <span class="sname">{name}</span>
                     <span class="srarity">{RARITY_LABEL[it.rarity] ?? it.rarity}</span>
-                    {known && <span class="ctext">{known.text}</span>}
+                    {known && !it.locked && <span class="ctext">{known.text}</span>}
                     {unknown ? (
                       <span class="snote" data-testid={`salvage-unknown-${n}`}>
                         This part is not in this version of the game. It is scrapped.
