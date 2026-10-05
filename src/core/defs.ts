@@ -28,6 +28,8 @@ export interface TickCtx {
   strike(amount: number): void;
   /** Strike a specific enemy (Spring Trap). */
   strikeAt(idx: number, amount: number): void;
+  /** B9b (Cascade Piston): a Strike whose overkill carries once to the next standing entry of the target order. */
+  strikeCarrying(amount: number): void;
   sweep(amount: number): void;
   plate(amount: number): void;
   addPressure(amount: number): void;

@@ -1,14 +1,14 @@
 // The machine: one turn of ticks resolved exactly per docs/rules.md 1.4-1.5.
 // Pure and deterministic: no randomness, no clock. Mutates the CombatState it is given;
 // previewTurn (combat.ts) runs this on a copy.
-import { diagonals, neighbors } from './board';
+import { cell as cellOf, diagonals, neighbors } from './board';
 import { partDef } from './content/parts';
 import type { ReleaseInfo, TickCtx } from './defs';
 import { damageEnemy, damagePlayer, damageTarget, jamPart } from './enemy';
 import type { HitOpts, HitResult } from './enemy';
 import { canTarget, currentTarget, frontOf, parseRef } from './frames';
 import { frameOf } from './framelib';
-import { MAINSPRING } from './types';
+import { COLS, MAINSPRING } from './types';
 import type { CombatState, GameEvent, PlacedPart, TurnPreview } from './types';
 
 export { damagePlayer };
@@ -27,17 +27,32 @@ export const overpressureAbove = (c: CombatState): number => (hasTrinket(c, 'pre
 
 /** B9b hook (items-engine): does this turn end in overpressure? (Sun-Orb Core: never.) */
 export function overpressureCheck(c: CombatState): boolean {
+  if (c.board.some((p) => p?.defId === 'sun-orb-core')) return false; // Sun-Orb Core: you never overpressure
   return c.pressure > overpressureAbove(c);
 }
 
 /** B9b hook (items-engine): is this tick the last tick? (Hour Hand: its neighbors treat every tick as the last.) */
-export function isLastTick(c: CombatState, tick: number, _cell: number): boolean {
-  return tick >= c.ticksThisTurn;
+export function isLastTick(c: CombatState, tick: number, at: number): boolean {
+  if (tick >= c.ticksThisTurn) return true;
+  // Hour Hand: the parts to its left and right treat every tick as the last tick.
+  const col = at % COLS;
+  const sides = [col > 0 ? at - 1 : -1, col < COLS - 1 ? at + 1 : -1];
+  return sides.some((n) => n >= 0 && c.board[n]?.defId === 'hour-hand' && c.board[n]?.rusted === 0);
 }
 
 /** B9b hook (items-engine): a status was applied to enemy `idx`; Conductor's Baton applies it to every other enemy. */
-function spreadStatus(_rt: Rt, _idx: number, _status: string, _amount: number): void {
-  // pass-through
+function spreadStatus(rt: Rt, idx: number, status: string, amount: number, base: { tick: number; step: number; cell: number; uid: number }): void {
+  if (status !== 'cracked' && status !== 'dazed' && status !== 'scald') return;
+  const { c, events, acc } = rt;
+  if (!c.board.some((p) => p && p.defId === 'conductors-baton' && p.firedThisTurn > 0)) return;
+  for (let j = 0; j < c.enemies.length; j++) {
+    const e = c.enemies[j];
+    if (j === idx || e.hp <= 0) continue;
+    const cur = e.statuses[status] ?? 0;
+    e.statuses[status] = status === 'scald' ? cur + amount : Math.max(cur, amount);
+    acc.statuses.push({ target: j, status, amount });
+    events.push({ kind: 'status', ...base, target: j, status, amount });
+  }
 }
 
 export function anyAlive(c: CombatState): boolean {
@@ -66,6 +81,8 @@ interface Rt {
   events: GameEvent[];
   acc: Acc;
   firedIds: Set<string>; // part def ids that fired earlier this tick
+  firedCells: number[]; // cells that fired this turn, in the order first reached (Perpetual Engine)
+  echoCells: Set<number>; // cells that fire with Echo for the rest of this tick (Resonance Rod)
   /** During an enemy's attack: the part that attacked (Spring Trap strikes it). */
   attacker?: { enemy: number; part: string };
 }
@@ -103,7 +120,7 @@ export function runMachine(c: CombatState, events: GameEvent[]): TurnPreview {
   }
   const acc = newAcc(c);
   for (const r of c.order) if (canTarget(c, r)) acc.byTarget[r] = { damage: 0, breaks: false };
-  const rt: Rt = { c, events, acc, firedIds: new Set() };
+  const rt: Rt = { c, events, acc, firedIds: new Set(), firedCells: [], echoCells: new Set() };
 
   for (let tick = 1; tick <= c.ticksThisTurn && anyAlive(c); tick++) runTick(rt, tick);
 
@@ -140,7 +157,7 @@ export function runMachine(c: CombatState, events: GameEvent[]): TurnPreview {
 
 /** Start of the player's turn: parts that release now (Torsion Spring). */
 export function runTurnStartHooks(c: CombatState, events: GameEvent[]): void {
-  const rt: Rt = { c, events, acc: newAcc(c), firedIds: new Set() };
+  const rt: Rt = { c, events, acc: newAcc(c), firedIds: new Set(), firedCells: [], echoCells: new Set() };
   for (let cell = 0; cell < c.board.length; cell++) {
     const p = c.board[cell];
     if (!p) continue;
@@ -154,7 +171,7 @@ export function runTurnStartHooks(c: CombatState, events: GameEvent[]): void {
 
 /** After enemy `enemyIdx` attacked the player: Spring Trap releases at it. */
 export function runEnemyAttackHooks(c: CombatState, enemyIdx: number, events: GameEvent[], partId = 'core'): void {
-  const rt: Rt = { c, events, acc: newAcc(c), firedIds: new Set(), attacker: { enemy: enemyIdx, part: partId } };
+  const rt: Rt = { c, events, acc: newAcc(c), firedIds: new Set(), firedCells: [], echoCells: new Set(), attacker: { enemy: enemyIdx, part: partId } };
   for (let cell = 0; cell < c.board.length; cell++) {
     const p = c.board[cell];
     if (!p || c.enemies[enemyIdx].hp <= 0) continue;
@@ -170,7 +187,20 @@ function runTick(rt: Rt, tick: number): void {
   const { c, events, acc } = rt;
   events.push({ kind: 'tick', tick, step: 0 });
   rt.firedIds = new Set();
+  rt.echoCells = new Set();
+  // Bottled Dusk: each tick after the 3rd adds 2 Pressure (once, however many Dusks fired).
+  const dusk = c.board.findIndex((p) => p && p.defId === 'bottled-dusk' && p.firedThisTurn > 0);
+  if (tick > 3 && dusk >= 0) {
+    const before = c.pressure;
+    c.pressure = Math.min(PRESSURE_CAP, c.pressure + 2);
+    events.push({ kind: 'pressure', tick, step: 0, cell: dusk, uid: (c.board[dusk] as PlacedPart).uid, amount: c.pressure - before });
+  }
   const visited = new Set<number>([MAINSPRING]);
+  // Twin Mainspring: a second source, right after the Mainspring's own pulse.
+  const twinCell = cellOf('D2');
+  const twin = c.board[twinCell];
+  const hasTwin = !!twin && twin.defId === 'twin-mainspring';
+  if (hasTwin) visited.add(twinCell);
   const queue: QItem[] = [];
   const enqueue = (from: number, cells: number[], step: number, boost: number, echo: boolean): void => {
     for (const n of cells) {
@@ -181,6 +211,11 @@ function runTick(rt: Rt, tick: number): void {
   };
   enqueue(MAINSPRING, neighbors(MAINSPRING), 1, 0, false);
   if (queue.length > 0 && hasTrinket(c, 'copper-wire')) queue[0].boost = 1; // the first part the Mainspring powers
+  if (hasTwin && (twin as PlacedPart).rusted === 0) {
+    const first = queue.length;
+    enqueue(twinCell, neighbors(twinCell), 1, 0, false);
+    if ((twin as PlacedPart).plus && queue.length > first) queue[first].boost += 1;
+  }
 
   for (let head = 0; head < queue.length; head++) {
     const q = queue[head];
@@ -200,6 +235,7 @@ function runTick(rt: Rt, tick: number): void {
 
     const fedBy = q.from === MAINSPRING ? null : (c.board[q.from]?.uid ?? null);
     const ctx = makeCtx(rt, tick, q.step, q.cell, p, q.boost, fedBy);
+    if (!rt.firedCells.includes(q.cell)) rt.firedCells.push(q.cell);
     const resolve = (): void => {
       acc.firing[q.cell] = (acc.firing[q.cell] ?? 0) + 1;
       const chargeBefore = p.charge;
@@ -211,14 +247,24 @@ function runTick(rt: Rt, tick: number): void {
       resolveReleases(rt, ctx.pending, q.cell, tick, q.step, 0);
     };
     resolve();
-    if ((q.echo || (firstOfTurn && hasTrinket(c, 'echo-chamber'))) && anyAlive(c)) {
+    if (p.defId === 'resonance-rod') {
+      for (let r = 0; r < 3; r++) {
+        const n = (q.cell % COLS) + r * COLS;
+        if (n !== q.cell) rt.echoCells.add(n);
+      }
+    }
+    if ((q.echo || rt.echoCells.has(q.cell) || (firstOfTurn && hasTrinket(c, 'echo-chamber'))) && anyAlive(c)) {
       events.push({ kind: 'echo', tick, step: q.step, cell: q.cell, uid: p.uid });
       ctx.isEcho = true;
       resolve();
     }
     rt.firedIds.add(p.defId);
+    if (p.defId === 'perpetual-engine' && ctx.isLastTick() && anyAlive(c)) perpetualRefire(rt, tick, q.step, q.cell);
 
-    if (def.holds && def.holds(ctx, p)) {
+    // Free Pawl: Springs next to it pass motion instead of holding; the upgrade hands Boost 1 on each release.
+    const pawls = def.family === 'spring' ? neighbors(q.cell).map((n) => c.board[n]).filter((x) => x && x.defId === 'free-pawl' && x.rusted === 0) : [];
+    if (pawls.length > 0 && ctx.released && pawls.some((x) => x?.plus)) ctx.boostOut += 1;
+    if (pawls.length === 0 && def.holds && def.holds(ctx, p)) {
       events.push({ kind: 'hold', tick, step: q.step, cell: q.cell, uid: p.uid });
       continue;
     }
@@ -229,6 +275,23 @@ function runTick(rt: Rt, tick: number): void {
       ctx.boostOut,
       ctx.echoOut,
     );
+  }
+}
+
+/** Perpetual Engine: on the last tick every other part that fired this turn fires once more, in the order first reached. */
+function perpetualRefire(rt: Rt, tick: number, step: number, engineCell: number): void {
+  const { c, events } = rt;
+  for (const at of rt.firedCells.slice()) {
+    if (!anyAlive(c)) return;
+    const part = c.board[at];
+    if (at === engineCell || !part || part.rusted > 0 || part.defId === 'perpetual-engine') continue;
+    const ctx = makeCtx(rt, tick, step, at, part, 0, null);
+    ctx.isEcho = true;
+    events.push({ kind: 'echo', tick, step, cell: at, uid: part.uid, note: 'perpetual' });
+    const chargeBefore = part.charge;
+    partDef(part.defId).onFire(ctx, part);
+    if (part.charge > chargeBefore) events.push({ kind: 'charge', tick, step, cell: at, uid: part.uid, amount: part.charge });
+    resolveReleases(rt, ctx.pending, at, tick, step, 0);
   }
 }
 
@@ -290,9 +353,34 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
     const t = parseRef(ref);
     return hitAt(t.enemy, t.part, raw, opts);
   };
-  /** B9b hook (items-engine): a Strike at `ref`. Cascade Piston, Overrun Coupler and Apprentice's Hands carry or add second
-   * targets here (invariant 8 as amended). Pass-through: the plain single-target hit. */
-  const routeStrike = (ref: string, raw: number, opts: HitOpts = {}): HitResult => hitRef(ref, raw, opts);
+  /** B9b hook (items-engine): a Strike at `ref`. Apprentice's Hands, the Cascade Piston and the Overrun Coupler send damage
+   * to the next standing entry of the target order (invariant 8 as amended); a carried hit never carries again.
+   * `ordered`: the Strike came from the target order (Strike, Drill), not a fixed front (Spring Trap). */
+  const routeStrike = (ref: string, raw: number, opts: HitOpts = {}, o: { ordered?: boolean; piston?: boolean } = {}): HitResult => {
+    if (!o.ordered) return hitRef(ref, raw, opts);
+    const nextStanding = (): string | null => {
+      const i = (c.order as string[]).indexOf(ref);
+      if (i < 0) return null;
+      for (let j = i + 1; j < c.order.length; j++) if (canTarget(c, c.order[j])) return c.order[j];
+      return null;
+    };
+    const hands = c.board.reduce<PlacedPart | null>((best, x) => (x && x.defId === 'apprentices-hands' && x.firedThisTurn > 0 && (!best || x.plus) ? x : best), null);
+    const second = hands ? nextStanding() : null;
+    const r = hitRef(ref, raw, opts);
+    if (hands && second) {
+      const share = hands.plus ? Math.floor((raw * 3) / 4) : Math.floor(raw / 2);
+      if (share > 0) hitRef(second, share, opts);
+      return r;
+    }
+    const excess = r.overkill ?? 0;
+    if (excess > 0) {
+      const next = nextStanding();
+      if (next && (o.piston || (hasTrinket(c, 'overrun-coupler') && ctx.oncePerTurn('overrun-coupler')))) {
+        hitRef(next, excess, { drill: opts.drill, word: opts.word });
+      }
+    }
+    return r;
+  };
   const knuckles = (): number => (hasTrinket(c, 'brass-knuckles') && ctx.oncePerTurn('brass-knuckles') ? 4 : 0);
   const grit = (): number => c.playerStatuses.grit ?? 0;
 
@@ -318,7 +406,12 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
     strike(amount) {
       const ref = currentTarget(c);
       if (!ref) return;
-      routeStrike(ref, amount + ctx.boostIn + grit() + knuckles(), { word: 'strike' });
+      routeStrike(ref, amount + ctx.boostIn + grit() + knuckles(), { word: 'strike' }, { ordered: true });
+    },
+    strikeCarrying(amount) {
+      const ref = currentTarget(c);
+      if (!ref) return;
+      routeStrike(ref, amount + ctx.boostIn + grit() + knuckles(), { word: 'strike' }, { ordered: true, piston: true });
     },
     strikeAt(idx, amount) {
       const e = c.enemies[idx];
@@ -395,7 +488,7 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
         e.statuses[status] = status === 'scald' ? cur + n : Math.max(cur, n);
         acc.statuses.push({ target: idx, status, amount: n });
         events.push({ kind: 'status', ...base, target: idx, status, amount: n });
-        spreadStatus(rt, idx, status, n); // B9b hook (items-engine)
+        if (who !== 'all') spreadStatus(rt, idx, status, n, base); // B9b hook (items-engine): Conductor's Baton
       }
     },
     heal(amount) {
@@ -418,7 +511,7 @@ function makeCtx(rt: Rt, tick: number, step: number, cell: number, p: PlacedPart
     drill(amount) {
       const ref = currentTarget(c);
       if (!ref) return;
-      routeStrike(ref, amount + ctx.boostIn + grit() + knuckles(), { drill: true, word: 'drill' });
+      routeStrike(ref, amount + ctx.boostIn + grit() + knuckles(), { drill: true, word: 'drill' }, { ordered: true });
     },
     jam() {
       const ref = currentTarget(c);
