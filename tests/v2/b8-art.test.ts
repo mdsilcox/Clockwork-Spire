@@ -178,3 +178,48 @@ describe('AR2: each act 1 character loads as a rig with its moods and an anchor 
     });
   }
 });
+
+// ---------- AR2 (B9a): the three wardens also have a `phase` mood ----------
+// Contract for the warden-rigs lane: src/art/foreman.ts, boilermaker.ts, clockmaker.ts, listed in the manifest (act 1, 2, 3),
+// moods idle, attack, hurt, death AND phase; an anchor for every part of every phase (and the Clockmaker's four memory parts);
+// the Foreman's texture.layers has `phase2` (the second painting, crossfaded at the phase change).
+const WARDEN_IDS = ['foreman', 'boilermaker', 'clockmaker'];
+const MEMORY_IDS = ['mem-drill', 'mem-governor', 'mem-valve', 'mem-chime'];
+
+describe('AR2 (B9a): the wardens load as rigs with a phase mood and an anchor for every part of every phase', () => {
+  for (const id of WARDEN_IDS) {
+    describe(id, () => {
+      it('is in the manifest and has the moods idle, attack, hurt, death and phase, each different from idle, and pose() runs', async () => {
+        expect(MANIFEST.find((e) => e.id === id), `${id} in the manifest`).toBeTruthy();
+        const def = await load(id);
+        expect(def.id).toBe(id);
+        for (const m of ['idle', 'attack', 'hurt', 'death', 'phase']) expect(def.moods[m], `mood ${m}`).toBeTruthy();
+        expect(JSON.stringify(def.moods.phase), 'phase differs from idle').not.toBe(JSON.stringify(def.moods.idle));
+        expect(typeof def.pose({}, 0.5, 1 / 60, {}, 'phase')).toBe('object');
+      });
+
+      it('has an anchor inside the painting for every part of every phase, the core and the eyes', async () => {
+        const def = await load(id);
+        const phases = ENEMIES[id]?.frame?.phases;
+        expect(phases?.length, `${id} has frame.phases`).toBeGreaterThan(0);
+        const ids = [...(phases ?? []).flatMap((p) => p.parts.map((d) => d.id)), ...(id === 'clockmaker' ? MEMORY_IDS : []), 'core', 'eyes'];
+        for (const a of ids) {
+          const v = def.anchors[a];
+          expect(v, `anchor ${a}`).toBeTruthy();
+          expect(v[0], `${a} x`).toBeGreaterThanOrEqual(0);
+          expect(v[0], `${a} x`).toBeLessThanOrEqual(def.size[0]);
+          expect(v[1], `${a} y`).toBeGreaterThanOrEqual(0);
+          expect(v[1], `${a} y`).toBeLessThanOrEqual(def.size[1]);
+          expect(v[2], `${a} radius`).toBeGreaterThan(0);
+        }
+      });
+    });
+  }
+
+  it('the Foreman has a stacked layer for phase 2 that the manifest ships', async () => {
+    const def = await load('foreman');
+    const layer = def.texture.layers?.phase2;
+    expect(layer, 'texture.layers.phase2').toBeTruthy();
+    expect(MANIFEST.find((e) => e.id === 'foreman')?.files.map((f) => f.path)).toContain(layer);
+  });
+});

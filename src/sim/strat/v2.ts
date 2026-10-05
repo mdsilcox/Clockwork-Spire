@@ -115,3 +115,29 @@ export function statsFromBins(o: V2FightOpts, bins: FightSnapshot[]): { stats: V
   }
   return { stats: out, fights };
 }
+
+// ---------- B9a: the wardens (docs/acceptance.md BV4) ----------
+
+export type WardenId = 'foreman' | 'boilermaker' | 'clockmaker';
+
+/** One (bot, warden) cell of BV4. A "turn in phase k" is a player turn that started while the warden's `phase` was k. */
+export interface WardenFightStats {
+  bot: V2Bot;
+  warden: 'foreman' | 'boilermaker' | 'clockmaker';
+  fights: number;
+  turnsMedian: number; // median player turns over the fights
+  /** Per phase index, the fewest turns any fight of this cell spent in that phase (a fight that won in a phase counts the turns it took there). */
+  phaseTurnsMin: number[];
+}
+
+export interface WardenFightOpts {
+  seed: number;
+  fights: number; // per (bot, warden)
+  bots: V2Bot[];
+}
+
+/** B9a.0 STUB: the warden-bots lane (B9a.3) implements it: the same bot against each warden on bins snapshotted from expert climbs. */
+export function wardenStatsV2(o: WardenFightOpts): WardenFightStats[] {
+  void o;
+  throw new Error('B9a: wardenStatsV2 not implemented');
+}
