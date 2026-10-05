@@ -353,6 +353,10 @@ export type Pending =
   | { kind: 'forge'; done: boolean }
   | { kind: 'oil'; done: boolean };
 
+/** B9a: a run's main plan, for the Clockmaker's memory (rules 5.4). */
+export type Plan = 'plating' | 'burst' | 'pressure' | 'statuses';
+export type PlanStats = Record<Plan, number>;
+
 export interface RunStats {
   turns: number;
   biggestTurn: number;
@@ -364,6 +368,8 @@ export interface RunStats {
   removals?: number; // ADDED in B3: shop removals bought this run (raises the price)
   floorBrass?: number; // ADDED in B3: Brass from floors climbed (4/6/8 by act)
   bonusBrass?: number; // ADDED in B3: Brass from events
+  /** B9a: the run's play style by source (docs/briefs/B9a-wardens.md), filled by recordFight. */
+  plan?: PlanStats;
   offers: { partId: string; taken: boolean; act: number; source: 'reward' | 'shop' | 'trader' | 'fuse' | 'salvage' }[]; // for the balance sim (rules 7)
 }
 
@@ -455,6 +461,8 @@ export interface Profile {
   storyFlags: string[]; // milestones reached (unlock Workshop notes)
   lastSprocketMood: SprocketMood | null;
   finishedSeeds: number[]; // seeds already settled by finishRun (guards double payout), last 20
+  /** B9a: main plans of the last three finished runs, oldest first (rules 5.4); migrates to []. */
+  planHistory?: Plan[];
 }
 
 export interface SaveSlot {

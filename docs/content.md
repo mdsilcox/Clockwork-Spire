@@ -278,6 +278,7 @@ Opening line: "Late again. The shift starts at dusk, apprentice."
 | foreman-apron | Apron Plate | 16 | Shell 14 | even | R | none | no | the leather apron | 1 |
 | foreman-bulwark | Boiler Plate | 24 | Bulwark (passive) | passive | R | none | no | the plate bolted over his chest | 2 |
 | foreman-rivet | Rivet Gun | 18 | Attack 10 x3 | odd | R | core-drill | no | the rivet gun on his left arm | 2 |
+**Lasts** (D-040): the Apron Plate retracts when phase 2 begins (`lastPhase: 1`); every other part that stands stays into later phases (keystones are broken by then).
 Totals: phase 1 parts 64; phase 2 core 60 plus parts 42; plus the Cog Rat 26: 192, against v1's 196.
 
 ### 3.3 Act 2: the Steamworks (regulars)
@@ -350,7 +351,7 @@ Opening line: "Mind the pressure, little one."
 |---|---|---|---|---|---|---|---|---|---|
 | queen-crown | Crown | 22 | Corrode 50%, then Attack 22 | odd | M | skewframe | yes | the spired crown | 1 |
 | queen-scepter | Sun-Orb Scepter | 22 | Drain 8 Pressure | even | R | sunder | yes | the sun-orb in her scepter | 1 |
-| queen-gauge | Chest Gauge | 20 | Build-up 6 to 20 (+1 per Pressure drained): Pierce 28 | every | R | none | no | the gauge on her chest | 1, 2 |
+| queen-gauge | Chest Gauge | 20 | Build-up 6 to 20 (+1 per Pressure drained): Pierce 28 | every | R | none | no | the gauge on her chest | 1 to 3 (stays while standing; the 2 to 3 Mend rebuilds it, D-040) |
 | queen-furnace | Waist Furnace | 28 | Mend: rebuild one broken part at half HP | even | M | cascade-piston | yes | the furnace at her waist | 2 |
 | queen-staff | Clock Staff | 22 | Siphon 20 | odd | M | twin-mainspring | yes | the clock staff in her other hand | 2 |
 | queen-ember | Ember Shell | 24 | Bulwark (passive) | passive | R | none | no | the glowing skirt plates | 3 |

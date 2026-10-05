@@ -119,13 +119,17 @@ export interface EnemyPartDef {
   escalateResetAt?: number;
   salvage: string | 'spire-key' | null; // player part id it drops when broken
   keystone?: boolean; // the core stays sealed until every keystone of the phase is broken
+  /** B9a: wardens only. A standing part retracts (removed, not broken, no salvage) when a phase after this one begins.
+   * Without it, a standing part stays into later phases. */
+  lastPhase?: number;
   anchor: string; // where it sits on the painting, in words (art rig anchors use the part id)
 }
 
 export interface WardenPhaseDef {
   keystones: string[];
   parts: EnemyPartDef[]; // parts that unfold in this phase (parts of earlier phases that still stand stay)
-  beat: string; // the line when this phase begins
+  /** The line when this phase begins; B9a: a line that depends on whether a part is broken (the Queen's Gauge). */
+  beat: string | { ifBroken: string; text: string; otherwise: string };
   action: ActionDef | null; // the phase action, taken on the warden's next turn (rules 4.8); null for phase 1
   mood: string; // rig mood for the beat ('phase')
   coreExposed?: boolean; // the last phase: the core is not sealed

@@ -716,7 +716,7 @@ function advancePhase(c: CombatState, idx: number, events: GameEvent[]): void {
   e.sealed = !ph.coreExposed;
   e.phaseActionPending = true;
   e.coreTookThisTurn = 0;
-  events.push({ kind: 'phase', tick: 0, step: 0, target: idx, amount: e.phase, note: ph.beat });
+  events.push({ kind: 'phase', tick: 0, step: 0, target: idx, amount: e.phase, note: typeof ph.beat === 'string' ? ph.beat : ph.beat.otherwise }); // B9a: wardens-core resolves ifBroken
   setIntents(e, computeIntents(c, idx));
 }
 

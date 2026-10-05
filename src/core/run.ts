@@ -2,6 +2,7 @@
 // B3 CONTRACT: the signatures below are fixed; the `run-core` lane implements them. Pure: no DOM, no clock.
 // Every function mutates the RunState in place and returns nothing unless stated. Illegal actions return false
 // (or throw nothing) and leave the state unchanged.
+import { recordFight } from './record';
 import { BASE_PLACEMENTS, BASE_TICKS } from './combat';
 import { CHASSIS } from './content/chassis';
 import { bandForFloor, ENCOUNTERS, encounterPool } from './content/encounters';
@@ -189,6 +190,7 @@ export function settleCombat(run: RunState): boolean {
     return false;
   }
 
+  recordFight(run, c); // B9a: plan stats on every fight end, won or lost
   run.stats.turns += c.log.length;
   run.stats.biggestTurn = Math.max(run.stats.biggestTurn, ...c.log.map((t) => t.damage), 0);
 
@@ -488,6 +490,7 @@ export function leaveNode(run: RunState): boolean {
 
 /** Abandon the run (phase 'defeat', result 'abandoned' in the record). */
 export function abandonRun(run: RunState): void {
+  if (run.combat) recordFight(run, run.combat); // B9a: the fight so far counts
   run.flags.abandoned = true;
   run.phase = 'defeat';
   run.combat = null;
