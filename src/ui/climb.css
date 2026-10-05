@@ -584,3 +584,8 @@ button.lockmark {
   min-height: 44px;
   text-align: left;
 }
+
+.mapkey { font-size: 12px; color: var(--ink-soft); }
+.mapkey summary { min-height: 24px; cursor: pointer; }
+.mapkey p { margin: 2px 0; }
+

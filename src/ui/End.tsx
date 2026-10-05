@@ -88,7 +88,7 @@ export function EndScreen() {
           <h1>The climb is complete.</h1>
           <BrassBreakdown run={run} total={brass} />
           <button class="primary" data-testid="end-continue" onClick={leaveResult}>
-            To the Workshop
+            To Bellfoot
           </button>
         </div>
       </main>
@@ -132,7 +132,7 @@ export function EndScreen() {
           </p>
         )}
         <button class="primary" data-testid="end-continue" onClick={leaveResult}>
-          To the Workshop
+          To Bellfoot
         </button>
       </div>
     </main>

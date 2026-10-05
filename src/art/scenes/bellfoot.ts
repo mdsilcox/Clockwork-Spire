@@ -19,6 +19,8 @@ export interface SceneDef {
   layers: SceneLayer[];
   /** Where each place stands, by place id, in scene units: [x, ground y]. Must match the code-drawn street. */
   anchors: Record<string, [number, number]>;
+  /** Where the code ambience goes over the painting: lantern centers (the foreground's lamp posts) and chimney mouths, scene units. */
+  ambience?: { lamps: [number, number][]; chimneys: [number, number][] };
 }
 
 export const BELLFOOT: SceneDef | null = {
@@ -30,4 +32,11 @@ export const BELLFOOT: SceneDef | null = {
     { src: 'art/bellfoot/foreground.webp', parallax: 1 },
   ],
   anchors: Object.fromEntries(ALL_PLACES.map((p) => [p.id, [p.x, GROUND_Y] as [number, number]])),
+  ambience: {
+    lamps: [360, 1000, 1320, 1590].map((x) => [x, 480] as [number, number]),
+    chimneys: [
+      [600, 300],
+      [1560, 250],
+    ],
+  },
 };

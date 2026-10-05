@@ -57,15 +57,18 @@ function enemyParts(d: EnemyDef): string[] {
 function Bestiary({ p }: { p: Profile }) {
   const ghost = (p.residents ?? []).includes('hour-ghost');
   const list = Object.values(ENEMIES).filter((d) => !d.summonOnly && d.id !== 'dummy' && d.id !== 'tutorial-automaton');
+  const none = (p.bestiary ?? []).length === 0;
+  const AREA: Record<number, string> = { 1: 'the Gearworks', 2: 'the Steamworks', 3: 'the Belfry' };
   return (
-    <div data-testid="archivist-panel-bestiary" class="archpanel bestiary">
+    <div data-testid="archivist-panel-bestiary" class={`archpanel bestiary ${none && !ghost ? 'empty-book' : ''}`}>
+      {none && <p class="nonemet">Nothing met yet. Climb, and the archivist will write it down.</p>}
       {list.map((d) => {
         const met = (p.bestiary ?? []).includes(d.id);
         const full = met || ghost;
         const parts = full ? enemyParts(d) : [];
         return (
           <article key={d.id} class={`beast ${met ? 'met' : ''}`} data-testid={`bestiary-entry-${d.id}`} data-met={met ? 'true' : 'false'}>
-            <h4>{met ? d.name : 'Not met yet'}</h4>
+            <h4>{met ? d.name : ghost ? `Something in ${AREA[d.act]}` : 'Not met'}</h4>
             <span class="beastmeta">
               Act {d.act}, {d.tier === 'boss' ? 'warden' : d.tier === 'elite' ? 'elite' : 'regular'}
             </span>

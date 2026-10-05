@@ -47,6 +47,13 @@ import './bellfoot.css';
 
 const SCENE = BELLFOOT as SceneDef | null;
 
+/** The label on a place's button, in one case style: "Spire gate", "Trophy shelf", "Oil Merchant" (a stall shows its resident). */
+function shortLabel(q: TownPlace): string {
+  if (q.id.startsWith('stall-')) return RESIDENT_BY_ID[q.id.slice(6)]?.name.replace(/^The /, '').replace("Trader's Cousin", 'Cousin') ?? q.label;
+  const s = q.label.replace(/^The /, '');
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase().replace('sprocket', 'Sprocket');
+}
+
 const LINE: Record<string, string> = {
   celebrate: 'Sprocket spins in circles. He is very proud of you.',
   happy: 'Sprocket wiggles all over.',
@@ -86,7 +93,7 @@ function Street({ places, p }: { places: TownPlace[]; p: Profile }) {
   const cssW = Math.round(SCENE_W * scale);
   const cssH = Math.round(VIEW_H * scale);
   // mutable walk state (the animation loop reads it every frame)
-  const s = useRef({ tx: places[0].x, target: places[0].x, heading: townPlace.peek(), sx: places[0].x - 80, mood: 'idle', tmood: 'idle', collarKey: '' });
+  const s = useRef({ tx: places[0].x, target: places[0].x, heading: townPlace.peek(), sx: places[0].x - 80, mood: 'idle', tmood: 'idle', collarKey: '', settle: 0 });
   const lastTap = useRef<string | null>(null);
   const placesRef = useRef(places);
   placesRef.current = places;
@@ -285,6 +292,18 @@ function Street({ places, p }: { places: TownPlace[]; p: Profile }) {
       } else if (walking.value) walking.value = false;
       const want = st.tx - 80 * (st.target >= st.tx - 1 ? 1 : -1);
       st.sx += (want - st.sx) * Math.min(1, dt * 5);
+      // the camera keeps the walker (and the dog behind him) fully on screen
+      const sc = frame.current;
+      // only while he walks and for a moment after, so a reader's own scrolling is left alone
+      if (Math.abs(dx) > 0.5) st.settle = 12;
+      else if (st.settle > 0) st.settle--;
+      if (sc && st.settle > 0) {
+        const px = st.tx * k;
+        const lo = Math.min(st.sx, st.tx) * k - 70;
+        const hi = px + 90;
+        if (hi > sc.scrollLeft + sc.clientWidth) sc.scrollLeft = hi - sc.clientWidth;
+        else if (lo < sc.scrollLeft) sc.scrollLeft = Math.max(0, lo);
+      }
       // markers
       if (tinkerEl.current) tinkerEl.current.style.transform = `translate(${st.tx * k}px, ${(GROUND_Y - VIEW_TOP) * k}px)`;
       if (sprocketEl.current) sprocketEl.current.style.transform = `translate(${st.sx * k - 36}px, ${(GROUND_Y + 14 - VIEW_TOP) * k - 56}px)`;
@@ -340,7 +359,8 @@ function Street({ places, p }: { places: TownPlace[]; p: Profile }) {
       c2.save();
       c2.scale(k, k);
       c2.translate(0, -VIEW_TOP);
-      if (!SCENE) drawAmbience(c2, now);
+      if (SCENE) drawAmbience(c2, now, SCENE.ambience?.lamps ?? [], SCENE.ambience?.chimneys ?? []);
+      else drawAmbience(c2, now);
       c2.restore();
       st.collarKey = collarRef.current ?? '';
     };
@@ -366,7 +386,7 @@ function Street({ places, p }: { places: TownPlace[]; p: Profile }) {
   }, []);
 
   const label = (q: TownPlace): string => q.label;
-  const btnW = (q: TownPlace): number => (q.id.startsWith('stall-') ? 48 : 96);
+  const btnW = (q: TownPlace): number => (q.id.startsWith('stall-') ? 76 : 96);
   /** Left edges of the place buttons: centered under their fronts, pushed apart so none overlaps, kept inside the scene. */
   const lefts = new Map<string, number>();
   {
@@ -417,7 +437,7 @@ function Street({ places, p }: { places: TownPlace[]; p: Profile }) {
               title={label(q)}
               onClick={() => tapPlace(q.id)}
             >
-              <span class="plabel">{q.id.startsWith('stall-') ? (q.label.replace(/^The (Trader's )?/, '').slice(0, 1) || '?') : q.label.replace(/^The /, '')}</span>
+              <span class="plabel">{shortLabel(q)}</span>
             </button>
           ))}
           <div class="tinkermark" ref={tinkerEl} data-testid="town-tinker" data-at={townPlace.value} data-walking={walkMood ? 'true' : 'false'} aria-hidden="true" />
@@ -468,7 +488,6 @@ function Stall({ id }: { id: string }) {
   if (!r) return <p class="empty">Nobody is here.</p>;
   return (
     <section class="stallpanel" data-testid="stall">
-      <h3>{r.name}</h3>
       <p>{r.stall}</p>
     </section>
   );
@@ -478,7 +497,6 @@ function ClockTower({ p }: { p: Profile }) {
   const wins = (p.history ?? []).some((h) => h.result === 'win');
   return (
     <section class="towerpanel" data-testid="clocktower-panel">
-      <h3>The clock tower door</h3>
       <p>Mode: Journeyman. {wins ? 'You have won on it.' : 'The door is shut and the hands do not move.'}</p>
       <p>Overwind opens after a Journeyman win.</p>
     </section>
@@ -491,7 +509,7 @@ function PlacePanel({ id, p, places }: { id: string; p: Profile; places: TownPla
   if (id === 'gate') body = <GatePanel p={p} />;
   else if (id === 'workshop') body = <WorkshopPanel p={p} />;
   else if (id === 'sprocket') body = <SprocketCorner p={p} />;
-  else if (id === 'trophies') body = <Trophies p={p} />;
+  else if (id === 'trophies') body = <div class="trophywrap"><Trophies p={p} /></div>;
   else if (id === 'archivist') body = <Archivist p={p} />;
   else if (id.startsWith('stall-')) body = <Stall id={id} />;
   else body = <ClockTower p={p} />;
@@ -531,6 +549,19 @@ export function BellfootScreen() {
     openPlaceId.value = null;
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  // the menus close on a tap outside them
+  useEffect(() => {
+    if (!menu && !placesOpen) return;
+    const away = (e: PointerEvent): void => {
+      if (!(e.target as HTMLElement | null)?.closest?.('.menuwrap')) {
+        setMenu(false);
+        setPlacesOpen(false);
+      }
+    };
+    window.addEventListener('pointerdown', away, true);
+    return () => window.removeEventListener('pointerdown', away, true);
+  }, [menu, placesOpen]);
 
   if (!p) return null;
   const mood = walking.value ? 'walk' : pose.value;

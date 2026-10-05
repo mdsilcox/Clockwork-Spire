@@ -317,3 +317,72 @@
   border: 1px solid rgba(0, 0, 0, 0.5);
   vertical-align: -1px;
 }
+
+/* menus never run off a short screen */
+.menupanel {
+  max-height: calc(100dvh - 64px);
+  overflow-y: auto;
+}
+
+.street {
+  padding-right: 80px;
+}
+
+.place {
+  line-height: 1.1;
+  padding: 0 2px;
+}
+
+.trophywrap {
+  padding: 8px 12px 16px;
+}
+
+.bestiary .nonemet {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.bestiary.empty-book {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-content: start;
+}
+
+.bestiary.empty-book .nonemet {
+  flex: 1 0 100%;
+}
+
+.bestiary.empty-book .beast {
+  padding: 3px 8px;
+}
+
+.bestiary.empty-book .beast h4,
+.bestiary.empty-book .beast p,
+.bestiary.empty-book .beastmeta {
+  display: inline;
+  margin: 0 4px 0 0;
+  font-size: 12px;
+}
+
+.mapkey {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.mapkey summary {
+  min-height: 24px;
+  cursor: pointer;
+}
+
+.mapkey p {
+  margin: 2px 0;
+}
+
+.place.stall {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink);
+}
+
