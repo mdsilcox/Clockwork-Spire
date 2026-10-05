@@ -39,7 +39,7 @@ v2 is owner-approved (D-027; choices D-029). Docs: `docs/vision-v2.md`, `docs/ru
 
 ## Conventions
 - American English, no em dashes anywhere (UI text, docs, comments). Short text; warm, curious, a little melancholy.
-- Sound synthesized; no audio or font files. Until the D4 spike rescopes test A1, no image files in `src/` or `public/` either (art lives in `art/`).
+- Sound synthesized; no audio or font files. Images only as WebP under `public/art/`, each listed in `src/art/manifest.ts` with its source under `art/` (AR1: at most 120 KB per regular, 250 KB per warden, 6 MB in all); none in `src/`, no SVG.
 - Rules change only in `src/core/` with a unit test; numbers come from `docs/content.md`; balance changes are logged in `balance/` and DECISIONS.md.
 - UI: DOM over the canvas; `data-testid` on interactive elements; tap targets 40 px+, text 12 px+ at 667x375, no sideways scroll.
 - Files to copy: a part `content/parts.ts` (spur, coil), an enemy `content/enemies.ts`, a screen `src/ui/Nodes.tsx`, an e2e `e2e/run.spec.ts`.
