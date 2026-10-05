@@ -180,6 +180,8 @@ export interface HitResult {
   broke: boolean; // a part broke or the core died
   died: boolean;
   cancelled: boolean; // the broken part had an intent
+  /** B9b: damage beyond what the target had left (the carry of the Cascade Piston and the Overrun Coupler). */
+  overkill?: number;
 }
 
 const NO_HIT: HitResult = { lost: 0, broke: false, died: false, cancelled: false };
@@ -274,7 +276,7 @@ export function damageTarget(
         const en = standingPassive(c.enemies[j], 'enrage');
         if (en) addStrength(c, j, en.x, events);
       }
-      return { lost, broke: true, died: true, cancelled: false };
+      return { lost, broke: true, died: true, cancelled: false, overkill: amt - lost };
     }
     return { lost, broke: false, died: false, cancelled: false };
   }
@@ -286,7 +288,7 @@ export function damageTarget(
   if (p.hp <= 0) {
     const word = opts.word ?? (opts.status ? 'status' : opts.drill ? 'drill' : 'strike');
     const cancelled = breakPartState(c, idx, p, events, base, { word, ...(protectedBy.length ? { protectedBy } : {}) });
-    return { lost, broke: true, died: false, cancelled };
+    return { lost, broke: true, died: false, cancelled, overkill: amt - lost };
   }
   return { lost, broke: false, died: false, cancelled: false };
 }

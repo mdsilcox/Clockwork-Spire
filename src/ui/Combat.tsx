@@ -162,6 +162,7 @@ export function CombatScreen() {
       click();
     } else if (live.placementsLeft <= 0) flash('No placements left this turn. Press Run.');
     else if (cell === MAINSPRING) flash('The Mainspring cannot be replaced.');
+    else if (live.hand[handIndex] !== undefined && live.parts[live.hand[handIndex]]?.defId === 'twin-mainspring') flash('The Twin Mainspring goes on D2 only.');
     else flash('That part cannot go there.');
   };
 
