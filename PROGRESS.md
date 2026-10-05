@@ -3,11 +3,11 @@
 ## Version 2 (started 2026-10-04T22:12Z, owner-approved on the board)
 Plan: V0 setup, D3 design and D4 art direction side by side, D5 roadmap, then build phases. Board phases `cs~V0`, `cs~D3`, `cs~D4`, `cs~D5`.
 - Done: V0 (6d04086), D3 design (critic R2 PASS 7.67), D4 art direction (owner sign-off, D-034; follow-ups to the owner's clip notes, art-reviewer R4 PASS), D5 roadmap (docs/roadmap-v2.md; art after each wave).
-- Now (autonomous, D-035; owner: "proceed as far as you can"; time 2026-10-05 ~00:35Z):
-  - **B7 Enemy machines** (branch claude/clockwork-spire-v2-plan-0389b9, last commit f8f6693): engine, content, UI, bots merged; B7.5 tune done (D-038); full npm test green at f8f6693 (346 unit, 142 e2e, offline, career). Browser check found 2 phone blockers and 9 should-fixes: returned to the combat-ui agent (a592ffcb50efa7ef1), working in this shared tree. Next: re-check its round 2 (e2e + spot-check), then a fresh critic (pass rule: no blockers, every metric >= 7, average >= 7.5) replaces the owner's gate; on PASS: phase_tokens.py metrics, merge to main (ff from this worktree: `git -C <main checkout> merge --ff-only claude/clockwork-spire-v2-plan-0389b9`), push, board closed.
-  - **A1 act 1 cast**: PASS in wave 2: spring-imp, rust-mite, brass-beetle, oil-slick, gearhound. Returned: tinker (painted open hand art/tinker/hand/seed5.png, cheer, star; agent aad18449858a67bb5), foreman (round 2 done, needs wave 3 confirm: flash 0.09, embers; agent ad81963a2d06e9344). Rigging: tinpot-general (seed 23; agent ae80e75c13c80b2da). Next: wave 3 art-reviewer on foreman, tinker, tinpot; then A1 gate (art-reviewer PASS replaces the owner), commit art, board closed.
-  - **B8 and A2**: drafts reviewed by a critic, PASS WITH CHANGES accepted (D-037). Brief draft docs/briefs/B8-the-climb.md. B8.0 contract starts after the B7 gate; A2 after the A1 gate. ComfyUI is stopped (restart for A2 candidates).
-  - Keep-awake PID 31080 (4 h from 23:40Z).
+- Done (autonomous): **B7 Enemy machines** closed 00:50Z (critic PASS 7.57; main 9896cb9 pushed). **A1 act 1 cast** closed 00:42Z (art-reviewer waves 1 to 3b; commit 4f60250).
+- Now (autonomous, D-035; owner: "proceed as far as you can"):
+  - **A2** (acts 2 and 3 cast): brief docs/briefs/A2-acts-2-3-cast.md. ComfyUI running (job b9bjixcxy generating; Steam Wraith retry queued after it). Picks so far: valve-crab 1, furnace-golem 1, pipe-snake 1 (cut). Still to pick: gauge-gremlin, the act 3 regulars, the four elites, the Clockmaker, the wraith retry. Then lanes act2-cast, act3-cast, elites-a, elites-b, clockmaker-art (last), art-reviewer waves, gate. Stop ComfyUI by PID when candidates are done.
+  - **B8 The climb**: brief draft docs/briefs/B8-the-climb.md (semantics decided). Next: B8.0 contract (additive types for sections, rooms, clock, elites, Scrap, save v2; section.ts and rooms.ts stubs; createCombat options overwound and prepared; testkit sectionFixture; real failing tests for CL1 to CL11, SV3 to SV6, AD4 hours, BV11, AR1, AR2 act 1, AR4), then lanes climb-core, economy-rooms, climb-ui, rig-hub (rig-hub starts on signed-off rigs), bots after core. B8 tune should also widen act 1 normals' margin (critic B7).
+  - Keep-awake PID 31080 (until ~03:40Z).
 
 ## Version 1
 
