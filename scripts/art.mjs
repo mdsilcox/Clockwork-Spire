@@ -40,9 +40,9 @@ const SCENES = [
     id: 'bellfoot',
     act: 0,
     layers: [
-      { name: 'sky', scale: 1, quality: 72 },
-      { name: 'street', scale: 1, quality: 80 },
-      { name: 'foreground', scale: 1, quality: 80 },
+      { name: 'sky', scale: 1, quality: 82 },
+      { name: 'street', scale: 1, quality: 88 },
+      { name: 'foreground', scale: 1, quality: 86 },
     ],
   },
 ];

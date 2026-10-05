@@ -21,6 +21,8 @@ SCENE = "wide establishing shot, layered silhouettes, game background art, dusk,
 ASSETS = {
     "sky": dict(size=(1216, 832), prompt="a dusk sky over a small steampunk town, an enormous clock tower called the Spire rising into clouds at the left, its top lost in cloud, amber and teal painted clouds, distant rooftops and chimneys as dark silhouettes along the very bottom edge, empty calm sky, no foreground", frame=SCENE,
                 neg="characters, people, frame, border, close buildings, text"),
+    "sky2": dict(size=(1216, 832), prompt="a dusk sky over the rooftops of a small steampunk town, amber and teal painted clouds, a few chimneys with steam, distant rooftops as dark silhouettes along the very bottom edge, empty calm sky, no tower, no clock tower, no foreground", frame=SCENE,
+                 neg="tower, clock tower, spire, characters, people, frame, border, close buildings, text"),
     "gate": dict(size=(896, 1152), prompt="the gate to the Spire: a tall arched brass and iron gate between two stone gateposts with hanging lanterns, a dimly glowing archway beyond showing huge gears, sturdy and welcoming", frame=FRONT, neg=FRONT_NEG),
     "workshop": dict(size=(1216, 832), prompt="a small cozy inventor's workshop front: a wide bench window full of tools and small clockwork things with a glowing lamp, a wooden door, a brick chimney with a puff of steam, a gear shaped sign without letters", frame=FRONT, neg=FRONT_NEG),
     "sprocket": dict(size=(896, 1152), prompt="a small corner nook of a wall: a wooden doghouse niche with a wicker basket and a folded red blanket in front, a brass dog bowl, a small iron lamp post beside it", frame=FRONT, neg=FRONT_NEG),

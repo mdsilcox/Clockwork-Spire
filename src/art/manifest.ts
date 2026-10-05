@@ -103,4 +103,14 @@ export const MANIFEST: ManifestEntry[] = [
     ],
     source: 'art/sprocket',
   },
+  {
+    id: 'bellfoot',
+    act: 0,
+    files: [
+      { path: 'art/bellfoot/sky.webp', bytes: 176486 },
+      { path: 'art/bellfoot/street.webp', bytes: 277168 },
+      { path: 'art/bellfoot/foreground.webp', bytes: 59510 },
+    ],
+    source: 'art/bellfoot',
+  },
 ];
