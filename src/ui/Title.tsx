@@ -124,7 +124,7 @@ export function Title() {
               newFight();
             }}
           >
-            {ongoing ? 'New practice' : 'Practice'}
+            {ongoing ? 'New practice fight' : 'Practice fight'}
           </button>
           <button class="secondary pill" data-testid="sandbox" onClick={openPractice}>
             Sandbox
