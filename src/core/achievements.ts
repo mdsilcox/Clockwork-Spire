@@ -35,7 +35,7 @@ export function checkAchievements(profile: Profile, run: RunState, record: RunRe
     'm-act2-breaker': run.act >= 2 && (s.partsBrokenAct1 ?? 0) >= 12,
     'm-bell3': prog.bells3 >= 3,
     'm-quick-foreman': wardens.some((w) => w.enemy === 'foreman' && w.won && w.turns <= 6),
-    'm-break-all': wardens.some((w) => w.enemy !== 'clockmaker' && w.won && w.allBroken), // the Clockmaker has his own: h-whole-clock
+    'm-break-all': wardens.some((w) => w.won && w.allBroken),
     'm-all-chassis': CHASSIS_WINS.every((c) => prog[`win:${c}`]),
     'm-calm-steam': won && steam >= 3 && !s.overpressured,
     'm-status': (s.scaldBest ?? 0) >= 60,
