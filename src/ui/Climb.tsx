@@ -365,7 +365,13 @@ export function ActScreen() {
               )}
             </div>
           )}
-          {!atDoor && hour === 0 && <p class="acthint">Tap a lit room to walk there. Each step takes an hour.</p>}
+          <details class="mapkey">
+            <summary>Map key</summary>
+            <p>Dashes: stairs. Thick pipe: duct. Dots: lift.</p>
+            <p>Orange with a lock: a locked door.</p>
+            <p>Dotted orange loop: an elite's patrol.</p>
+          </details>
+          {!atDoor && hour === 0 &&<p class="acthint">Tap a lit room to walk there. Each step takes an hour.</p>}
         </aside>
         <div class="actboard" ref={boardRef} data-testid="act-section" style={{ '--floors': String(lay.floors) }} aria-label={`${ACT_TITLE[s.act]}, a cut-away of the section`}>
           {Array.from({ length: lay.floors }, (_, f) => (

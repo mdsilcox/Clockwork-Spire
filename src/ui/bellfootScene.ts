@@ -324,17 +324,17 @@ export function drawStreet(c: CanvasRenderingContext2D, places: TownPlace[]): vo
 }
 
 /** The living layer, per frame, in scene units: lamp glow flicker and chimney steam. */
-export function drawAmbience(c: CanvasRenderingContext2D, t: number): void {
-  for (let i = 0; i < LAMPS.length; i++) {
+export function drawAmbience(c: CanvasRenderingContext2D, t: number, lamps: [number, number][] = LAMPS.map((x) => [x, GROUND_Y - 192]), chimneys: [number, number][] = CHIMNEYS): void {
+  for (let i = 0; i < lamps.length; i++) {
     const f = 0.55 + 0.25 * Math.sin(t * (3 + i * 0.37) + i * 2) + 0.12 * Math.sin(t * 11 + i * 5);
-    const x = LAMPS[i];
-    const g = c.createRadialGradient(x, GROUND_Y - 192, 2, x, GROUND_Y - 192, 80);
+    const [x, y] = lamps[i];
+    const g = c.createRadialGradient(x, y, 2, x, y, 80);
     g.addColorStop(0, `rgba(255,210,122,${0.5 * f})`);
     g.addColorStop(1, 'rgba(255,210,122,0)');
     c.fillStyle = g;
-    c.fillRect(x - 80, GROUND_Y - 272, 160, 160);
+    c.fillRect(x - 80, y - 80, 160, 160);
   }
-  for (const [cx, cy] of CHIMNEYS) {
+  for (const [cx, cy] of chimneys) {
     for (let k = 0; k < 5; k++) {
       const u = ((t * 0.22 + k / 5) % 1);
       const x = cx + Math.sin(u * 5 + k) * 16 + u * 30;
