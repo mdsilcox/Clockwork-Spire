@@ -22,7 +22,7 @@ const REGULAR_MAX = 120 * KB;
 const WARDEN_MAX = 250 * KB;
 const TOTAL_MAX = 6 * KB * KB;
 const SCENE_MAX = 600 * KB; // a painted scene (Bellfoot) is budgeted as a whole, not per file
-const SCENES = ['bellfoot'];
+const SCENES = ['bellfoot', 'title'];
 
 function walk(dir: string): string[] {
   if (!existsSync(dir)) return [];

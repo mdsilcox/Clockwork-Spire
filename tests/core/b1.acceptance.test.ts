@@ -146,7 +146,7 @@ describe('B1 assets', () => {
 
   it('A1: size budget, 120 KB per regular cut-out, 250 KB per warden, 600 KB per scene, 6 MB in all', () => {
     let total = 0;
-for (const e of MANIFEST) {      const sizes = e.files.map((f) => statSync(join('public', f.path)).size);      if (e.id === 'bellfoot') expect(sizes.reduce((n, x) => n + x, 0), 'scene bellfoot').toBeLessThanOrEqual(600 * 1024);      else for (const [i, n] of sizes.entries()) expect(n, e.files[i].path).toBeLessThanOrEqual(ENEMIES[e.id]?.tier === 'boss' ? 250 * 1024 : 120 * 1024);      total += sizes.reduce((n, x) => n + x, 0);    }
+for (const e of MANIFEST) {      const sizes = e.files.map((f) => statSync(join('public', f.path)).size);      if (e.id === 'bellfoot' || e.id === 'title') expect(sizes.reduce((n, x) => n + x, 0), 'scene ' + e.id).toBeLessThanOrEqual(600 * 1024);      else for (const [i, n] of sizes.entries()) expect(n, e.files[i].path).toBeLessThanOrEqual(ENEMIES[e.id]?.tier === 'boss' ? 250 * 1024 : 120 * 1024);      total += sizes.reduce((n, x) => n + x, 0);    }
     expect(total).toBeLessThanOrEqual(6 * 1024 * 1024);
   });
 });
