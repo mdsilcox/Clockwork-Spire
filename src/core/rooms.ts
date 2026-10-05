@@ -6,6 +6,7 @@ import { PARTS } from './content/parts';
 import { TRINKETS } from './content/trinkets';
 import { addScrap, gainTrinket, heal, markOfferTaken, newPart, partPool, randomTrinket, recordOffers, scrapOf } from './rewards';
 import { isPartUnlocked } from './salvage';
+import { spendHour } from './section';
 import type { Pending, Rarity, RunState, TradeItem } from './types';
 
 export const UPGRADE_SCRAP: Record<string, number> = { common: 15, uncommon: 25, rare: 40, masterwork: 60, legendary: 80 };
@@ -39,12 +40,6 @@ export function barterPrice(run: RunState, item: TradeItem, offered: number | nu
 function pendingOf<K extends Pending['kind']>(run: RunState, kind: K): Extract<Pending, { kind: K }> | null {
   const p = run.pending;
   return p && p.kind === kind && run.phase === kind ? (p as Extract<Pending, { kind: K }>) : null;
-}
-
-/** One hour passes at a room: the clock moves and every undefeated elite steps along its patrol. */
-function spendHour(run: RunState): void {
-  run.hour = (run.hour ?? 0) + 1;
-  for (const e of run.elites ?? []) if (!e.defeated && e.patrol.length > 0) e.at = (e.at + 1) % e.patrol.length;
 }
 
 const roomHere = (run: RunState) => run.section?.rooms.find((r) => r.id === run.roomId);

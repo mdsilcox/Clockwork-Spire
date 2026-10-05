@@ -5,6 +5,7 @@ import { bandForFloor, ENCOUNTERS } from './content/encounters';
 import { EVENTS } from './content/events';
 import { int, pick, shuffle } from './rng';
 import type { RngState } from './rng';
+import { addScrap } from './rewards';
 import { traderStock } from './rooms';
 import { startCombat } from './startfight';
 import type { ActSection, Passage, Room, RoamingElite, RoomKind, RunState } from './types';
@@ -340,7 +341,7 @@ function startWarden(run: RunState, overwound: boolean, prepared = 0): void {
 export function ringBell(run: RunState): boolean {
   if (!run.section || run.phase !== 'section' || run.roomId !== run.section.door || run.flags.wardenFight) return false;
   const left = hoursLeft(run);
-  run.scrap = (run.scrap ?? 0) + BELL_SCRAP_PER_HOUR * left;
+  addScrap(run, BELL_SCRAP_PER_HOUR * left);
   run.stats.bonusBrass = (run.stats.bonusBrass ?? 0) + BELL_BRASS_PER_HOUR * left;
   run.stats.brassEarned += BELL_BRASS_PER_HOUR * left;
   startWarden(run, false, Math.min(2, Math.floor(left / 3)));

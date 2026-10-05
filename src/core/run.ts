@@ -10,9 +10,10 @@ import { EVENTS } from './content/events';
 import { candidates, EFFECTS, randomPartOf } from './eventfx';
 import { generateActMap } from './map';
 import { initStreams, int, pick, shuffle } from './rng';
-import { addBlueprint, bossTrinkets, eliteTrinket, gainTrinket, heal, markOfferTaken, newPart, offerParts, recordOffers, rollBlueprint } from './rewards';
+import { addBlueprint, addScrap, bossTrinkets, eliteTrinket, gainTrinket, heal, markOfferTaken, newPart, offerParts, recordOffers, rollBlueprint } from './rewards';
 import { makeShop as buildShop, OIL_HEAL, removalPrice } from './shop';
 import { isPartUnlocked, salvageItems } from './salvage';
+import { takeVault } from './rooms';
 import { afterRoom, resolveRoom, ROOM_BRASS, startAct } from './section';
 import { startCombat } from './startfight';
 import type { CombatState, RunConfig, RunRecord, RunState, ShopItem } from './types';
@@ -85,12 +86,6 @@ export function newRun(cfg: RunConfig): RunState {
   for (const t of cfg.trinkets) gainTrinket(run, t);
   if (!cfg.legacyMap) startAct(run, 1); // v2: the climb starts at dusk in act 1's section (the v1 map stays on the run until the gate removes it)
   return run;
-}
-
-/** Pay Scrap (v2 runs) or Cogs (a v1 run without a section). */
-export function addScrap(run: RunState, n: number): void {
-  if (run.section) run.scrap = (run.scrap ?? 0) + n;
-  else run.cogs += n;
 }
 
 /** Node ids the player may enter now (floor 1 nodes at the start; else the current node's `next`). */
@@ -219,7 +214,7 @@ export function settleCombat(run: RunState): boolean {
   } else if (kind === 'elite') {
     run.stats.elites += 1;
     const room = run.section?.rooms.find((r) => r.id === run.roomId);
-    if (room?.kind === 'vault') addScrap(run, 40); // the vault's Scrap (rules 4.4); its Masterwork is the rooms lane's
+    if (room?.kind === 'vault') takeVault(run); // Masterwork (or Legendary) and 40 Scrap, rooms.ts
     else {
       const el = run.elites?.find((e) => !e.defeated && e.defId === c.enemies[0]?.defId && e.patrol[e.at] === run.roomId);
       if (el) el.defeated = true;
@@ -282,7 +277,7 @@ export function takeRewardPart(run: RunState, index: number | null): boolean {
   if (run.phase !== 'reward' || !p || p.kind !== 'reward' || p.partTaken) return false;
   if (index === null) {
     p.partTaken = true;
-    if (run.trinkets.includes('sprocket-tag')) run.cogs += 12;
+    if (run.trinkets.includes('sprocket-tag')) addScrap(run, 12);
     return true;
   }
   const id = p.parts[index];
