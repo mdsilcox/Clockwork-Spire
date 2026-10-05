@@ -33,7 +33,6 @@ const ANCHORS = {
     [206, 592, 1.0],
     [452, 530, 1.1],
     [365, 585, 0.9],
-    [1003, 640, 0.8],
     [505, 440, 0.7],
   ] as [number, number, number][],
 };
@@ -149,7 +148,7 @@ export function startTitleAmbience(cv: HTMLCanvasElement, opts: { still?: boolea
     const r = mulberry(1000 + j);
     const N = Math.round(18 * v[2]);
     for (let n = 0; n < N; n++)
-      puffs.push({ v, off: n / N + (r() - 0.5) * 0.02, jx: (r() - 0.5) * 4, vx: WIND * (0.5 + r() * 0.5), vy: -(14 + r() * 8) * v[2], r0: 4 + r() * 3, g: 6 + r() * 5, a: 0.4 + r() * 0.2, ph: r() * TAU });
+      puffs.push({ v, off: n / N + (r() - 0.5) * 0.02, jx: (r() - 0.5) * 4, vx: WIND * (0.5 + r() * 0.5), vy: -(14 + r() * 8) * v[2], r0: 2.5 + r() * 2, g: 4 + r() * 3, a: 0.3 + r() * 0.15, ph: r() * TAU });
   });
   const embers: { off: number; life: number; x0: number; y0: number; vx: number; vy: number; r: number; ph: number; tw: number; hot: boolean }[] = [];
   {
@@ -168,7 +167,7 @@ export function startTitleAmbience(cv: HTMLCanvasElement, opts: { still?: boolea
     }
   }
   const lampLevel = (l: (typeof lamps)[number], t: number): number => {
-    let v = 0.72 + 0.16 * Math.sin(w_(l.k1) * t + l.ph) + 0.1 * Math.sin(w_(l.k2) * t + l.ph * 2.3) + 0.05 * Math.sin(w_(l.k3) * t + l.ph * 5);
+    let v = 0.7 + 0.22 * Math.sin(w_(l.k1) * t + l.ph) + 0.14 * Math.sin(w_(l.k2) * t + l.ph * 2.3) + 0.05 * Math.sin(w_(l.k3) * t + l.ph * 5);
     if (l.slow) {
       const u = (t / P + l.off) % 1;
       v *= 0.1 + 0.9 * sm(0, 0.06, u) * (1 - sm(0.6, 0.66, u));
@@ -193,13 +192,14 @@ export function startTitleAmbience(cv: HTMLCanvasElement, opts: { still?: boolea
       const x = p.v[0] + p.jx + p.vx * age * 1.15 + Math.sin(TAU * u * 2 + p.ph) * 3;
       const y = p.v[1] + p.vy * age * (1 - 0.09 * age);
       const r = (p.r0 + p.g * age * 0.8) * p.v[2];
-      ctx.globalAlpha = p.a * sm(0, 0.12, u) * (1 - sm(0.35, 1, u)) * 0.85;
-      ctx.drawImage(puff, x - r, y - r, r * 2, r * 2);
+      ctx.globalAlpha = p.a * sm(0, 0.18, u) * (1 - sm(0.2, 1, u)) * 0.6;
+      ctx.drawImage(puff, x - r * 0.7, y - r * 1.7, r * 1.4, r * 3.4); // a soft plume, taller than wide
     }
     ctx.globalCompositeOperation = 'lighter';
     for (const l of lamps) {
-      const R = l.r * 2.6;
-      ctx.globalAlpha = Math.min(1, lampLevel(l, t) * 0.85);
+      const lv = lampLevel(l, t);
+      const R = l.r * (2.2 + 0.7 * lv);
+      ctx.globalAlpha = Math.min(1, lv * 0.85);
       ctx.drawImage(glowFor(COL[l.kind] ?? COL.amber), l.x - R, l.y - R, R * 2, R * 2);
     }
     for (const id of ['clockL', 'clockR'] as const) {

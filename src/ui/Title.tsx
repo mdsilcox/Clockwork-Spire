@@ -1,5 +1,5 @@
 import { climbing, continueRun, enterWorkshop, hasOngoingFight, newFight, openPractice, openSlots, resume, startTutorial } from '../app/controller';
-import { colorBlind, openGlossary, openHowTo, openSettings, setColorBlind } from '../app/prefs';
+import { openGlossary, openHowTo, openSettings } from '../app/prefs';
 import { unlockAudio } from '../audio/synth';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { tutorialDone, tutorialV2Seen } from '../app/prefs';
@@ -99,66 +99,56 @@ export function Title() {
               Climb the Spire
             </button>
           )}
-          <button class="secondary" data-testid="open-slots" onClick={() => void openSlots()}>
-            Save slots
-          </button>
+        </div>
+        <div class="tt-pills">
           {ongoing && (
             <button
-              class="secondary"
+              class="secondary pill"
               data-testid="continue"
               onClick={() => {
                 unlockAudio();
                 resume();
               }}
             >
-              Continue practice fight
+              Resume practice
             </button>
           )}
+          <button class="secondary pill" data-testid="open-slots" onClick={() => void openSlots()}>
+            Save slots
+          </button>
           <button
-            class="secondary"
+            class="secondary pill"
             data-testid="practice"
             onClick={() => {
               unlockAudio();
               newFight();
             }}
           >
-            {ongoing ? 'New practice fight' : 'Practice fight'}
+            {ongoing ? 'New practice' : 'Practice'}
           </button>
-        </div>
-      </div>
-      <div class="tt-col tt-right">
-        <div class="title-actions">
+          <button class="secondary pill" data-testid="sandbox" onClick={openPractice}>
+            Sandbox
+          </button>
           <button
-            class="secondary"
+            class="secondary pill"
             data-testid="tutorial"
             onClick={() => {
               unlockAudio();
               startTutorial();
             }}
           >
-            Start the tutorial
+            Tutorial
           </button>
-          <button class="secondary" data-testid="sandbox" onClick={openPractice}>
-            Practice sandbox
-          </button>
-        </div>
-        <div class="title-links">
-          <button class="secondary small" data-testid="open-howto" onClick={() => openHowTo()}>
+          <button class="secondary pill" data-testid="open-howto" onClick={() => openHowTo()}>
             How to play
           </button>
-          <button class="secondary small" data-testid="open-glossary" onClick={() => openGlossary()}>
+          <button class="secondary pill" data-testid="open-glossary" onClick={() => openGlossary()}>
             Glossary
           </button>
-          <button class="secondary small" data-testid="open-settings" onClick={() => openSettings()}>
+          <button class="secondary pill" data-testid="open-settings" onClick={() => openSettings()}>
             Settings
           </button>
         </div>
-        <label class="check">
-          <input type="checkbox" data-testid="colorblind" checked={colorBlind.value} onChange={(e) => setColorBlind((e.currentTarget as HTMLInputElement).checked)} />
-          Color-blind icons: add a word under each enemy intent
-        </label>
-        {ongoing && <p class="hint">Starting a new practice fight replaces the one in progress.</p>}
-        <p class="hint tt-keys">Keys in a fight: 1-4 pick a part, arrows move, Enter places, R runs.</p>
       </div>
     </main>
   );

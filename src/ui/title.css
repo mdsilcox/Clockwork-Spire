@@ -93,6 +93,7 @@
 }
 
 .tt-banner {
+  white-space: nowrap;
   margin: 0 0 10px;
   padding: 6px 10px;
   font-size: 13px;
@@ -122,75 +123,46 @@
   text-align: left;
 }
 
-.tt .title-actions .secondary,
-.tt .title-links .secondary {
-  background: linear-gradient(180deg, rgba(16, 57, 63, 0.9), rgba(10, 38, 43, 0.94));
-  border-color: var(--brass);
-  color: #f6e7c1;
-}
-
-.tt .title-links {
-  flex-direction: column;
-  align-items: stretch;
-  flex-wrap: nowrap;
+.tt-pills {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-top: 8px;
 }
 
-.tt .title-links .small {
+.tt .pill {
   min-width: 0;
-  min-height: 44px;
-  font-size: inherit;
-  padding: 8px 20px;
-  text-align: left;
+  min-height: 40px;
+  padding: 4px 10px;
+  font-size: 14px;
+  text-align: center;
+  background: linear-gradient(180deg, rgba(16, 57, 63, 0.88), rgba(10, 38, 43, 0.92));
+  border-color: var(--brass);
+  color: #f6e7c1;
 }
 
-.tt .check,
-.tt .hint {
-  background: rgba(16, 57, 63, 0.78);
-  border-radius: 4px;
-  padding: 4px 8px;
-}
-
-.tt .check {
-  justify-content: flex-start;
-  font-size: 13px;
-  line-height: 1.25;
-  margin-top: 8px;
-}
-
-/* phone landscape: both columns have to hold their buttons at 40 px in under 375 px of height */
+/* phone landscape: one column of heading, banner, the primary button and a grid of pills, all under 375 px of height */
 @media (max-height: 520px) {
   .tt-col {
     padding: 6px 0;
   }
   .tt .eyebrow,
-  .tt .lede,
-  .tt-keys {
+  .tt .lede {
     display: none;
   }
   .tt-logo {
     font-size: clamp(26px, calc(var(--lw) / 7.8), 38px);
     margin: 0 0 8px;
   }
-  .tt .title-actions {
-    gap: 6px;
+  .tt .title-actions .primary {
+    min-height: 44px;
   }
-  .tt .title-actions .primary,
-  .tt .title-actions .secondary,
-  .tt .title-links .small {
-    min-height: 40px;
-    padding: 4px 14px;
-    font-size: 15px;
-  }
-  .tt .title-links {
+  .tt-pills {
     gap: 6px;
     margin-top: 6px;
   }
-  .tt .check {
-    font-size: 12px;
-    margin-top: 4px;
-    min-height: 36px;
+  .tt .pill {
+    font-size: 13px;
   }
   .tt-banner {
     font-size: 12px;

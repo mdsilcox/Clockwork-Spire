@@ -3,7 +3,7 @@
 // Written by the orchestrator's test-porter in the B10d.0 contract step. Lanes never weaken an assertion.
 // CONTRACT test ids and hooks the title lane implements (src/ui/Title.tsx, a new title.css; every id and behavior the title has
 // today stays: `climb`, `continue-run`, `continue`, `open-slots`, `practice`, `tutorial`, `sandbox`, `open-howto`, `open-glossary`,
-// `open-settings`, `colorblind`; labels may change):
+// `open-settings` (`colorblind` moved to Settings); labels may change):
 //   title                 existing root. A fresh profile (no cs.tutorialDone) now lands HERE on boot, not in the tutorial
 //   title-art             the painted title (an <img>, canvas or element with a background): visible once loaded, covers at least
 //                         90% of the viewport; data-loaded="false" until the image has decoded, then "true"
@@ -140,7 +140,7 @@ test('AR3: Continue appears only when something is in progress', async ({ page }
 test('every existing title id is present', async ({ page }) => {
   const errors = watchErrors(page);
   await title(page);
-  for (const id of ['climb', 'open-slots', 'practice', 'tutorial', 'sandbox', 'open-howto', 'open-glossary', 'open-settings', 'colorblind']) await expect(page.getByTestId(id), id).toBeVisible();
+  for (const id of ['climb', 'open-slots', 'practice', 'tutorial', 'sandbox', 'open-howto', 'open-glossary', 'open-settings']) await expect(page.getByTestId(id), id).toBeVisible();
   await noSidewaysScroll(page);
   expect(errors).toEqual([]);
 });
@@ -165,11 +165,7 @@ for (const [id, lands] of GOES) {
   });
 }
 
-test('title id colorblind still toggles the preference', async ({ page }) => {
-  await title(page);
-  await page.getByTestId('colorblind').check();
-  expect(await page.evaluate(() => window.localStorage.getItem('cs.colorBlind'))).toBe('1');
-});
+// The color-blind toggle left the title (B10d.1 art review): it lives in Settings (`set-colorblind`, e2e/settings.spec.ts) and the fight menu (`menu-colorblind`).
 
 test('AR3: while the painting is delayed the text title shows with the same buttons; then the painting arrives and the buttons are the same DOM', async ({ page }) => {
   await skipFirstLaunch(page);
