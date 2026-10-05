@@ -20,7 +20,7 @@ import { Coach, tutorialTargets } from './Coach';
 import { familyHint } from './synergy';
 import { ACT_TITLE, TrinketBar } from './Map';
 import { EnemyMachine } from './EnemyParts';
-import { damageText, pendingRatchet } from './partText';
+import { damageText, enemyPartDef, pendingRatchet } from './partText';
 import { Tooltip } from './Tooltip';
 import type { TipInfo } from './Tooltip';
 
@@ -409,7 +409,8 @@ export function CombatScreen() {
   const drainNow = targets.some((t) => t.pressure);
   const glow = tut && live ? tutorialTargets(tut.step, c) : new Set<string>();
   const last = lastResult.value;
-  const recap = last && !busy ? `Chain x${last.preview.momentum}, ${damageText(last.preview)}, ${last.preview.plating} Plating` : '';
+  const rebuilt = last ? last.events.filter((x) => x.kind === 'partRebuilt').map((x) => (x.target !== undefined && x.part ? `${enemyPartDef(c.enemies[x.target]?.defId ?? '', x.part)?.name ?? 'A part'} rebuilt` : '')).filter(Boolean) : [];
+  const recap = last && !busy ? `Chain x${last.preview.momentum}, ${damageText(last.preview)}, ${last.preview.plating} Plating${rebuilt.length ? `. ${rebuilt.join(', ')}` : ''}` : '';
   const pillTip = (title: string, text: string, detail?: string) => tipHandlers(() => ({ title, text, detail }));
   const statusInfo = (id: string, n: number, who: string) => () => {
     const e = glossaryFor(id);

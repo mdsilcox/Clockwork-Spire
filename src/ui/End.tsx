@@ -36,7 +36,9 @@ export function BrassBreakdown({ run, total }: { run: RunState; total: number })
     [`Bosses beaten (${s.bossesBeaten} x 25)`, s.bossesBeaten * 25, 'bosses'],
   ];
   if (won) rows.push(['Victory bonus', 50, 'victory']);
-  if ((s.bonusBrass ?? 0) > 0) rows.push(['Trinkets and events', s.bonusBrass ?? 0, 'bonus']);
+  const clock = s.clockBrass ?? 0;
+  if (clock > 0) rows.push([`Broken parts (${clock / 4} x 4)`, clock, 'clockmaker']);
+  if ((s.bonusBrass ?? 0) - clock > 0) rows.push(['Trinkets and events', (s.bonusBrass ?? 0) - clock, 'bonus']);
   return (
     <section class="brassbox" data-testid="brass-breakdown">
       <h3>Where the Brass came from</h3>

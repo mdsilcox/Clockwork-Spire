@@ -260,6 +260,7 @@ export function settleCombat(run: RunState): boolean {
     if (clock.length > 0) {
       const broken = clock.reduce((n, e) => n + e.parts.filter((p) => p.broken).length, 0);
       run.stats.bonusBrass = (run.stats.bonusBrass ?? 0) + broken * CLOCKMAKER_BRASS_PER_PART;
+      run.stats.clockBrass = (run.stats.clockBrass ?? 0) + broken * CLOCKMAKER_BRASS_PER_PART;
     }
     recordOffers(run, parts, 'reward');
     run.pending = { kind: 'reward', cogs, parts, trinkets, blueprint, extraBlueprint, partTaken: parts.length === 0, trinketTaken: trinkets.length === 0 };
