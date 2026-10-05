@@ -1,7 +1,7 @@
 // Salvage (docs/rules.md 2.5). B7: the 'salvage' Pending replaces the part reward after fights and elites;
-// Cogs stand in for Scrap until B8.
+// Scrap in the climb (run.scrap); v1 runs without it still pay Cogs.
 import { PARTS } from './content/parts';
-import { newPart } from './rewards';
+import { addScrap, newPart, recordOffers, markOfferTaken } from './rewards';
 import type { CombatState, RunState, SalvageItem } from './types';
 
 export const SCRAP_PER_SCRAPPED = 3; // a salvage item you don't keep
@@ -34,7 +34,7 @@ export function salvagePayout(items: SalvageItem[], keep: number[], wrecked: num
   return { kept, scrap };
 }
 
-/** Run action: settle the pending salvage tray (kept parts join the bin, Scrap is paid as Cogs in B7). */
+/** Run action: settle the pending salvage tray (kept parts join the bin, Scrap is paid). */
 export function takeSalvage(run: RunState, keep: number[]): boolean {
   const p = run.pending;
   if (run.phase !== 'reward' || !p || p.kind !== 'salvage' || p.done) return false;
@@ -44,7 +44,11 @@ export function takeSalvage(run: RunState, keep: number[]): boolean {
     if (id === 'spire-key') run.flags.spireKey = true;
     else newPart(run, id);
   }
-  run.cogs += scrap;
+  addScrap(run, scrap);
+  // the impact metric: every unlocked salvage item was an offer; the ones kept were taken
+  const offered = p.items.filter((it) => !it.locked && it.salvage !== 'spire-key');
+  recordOffers(run, offered.map((it) => it.salvage), 'salvage');
+  for (const id of kept) if (id !== 'spire-key') markOfferTaken(run, id, 'salvage');
   p.done = true;
   return true;
 }

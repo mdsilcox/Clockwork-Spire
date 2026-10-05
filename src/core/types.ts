@@ -364,7 +364,7 @@ export interface RunStats {
   removals?: number; // ADDED in B3: shop removals bought this run (raises the price)
   floorBrass?: number; // ADDED in B3: Brass from floors climbed (4/6/8 by act)
   bonusBrass?: number; // ADDED in B3: Brass from events
-  offers: { partId: string; taken: boolean; act: number; source: 'reward' | 'shop' }[]; // for the balance sim (rules 7)
+  offers: { partId: string; taken: boolean; act: number; source: 'reward' | 'shop' | 'trader' | 'fuse' | 'salvage' }[]; // for the balance sim (rules 7)
 }
 
 /** Everything a run needs from the profile at its start (B4 fills it from upgrades; B3 uses defaults). */

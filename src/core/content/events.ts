@@ -1,11 +1,12 @@
 // Events (docs/content.md "Events"). B3 CONTRACT: the shape below is fixed; the run-core lane fills EVENTS
 // with all 22 events and implements the choice effects (applied through run.ts chooseEvent, see eventfx.ts).
 import type { RunState } from '../types';
+import { scrapOf } from '../rewards';
 
 export interface EventChoice {
   label: string; // button text, e.g. "Reach in"
   detail: string; // the cost and effect in plain words, e.g. "Lose 6 HP. Gain Sprocket's Collar Tag."
-  available?(run: RunState): boolean; // false greys the button (e.g. not enough Cogs)
+  available?(run: RunState): boolean; // false greys the button (e.g. not enough Scrap)
 }
 
 export interface EventDef {
@@ -17,7 +18,7 @@ export interface EventDef {
   choices: EventChoice[];
 }
 
-const cogs = (n: number) => (run: RunState) => run.cogs >= n;
+const scrap = (n: number) => (run: RunState) => scrapOf(run) >= n;
 const canLose = (run: RunState) => run.bin.length > 1;
 
 const list: EventDef[] = [
@@ -65,8 +66,8 @@ const list: EventDef[] = [
     title: 'The Oil Merchant',
     lines: ['A little cart rattles toward you, hung with oil cans.', '"Everything squeaks, eventually," says the merchant.'],
     choices: [
-      { label: 'Buy oil', detail: 'Pay 30 Cogs. Heal 20 HP.', available: cogs(30) },
-      { label: 'Sell a part', detail: 'Remove a part of your choice. Gain 25 Cogs.', available: canLose },
+      { label: 'Buy oil', detail: 'Pay 30 Scrap. Heal 20 HP.', available: scrap(30) },
+      { label: 'Sell a part', detail: 'Remove a part of your choice. Gain 25 Scrap.', available: canLose },
       { label: 'Leave', detail: 'Nothing happens.' },
     ],
   },
@@ -76,7 +77,7 @@ const list: EventDef[] = [
     lines: ['An automaton sits against the wall, one arm hanging.', 'Its eyes flicker when you step close.'],
     choices: [
       { label: 'Repair it', detail: 'Lose 5 HP. Gain a random part.' },
-      { label: 'Scrap it', detail: 'Gain 30 Cogs.' },
+      { label: 'Scrap it', detail: 'Gain 30 Scrap.' },
     ],
   },
   {
@@ -84,7 +85,7 @@ const list: EventDef[] = [
     title: 'The Gear Wheel of Fortune',
     lines: ['A painted wheel stands in the corridor, its pointer worn smooth.', 'Someone left a sign: "Spin once."'],
     choices: [
-      { label: 'Spin', detail: '50% chance: gain 60 Cogs. Otherwise: lose 8 HP.' },
+      { label: 'Spin', detail: '50% chance: gain 60 Scrap. Otherwise: lose 8 HP.' },
       { label: 'Walk on', detail: 'Nothing happens.' },
     ],
   },
@@ -93,7 +94,7 @@ const list: EventDef[] = [
     title: 'The Steam Bath',
     lines: ['A pipe has burst into a warm, white cloud.', 'It smells of old brass and rain.'],
     choices: [
-      { label: 'Soak', detail: 'Lose 10 Cogs. Heal 15 HP.', available: cogs(10) },
+      { label: 'Soak', detail: 'Lose 10 Scrap. Heal 15 HP.', available: scrap(10) },
       { label: 'Bottle the steam', detail: 'Gain Bellows.' },
     ],
   },
@@ -103,7 +104,7 @@ const list: EventDef[] = [
     lines: ['Small gears are piled on a shelf, each one rubbed bright by a thumb.', 'Whoever made this shrine loved their work.'],
     choices: [
       { label: 'Pray', detail: 'Remove a part of your choice.', available: canLose },
-      { label: 'Polish it', detail: 'Lose 10 Cogs. Gain 5 max HP.', available: cogs(10) },
+      { label: 'Polish it', detail: 'Lose 10 Scrap. Gain 5 max HP.', available: scrap(10) },
     ],
   },
   {
@@ -120,7 +121,7 @@ const list: EventDef[] = [
     title: 'The Toll Gate',
     lines: ['A brass gate blocks the stair, a slot in its side.', 'A card reads: "Mind the step. Pay the toll."'],
     choices: [
-      { label: 'Pay the toll', detail: 'Pay 40 Cogs.', available: cogs(40) },
+      { label: 'Pay the toll', detail: 'Pay 40 Scrap.', available: scrap(40) },
       { label: 'Climb around', detail: 'Lose 7 HP.' },
     ],
   },
@@ -139,7 +140,7 @@ const list: EventDef[] = [
     lines: ['The stair ends in a gap, and something glints on the far side.'],
     choices: [
       { label: 'Jump', detail: 'Lose 8 HP. Gain 15 Brass.' },
-      { label: 'Take the long way', detail: 'Lose 10 Cogs.', available: cogs(10) },
+      { label: 'Take the long way', detail: 'Lose 10 Scrap.', available: scrap(10) },
     ],
   },
   {
@@ -165,7 +166,7 @@ const list: EventDef[] = [
     title: 'The Pressure Leak',
     lines: ['A pipe hisses, and the whole corridor hums with it.', 'A good patch would keep it quiet for years.'],
     choices: [
-      { label: 'Patch it with a part', detail: 'Remove a Steam part of your choice (a random part if you have none). Gain 40 Cogs.', available: canLose },
+      { label: 'Patch it with a part', detail: 'Remove a Steam part of your choice (a random part if you have none). Gain 40 Scrap.', available: canLose },
       { label: 'Let it vent', detail: 'Lose 5 HP.' },
     ],
   },
@@ -219,7 +220,7 @@ const list: EventDef[] = [
     title: 'The Lamplighter',
     lines: ['An old lamplighter trims the wicks one by one.', '"The inventor sent me a few plans," he says. "I kept some."'],
     choices: [
-      { label: 'Buy a blueprint', detail: 'Pay 60 Cogs. Gain a blueprint.', available: cogs(60) },
+      { label: 'Buy a blueprint', detail: 'Pay 60 Scrap. Gain a blueprint.', available: scrap(60) },
       { label: 'Share his lamp a while', detail: 'Heal 6 HP.' },
     ],
   },
