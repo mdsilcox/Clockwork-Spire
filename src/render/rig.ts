@@ -674,6 +674,8 @@ let warmed: Promise<void> | null = null;
 function warmUpDriver(): Promise<void> {
   if (warmed) return warmed;
   warmed = new Promise<void>((resolve) => {
+    // Only automated browsers run on SwiftShader here; real players never wait for it.
+    if (typeof navigator === 'undefined' || !navigator.webdriver) return resolve();
     if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined' || typeof Blob === 'undefined') return resolve();
     try {
       const src =
